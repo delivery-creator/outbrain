@@ -242,7 +242,31 @@ input[type=file]{display:none}
 <!-- LOGIN -->
 <div id="loginPage">
 <div class="login-page">
-<div class="login-card">
+
+<!-- TELA DE REDEFINIÇÃO DE SENHA -->
+<div class="login-card" id="resetCard" style="display:none">
+  <div style="display:flex;align-items:center;gap:9px;margin-bottom:28px">
+    <div class="logo-icon" style="width:38px;height:38px"><svg viewBox="0 0 24 24" fill="var(--brand)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text)">OutBrain</div>
+      <div style="font-size:10px;color:var(--text-3);letter-spacing:2px;text-transform:uppercase">Gestão de Alocados</div>
+    </div>
+  </div>
+  <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:3px">Defina sua senha</div>
+  <div style="font-size:var(--font-min);color:var(--text-2);margin-bottom:22px">Crie uma senha para acessar a plataforma</div>
+  <div class="form-group" style="margin-bottom:10px">
+    <label>Nova senha</label>
+    <input class="form-control" type="password" id="newPass" placeholder="Mínimo 8 caracteres">
+  </div>
+  <div class="form-group" style="margin-bottom:20px">
+    <label>Confirmar senha</label>
+    <input class="form-control" type="password" id="confirmPass" placeholder="Repita a senha" onkeydown="if(event.key==='Enter')definirSenha()">
+  </div>
+  <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:var(--font-min)" onclick="definirSenha()">Salvar senha e entrar</button>
+</div>
+
+<!-- TELA DE LOGIN NORMAL -->
+<div class="login-card" id="loginCard">
   <div style="display:flex;align-items:center;gap:9px;margin-bottom:28px">
     <div class="logo-icon" style="width:38px;height:38px"><svg viewBox="0 0 24 24" fill="var(--brand)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
     <div>
@@ -263,9 +287,9 @@ input[type=file]{display:none}
   <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:var(--font-min)" onclick="doLogin()">Entrar</button>
   <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:14px">Não tem acesso? Solicite ao administrador.</p>
   <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px;line-height:1.7">Use o e-mail e senha definidos no convite.</p>
-</div>
-</div>
-</div>
+</div><!-- fim loginCard -->
+</div><!-- fim login-page -->
+</div><!-- fim loginPage -->
 
 <!-- APP -->
 <div id="appShell" class="hidden">
@@ -776,6 +800,7 @@ async function doLogin(){
 
     // Busca perfil do usuário
     const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',data.user.id).single();
+    console.log('PERFIL RETORNADO:', u, 'ERRO:', ue);
     if(ue) throw ue;
 
     currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
@@ -813,19 +838,63 @@ function initApp(){
 
 /* ─── AUTO-LOGIN: verifica sessão existente ──────────── */
 (async()=>{
+  // Detecta token de redefinição/confirmação na URL
+  const hash=window.location.hash;
+  if(hash&&hash.includes('access_token')){
+    const params=new URLSearchParams(hash.replace('#',''));
+    const accessToken=params.get('access_token');
+    const refreshToken=params.get('refresh_token')||'';
+    const type=params.get('type');
+    if(accessToken){
+      await supa.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+      window.history.replaceState(null,'',window.location.pathname);
+      // Mostra tela de redefinição de senha
+      document.getElementById('resetCard').style.display='block';
+      document.getElementById('loginCard').style.display='none';
+      return;
+    }
+  }
   const {data:{session}}=await supa.auth.getSession();
   if(session){
-    const {data:u, error:ue}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
+    const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
     if(u){
       currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
       await loadAll();
       initApp();
     } else {
-      // Se não encontrou na tabela usuarios, faz logout forçado
       await supa.auth.signOut();
     }
   }
 })();
+
+async function definirSenha(){
+  const nova=document.getElementById('newPass').value;
+  const confirma=document.getElementById('confirmPass').value;
+  if(!nova||nova.length<8){showToast('A senha deve ter no mínimo 8 caracteres');return}
+  if(nova!==confirma){showToast('As senhas não coincidem');return}
+  const btn=document.querySelector('#resetCard .btn-accent');
+  btn.textContent='Salvando...';btn.disabled=true;
+  try{
+    const {error}=await supa.auth.updateUser({password:nova});
+    if(error)throw error;
+    showToast('Senha definida com sucesso!');
+    const {data:{session}}=await supa.auth.getSession();
+    if(session){
+      const {data:u}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
+      if(u){
+        await supa.from('usuarios').update({status:'ativo'}).eq('id',session.user.id);
+        currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
+        await loadAll();
+        initApp();
+        return;
+      }
+    }
+  }catch(e){
+    showToast('Erro: '+e.message);
+  }finally{
+    btn.textContent='Salvar senha e entrar';btn.disabled=false;
+  }
+}
 
 /* ─── HELPERS ─────────────────────────────────────────── */
 function toISO(d){return d.toISOString().split('T')[0]}
@@ -1100,11 +1169,11 @@ function renderAlocados(mc){
     <div class="table-header">
       <div class="table-title">Alocados</div>
       <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srAlocado" oninput="filterAlocados()"></div>
-      <select class="filter-sel" id="filCliente" onchange="filterAlocadosByCliente()">
+      <select class="filter-sel" id="filCliente" onchange="filterAlocadosByCliente()" style="width:140px">
         <option value="">Todos os clientes</option>
         ${clientes.map(c=>`<option value="${c}">${c}</option>`).join('')}
       </select>
-      <select class="filter-sel" id="filProjeto" onchange="filterAlocados()">
+      <select class="filter-sel" id="filProjeto" onchange="filterAlocados()" style="width:140px">
         <option value="">Todos os projetos</option>
         ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
       </select>
