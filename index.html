@@ -335,13 +335,17 @@ input[type=file]{display:none}
   <div class="modal-body">
     <input type="hidden" id="alocadoId">
     <div class="form-grid">
-      <div class="section-div" style="border-top:none;margin-top:0;padding-top:0">LinkedIn & Foto</div>
+      <div class="section-div" style="border-top:none;margin-top:0;padding-top:0">Foto & LinkedIn</div>
       <div class="form-group full">
         <label>URL do LinkedIn</label>
+        <input class="form-control" type="url" id="alocadoLinkedin" placeholder="https://linkedin.com/in/...">
+      </div>
+      <div class="form-group full">
+        <label>E-mail no Slack (buscar foto)</label>
         <div style="display:flex;gap:7px">
-          <input class="form-control" type="url" id="alocadoLinkedin" placeholder="https://linkedin.com/in/..." style="flex:1">
-          <button class="btn btn-ghost btn-sm" onclick="fetchLinkedinPhoto()" style="background:#0077B5;color:#fff;border-color:#0077B5;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+          <input class="form-control" type="email" id="alocadoSlackEmail" placeholder="email@onebrain.com.br" style="flex:1">
+          <button class="btn btn-ghost btn-sm" onclick="fetchSlackPhoto()" style="background:#4A154B;color:#fff;border-color:#4A154B;flex-shrink:0;gap:6px">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
             Buscar foto
           </button>
         </div>
@@ -1662,7 +1666,33 @@ function recalcStatus(){
   const s=calcStatus(adm,desl);const m=calcMeses(adm,desl,s.status);
   document.getElementById('alocadoStatus').value=s.status;document.getElementById('alocadoMeses').value=m+' meses';
 }
-function fetchLinkedinPhoto(){const url=document.getElementById('alocadoLinkedin').value.trim();if(!url){showToast('Informe o LinkedIn primeiro');return}document.getElementById('photoStatusText').textContent='Requer integração de backend com LinkedIn API';showToast('LinkedIn API: disponível via Supabase Edge Function')}
+function fetchLinkedinPhoto(){showToast('Use o campo do Slack para buscar a foto automaticamente');}
+async function fetchSlackPhoto(){
+  const email=document.getElementById('alocadoSlackEmail').value.trim();
+  if(!email){showToast('Informe o e-mail do Slack');return}
+  document.getElementById('photoStatusText').textContent='Buscando no Slack...';
+  try{
+    const res=await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/slack-photo',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
+      body:JSON.stringify({email})
+    });
+    const data=await res.json();
+    if(!data.ok){showToast('Não encontrado: '+(data.error||'sem foto'));document.getElementById('photoStatusText').textContent='Não encontrado';return}
+    if(data.photo){
+      document.getElementById('alocadoPhoto').value=data.photo;
+      document.getElementById('photoPreviewCircle').innerHTML=`<img src="${data.photo}" style="width:100%;height:100%;object-fit:cover">`;
+      document.getElementById('photoStatusText').textContent='Foto encontrada!';
+      showToast('Foto carregada com sucesso!');
+    }
+    if(data.nome&&!document.getElementById('alocadoNome').value){
+      document.getElementById('alocadoNome').value=data.nome;
+    }
+  }catch(e){
+    showToast('Erro: '+e.message);
+    document.getElementById('photoStatusText').textContent='Erro na busca';
+  }
+}
 function previewPhoto(input){const file=input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{const d=e.target.result;document.getElementById('alocadoPhoto').value=d;document.getElementById('photoPreviewCircle').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover">`;document.getElementById('photoStatusText').textContent='Foto carregada'};r.readAsDataURL(file)}
 
 /* ─── MODALS ALOCADO ──────────────────────────────────── */
@@ -1670,7 +1700,7 @@ function openModalAlocado(id){
   selectedStacks=[];histSal=[];histVH=[];origSal=null;origVH=null;
   document.getElementById('alocadoId').value=id||'';
   document.getElementById('modalAlocadoTitle').textContent=id?'Editar Alocado':'Cadastrar Alocado';
-  ['alocadoNome','alocadoLinkedin','alocadoSalario','alocadoVH','alocadoMC','alocadoAdm','alocadoDesl','alocadoStatus','alocadoMeses'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
+  ['alocadoNome','alocadoLinkedin','alocadoSlackEmail','alocadoSalario','alocadoVH','alocadoMC','alocadoAdm','alocadoDesl','alocadoStatus','alocadoMeses'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoContrato').value='Essencial';
   document.getElementById('cargoNovoGroup').style.display='none';
