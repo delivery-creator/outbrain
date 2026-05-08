@@ -1100,11 +1100,11 @@ function renderAlocados(mc){
     <div class="table-header">
       <div class="table-title">Alocados</div>
       <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srAlocado" oninput="filterAlocados()"></div>
-      <select class="filter-sel" id="filCliente" onchange="filterAlocadosByCliente()" style="width:140px">
+      <select class="filter-sel" id="filCliente" onchange="filterAlocadosByCliente()">
         <option value="">Todos os clientes</option>
         ${clientes.map(c=>`<option value="${c}">${c}</option>`).join('')}
       </select>
-      <select class="filter-sel" id="filProjeto" onchange="filterAlocados()" style="width:140px">
+      <select class="filter-sel" id="filProjeto" onchange="filterAlocados()">
         <option value="">Todos os projetos</option>
         ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
       </select>
