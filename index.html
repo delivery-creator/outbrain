@@ -1,0 +1,2068 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OutBrain</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--brand:#0F1923;--brand-2:#1A2B3C;--accent:#00E5A0;--accent-dim:#00b87f;--accent-soft:rgba(0,229,160,0.12);
+--text:#0F1923;--text-2:#4A5568;--text-3:#8A96A3;
+--surface:#FFFFFF;--surface-2:#F4F6F9;--surface-3:#EDF0F5;
+--border:rgba(15,25,35,0.1);--border-2:rgba(15,25,35,0.18);
+--red:#C53030;--red-soft:rgba(197,48,48,0.1);
+--amber:#B7791F;--amber-soft:rgba(183,121,31,0.1);
+--green:#276749;--green-soft:rgba(39,103,73,0.1);
+--blue:#2B6CB0;--blue-soft:rgba(43,108,176,0.1);
+--purple:#553C9A;--purple-soft:rgba(85,60,154,0.1);
+--orange:#C05621;--orange-soft:rgba(192,86,33,0.1);
+--radius:8px;--radius-lg:14px;
+--shadow:0 1px 8px rgba(15,25,35,0.07);
+--font-min:14px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--surface-2);color:var(--text);font-size:var(--font-min);line-height:1.5;min-height:100vh}
+
+/* LAYOUT */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:232px;background:var(--brand);display:flex;flex-direction:column;z-index:100}
+.main{margin-left:232px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.content{flex:1;padding:24px 28px}
+
+/* SIDEBAR */
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,0.07)}
+.logo-mark{display:flex;align-items:center;gap:9px}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-icon svg{width:17px;height:17px;fill:var(--brand)}
+.logo-text{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.5px}
+.logo-sub{font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:2px;text-transform:uppercase;font-weight:500}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-label{font-size:10px;font-weight:700;color:rgba(255,255,255,0.28);letter-spacing:2px;text-transform:uppercase;padding:12px 8px 4px;margin-top:4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;cursor:pointer;transition:all 0.13s;color:rgba(255,255,255,0.5);font-size:var(--font-min);font-weight:500}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.85)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent)}
+.nav-item svg{width:16px;height:16px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--accent);color:var(--brand);font-size:10px;font-weight:700;padding:1px 6px;border-radius:20px}
+.sidebar-footer{padding:12px 10px;border-top:1px solid rgba(255,255,255,0.07)}
+.user-pill{display:flex;align-items:center;gap:9px;padding:8px;border-radius:7px;cursor:pointer}
+.user-pill:hover{background:rgba(255,255,255,0.06)}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--brand);flex-shrink:0}
+.user-name{font-size:var(--font-min);font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.role-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-block}
+.role-editor{background:rgba(0,229,160,0.18);color:var(--accent)}
+.role-viewer{background:rgba(43,108,176,0.18);color:#63B3ED}
+.role-cli-master{background:rgba(183,121,31,0.18);color:#D69E2E}
+.role-cli-gestor{background:rgba(85,60,154,0.18);color:#9F7AEA}
+
+/* TOPBAR */
+.topbar-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--text);flex:1}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:var(--radius);font-size:var(--font-min);font-weight:600;cursor:pointer;border:none;transition:all 0.13s;font-family:'DM Sans',sans-serif;letter-spacing:0.1px}
+.btn-accent{background:var(--accent);color:var(--brand)}.btn-accent:hover{background:var(--accent-dim)}
+.btn-ghost{background:transparent;color:var(--text-2);border:1px solid var(--border-2)}.btn-ghost:hover{background:var(--surface-3)}
+.btn-danger{background:var(--red-soft);color:var(--red);border:1px solid rgba(197,48,48,0.18)}.btn-danger:hover{background:rgba(197,48,48,0.16)}
+.btn-sm{padding:6px 11px;font-size:var(--font-min)}
+.btn svg{width:14px;height:14px}
+
+/* STATS */
+.stats-grid{display:grid;gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border-radius:var(--radius-lg);padding:16px;border:1px solid var(--border)}
+.stat-icon{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.stat-icon svg{width:17px;height:17px}
+.stat-value{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:var(--text);line-height:1;margin-bottom:4px}
+.stat-label{font-size:var(--font-min);color:var(--text-3);font-weight:500}
+.stat-delta{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:600;display:inline-block;margin-top:6px}
+.delta-green{background:var(--green-soft);color:var(--green)}
+.delta-purple{background:var(--purple-soft);color:var(--purple)}
+.delta-amber{background:var(--amber-soft);color:var(--amber)}
+.delta-blue{background:var(--blue-soft);color:var(--blue)}
+.delta-gray{background:var(--surface-3);color:var(--text-2)}
+
+/* CHART CARDS */
+.chart-card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:16px}
+.chart-title{font-size:var(--font-min);font-weight:600;color:var(--text);margin-bottom:12px}
+.chart-title span{font-size:12px;font-weight:400;color:var(--text-3);margin-left:6px}
+
+/* TABLE */
+.table-card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);overflow:hidden}
+.table-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.table-title{font-size:var(--font-min);font-weight:600;color:var(--text);flex:1;min-width:100px}
+.search-box{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:7px 11px;width:200px}
+.search-box svg{width:14px;height:14px;color:var(--text-3);flex-shrink:0}
+.search-box input{border:none;background:none;font-size:var(--font-min);color:var(--text);outline:none;width:100%;font-family:'DM Sans',sans-serif}
+.search-box input::placeholder{color:var(--text-3)}
+select.filter-sel{padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:var(--font-min);color:var(--text);background:var(--surface);outline:none;font-family:'DM Sans',sans-serif;cursor:pointer}
+select.filter-sel:focus{border-color:var(--brand)}
+
+table{width:100%;border-collapse:collapse}
+thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;cursor:pointer}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td{padding:11px 14px;font-size:var(--font-min);color:var(--text)}
+.cell-name{display:flex;align-items:center;gap:9px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text-2);flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.name-main{font-weight:500;color:var(--text);line-height:1.2;font-size:var(--font-min)}
+.name-sub{font-size:12px;color:var(--text-3)}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-green{background:var(--green-soft);color:var(--green)}
+.b-red{background:var(--red-soft);color:var(--red)}
+.b-amber{background:var(--amber-soft);color:var(--amber)}
+.b-blue{background:var(--blue-soft);color:var(--blue)}
+.b-purple{background:var(--purple-soft);color:var(--purple)}
+.b-gray{background:var(--surface-3);color:var(--text-2)}
+.b-orange{background:var(--orange-soft);color:var(--orange)}
+.tag{font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--surface-3);color:var(--text-2)}
+.tag-list{display:flex;flex-wrap:wrap;gap:3px}
+.row-actions{display:flex;gap:5px;opacity:0;transition:opacity 0.13s}
+tbody tr:hover .row-actions{opacity:1}
+.icon-btn{width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface-3);color:var(--text-2);transition:all 0.13s}
+.icon-btn:hover{background:var(--border-2)}
+.icon-btn.danger:hover{background:var(--red-soft);color:var(--red)}
+.icon-btn svg{width:13px;height:13px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,25,35,0.45);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.18s;overflow-y:auto}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:660px;box-shadow:0 8px 32px rgba(15,25,35,0.15);transform:translateY(6px);transition:transform 0.18s;margin:auto}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.modal-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700}
+.modal-body{padding:22px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;font-weight:700;color:var(--text-2);letter-spacing:0.2px}
+.form-control{width:100%;padding:9px 12px;border:1px solid var(--border-2);border-radius:var(--radius);font-size:var(--font-min);color:var(--text);background:var(--surface);font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.13s}
+.form-control:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(15,25,35,0.05)}
+.form-control:disabled{background:var(--surface-3);color:var(--text-3)}
+.calc-note{font-size:11px;color:var(--text-3);margin-top:1px}
+.section-div{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase;padding:6px 0 2px;border-top:1px solid var(--border);margin-top:4px}
+textarea.form-control{resize:vertical;min-height:64px}
+input[type=file]{display:none}
+
+/* HIST */
+.hist-panel{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-top:4px}
+.hist-title{font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.hist-item{display:flex;justify-content:space-between;font-size:var(--font-min);padding:3px 0;border-bottom:1px solid var(--border)}
+.hist-item:last-child{border-bottom:none}
+.hist-val{font-weight:600;color:var(--text)}
+.hist-date{color:var(--text-3);font-size:12px}
+
+/* STACK GRID */
+.stack-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border-2);max-height:160px;overflow-y:auto}
+.stack-label{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;cursor:pointer;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);transition:all 0.1s}
+.stack-label:hover{border-color:var(--accent);background:var(--accent-soft)}
+.stack-label input{accent-color:var(--brand);width:12px;height:12px;flex-shrink:0}
+
+/* PHOTO */
+.photo-row{display:flex;align-items:center;gap:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border)}
+.photo-circle{width:56px;height:56px;border-radius:50%;overflow:hidden;background:var(--surface-3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--text-2)}
+.photo-circle img{width:100%;height:100%;object-fit:cover}
+
+/* DETAIL PANEL */
+.detail-panel{background:var(--surface);border-left:1px solid var(--border);width:380px;position:fixed;right:-380px;top:0;bottom:0;z-index:150;transition:right 0.22s;overflow-y:auto;display:flex;flex-direction:column}
+.detail-panel.open{right:0}
+.detail-head{padding:18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.detail-avatar{width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--text-2);flex-shrink:0}
+.detail-avatar img{width:100%;height:100%;object-fit:cover}
+.detail-body{padding:18px;flex:1}
+.d-section{margin-bottom:16px}
+.d-section-title{font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.d-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+.d-row:last-child{border-bottom:none}
+.d-label{font-size:var(--font-min);color:var(--text-3)}
+.d-val{font-size:var(--font-min);font-weight:500;color:var(--text);text-align:right;max-width:58%}
+
+/* PROJETOS TABLE */
+.proj-table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.proj-status-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0}
+
+/* CONTATO ONEBRAIN */
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.contact-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.contact-avatar{width:72px;height:72px;border-radius:50%;overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--text-2);flex-shrink:0}
+.contact-avatar img{width:100%;height:100%;object-fit:cover}
+.contact-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text)}
+.contact-role{font-size:var(--font-min);color:var(--text-3);margin-top:-4px}
+.contact-info{width:100%;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.contact-row{display:flex;align-items:center;gap:6px;font-size:var(--font-min);color:var(--text-2);justify-content:center}
+.contact-row svg{width:14px;height:14px;color:var(--text-3);flex-shrink:0}
+
+/* ACCESS MGMT */
+.access-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.access-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.access-user-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.access-user-row:last-child{border-bottom:none}
+
+/* TOAST */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--brand);color:#fff;padding:10px 16px;border-radius:var(--radius);font-size:var(--font-min);font-weight:500;box-shadow:0 8px 24px rgba(15,25,35,0.2);z-index:999;transform:translateY(50px);opacity:0;transition:all 0.18s;display:flex;align-items:center;gap:7px;border-left:3px solid var(--accent)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast svg{width:14px;height:14px;color:var(--accent);flex-shrink:0}
+
+/* MISC */
+.empty-state{padding:40px;text-align:center;color:var(--text-3)}
+.empty-text{font-size:var(--font-min);font-weight:500;color:var(--text-2);margin-bottom:3px}
+.empty-sub{font-size:var(--font-min);color:var(--text-3)}
+.table-wrap{overflow-x:auto}
+.hidden{display:none!important}
+.turnover-note{background:var(--red-soft);border:1px solid rgba(197,48,48,0.18);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px}
+.turnover-note-title{font-size:var(--font-min);font-weight:700;color:var(--red);margin-bottom:2px}
+.turnover-note-text{font-size:var(--font-min);color:var(--text-2)}
+
+/* VIEWER CARDS */
+.viewer-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+
+/* LOGIN */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--brand);padding:20px}
+.login-card{background:var(--surface);border-radius:var(--radius-lg);padding:36px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,0.25)}
+
+/* ENCERRAMENTO */
+.encerramento-banner{background:var(--red-soft);border:1px solid rgba(197,48,48,0.2);border-radius:var(--radius);padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:var(--font-min);color:var(--red);font-weight:500}
+.encerramento-banner svg{width:16px;height:16px;flex-shrink:0}
+
+/* INFO BOX */
+.info-box{background:var(--blue-soft);border:1px solid rgba(43,108,176,0.18);border-radius:var(--radius);padding:10px 14px;font-size:var(--font-min);color:var(--blue);margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 12 4 9"/><polyline points="4 9 9 22 20 6"/></svg>
+  <span id="toast-msg">Salvo!</span>
+</div>
+
+<!-- LOGIN -->
+<div id="loginPage">
+<div class="login-page">
+<div class="login-card">
+  <div style="display:flex;align-items:center;gap:9px;margin-bottom:28px">
+    <div class="logo-icon" style="width:38px;height:38px"><svg viewBox="0 0 24 24" fill="var(--brand)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text)">OutBrain</div>
+      <div style="font-size:10px;color:var(--text-3);letter-spacing:2px;text-transform:uppercase">Gestão de Alocados</div>
+    </div>
+  </div>
+  <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:3px">Bem-vindo</div>
+  <div style="font-size:var(--font-min);color:var(--text-2);margin-bottom:22px">Entre com suas credenciais para acessar</div>
+  <div class="form-group" style="margin-bottom:10px">
+    <label>E-mail</label>
+    <input class="form-control" type="email" id="loginEmail" placeholder="seu@email.com">
+  </div>
+  <div class="form-group" style="margin-bottom:20px">
+    <label>Senha</label>
+    <input class="form-control" type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+  </div>
+  <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:var(--font-min)" onclick="doLogin()">Entrar</button>
+  <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:14px">Não tem acesso? Solicite ao administrador.</p>
+  <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px;line-height:1.7">Use o e-mail e senha definidos no convite.</p>
+</div>
+</div>
+</div>
+
+<!-- APP -->
+<div id="appShell" class="hidden">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><svg viewBox="0 0 24 24" fill="var(--brand)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+      <div><div class="logo-text">OutBrain</div><div class="logo-sub">Gestão de Alocados</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div class="sidebar-footer">
+    <div class="user-pill">
+      <div class="user-avatar" id="sidebarAvatar">?</div>
+      <div style="flex:1;min-width:0">
+        <div class="user-name" id="sidebarName">—</div>
+        <div style="margin-top:2px"><span class="role-badge" id="sidebarRoleBadge">—</span></div>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:6px" onclick="logout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sair
+    </button>
+  </div>
+</aside>
+
+<main class="main">
+<div class="topbar">
+  <div class="topbar-title" id="pageTitle">Dashboard</div>
+  <div class="topbar-actions" id="topbarActions"></div>
+</div>
+<div class="content" id="mainContent"></div>
+</main>
+</div>
+
+<!-- MODAL ALOCADO -->
+<div class="modal-overlay" id="modalAlocado">
+<div class="modal">
+  <div class="modal-head">
+    <div class="modal-title" id="modalAlocadoTitle">Cadastrar Alocado</div>
+    <button class="icon-btn" onclick="closeModal('modalAlocado')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="alocadoId">
+    <div class="form-grid">
+      <div class="section-div" style="border-top:none;margin-top:0;padding-top:0">LinkedIn & Foto</div>
+      <div class="form-group full">
+        <label>URL do LinkedIn</label>
+        <div style="display:flex;gap:7px">
+          <input class="form-control" type="url" id="alocadoLinkedin" placeholder="https://linkedin.com/in/..." style="flex:1">
+          <button class="btn btn-ghost btn-sm" onclick="fetchLinkedinPhoto()" style="background:#0077B5;color:#fff;border-color:#0077B5;flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+            Buscar foto
+          </button>
+        </div>
+      </div>
+      <div class="form-group full">
+        <div class="photo-row">
+          <div class="photo-circle" id="photoPreviewCircle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div style="font-size:var(--font-min);color:var(--text-3)">
+            <div style="font-weight:600;color:var(--text-2);margin-bottom:2px" id="photoStatusText">Nenhuma foto</div>
+            Informe o LinkedIn ou faça upload manual.<br>
+            <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="document.getElementById('photoInput').click()">+ Upload manual</span>
+          </div>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(this)">
+        <input type="hidden" id="alocadoPhoto">
+      </div>
+
+      <div class="section-div">Dados</div>
+      <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="alocadoNome" placeholder="Nome completo"></div>
+      <div class="form-group">
+        <label>Cargo *</label>
+        <select class="form-control" id="alocadoCargo" onchange="checkNewCargo(this)">
+          <option value="">Selecione...</option>
+          <option>Backend</option><option>Frontend</option><option>Mobile</option>
+          <option>Engenheiro de AI</option><option>Analista de Segurança</option>
+          <option value="__new__">+ Novo cargo</option>
+        </select>
+      </div>
+      <div class="form-group hidden" id="cargoNovoGroup" style="display:none"><label>Nome do cargo</label><input class="form-control" type="text" id="cargoNovo" placeholder="Ex: DevOps"></div>
+      <div class="form-group full">
+        <label>Stack(s)</label>
+        <div class="stack-grid" id="stackGrid"></div>
+        <div style="display:flex;gap:7px;margin-top:5px"><input class="form-control" type="text" id="novaStack" placeholder="Nova stack..." style="flex:1"><button class="btn btn-ghost btn-sm" onclick="adicionarStack()">+ Add</button></div>
+      </div>
+      <div class="form-group full">
+        <label>Cliente</label>
+        <select class="form-control" id="alocadoCliente" onchange="filterGestorProjByCliente()">
+          <option value="">Selecione o cliente...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Gestor</label>
+        <select class="form-control" id="alocadoGestor"><option value="">Selecione...</option></select>
+      </div>
+      <div class="form-group">
+        <label>Projeto</label>
+        <select class="form-control" id="alocadoProjeto"><option value="">Selecione...</option></select>
+      </div>
+      <div class="form-group full">
+        <label>Tipo de Contrato</label>
+        <select class="form-control" id="alocadoContrato"><option>Essencial</option><option>Squad</option><option>Talent Pipeline Pro</option></select>
+      </div>
+
+      <div class="section-div">Financeiro</div>
+      <div class="form-group">
+        <label>Salário (R$)</label>
+        <input class="form-control" type="number" id="alocadoSalario" placeholder="0">
+        <div class="hist-panel" id="histSalPanel" style="display:none"><div class="hist-title">Histórico</div><div id="histSalList"></div></div>
+      </div>
+      <div class="form-group">
+        <label>Valor Hora (R$)</label>
+        <input class="form-control" type="number" id="alocadoVH" placeholder="0" oninput="calcMedia()">
+        <div class="hist-panel" id="histVHPanel" style="display:none"><div class="hist-title">Histórico</div><div id="histVHList"></div></div>
+      </div>
+      <div class="form-group">
+        <label>Média Custo Mês (R$)</label>
+        <input class="form-control" type="text" id="alocadoMC" disabled>
+        <span class="calc-note">V/H × 168</span>
+      </div>
+
+      <div class="section-div">Período</div>
+      <div class="form-group">
+        <label>Data de Admissão *</label>
+        <input class="form-control" type="date" id="alocadoAdm" onchange="recalcStatus()">
+      </div>
+      <div class="form-group">
+        <label>Data de Desligamento</label>
+        <input class="form-control" type="date" id="alocadoDesl" onchange="recalcStatus()">
+        <span class="calc-note">Vazio = ainda ativo</span>
+      </div>
+      <div class="form-group">
+        <label>Status (calculado)</label>
+        <input class="form-control" type="text" id="alocadoStatus" disabled>
+      </div>
+      <div class="form-group">
+        <label>Meses Ativos</label>
+        <input class="form-control" type="text" id="alocadoMeses" disabled>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalAlocado')">Cancelar</button>
+    <button class="btn btn-accent" onclick="salvarAlocado()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL GESTOR -->
+<div class="modal-overlay" id="modalGestor">
+<div class="modal" style="max-width:520px">
+  <div class="modal-head">
+    <div class="modal-title" id="modalGestorTitle">Cadastrar Gestor</div>
+    <button class="icon-btn" onclick="closeModal('modalGestor')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="gestorId">
+    <div class="info-box" id="gestorInfoBox">
+      <strong>Fluxo de acesso:</strong> O gestor receberá um link mágico por e-mail para definir sua senha e acessar a plataforma.
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="gestorNome" placeholder="Nome"></div>
+      <div class="form-group"><label>E-mail *</label><input class="form-control" type="email" id="gestorEmail" placeholder="email@empresa.com"></div>
+      <div class="form-group"><label>Telefone</label><input class="form-control" type="tel" id="gestorTelefone" placeholder="(11) 99999-9999"></div>
+      <div class="form-group">
+        <label>Cliente</label>
+        <select class="form-control" id="gestorCliente" onchange="filterGestorModalProjeto()">
+          <option value="">Selecione o cliente...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Projeto</label>
+        <select class="form-control" id="gestorProjeto"><option value="">Selecione...</option></select>
+      </div>
+      <div class="form-group full">
+        <label>Tipo de Gestor</label>
+        <select class="form-control" id="gestorTipo">
+          <option value="Master">Master — Visão geral de todos os alocados por cliente</option>
+          <option value="Gestor de Time">Gestor de Time — Somente seu time</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalGestor')">Cancelar</button>
+    <button class="btn btn-accent" id="gestorSaveBtn" onclick="salvarGestor()">Enviar Link Mágico</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL NOVO CLIENTE/PROJETO -->
+<div class="modal-overlay" id="modalProjeto">
+<div class="modal" style="max-width:560px">
+  <div class="modal-head">
+    <div class="modal-title" id="modalProjetoTitle">Novo Cliente</div>
+    <button class="icon-btn" onclick="closeModal('modalProjeto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="projetoId">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cliente *</label>
+        <select class="form-control" id="projetoClienteSel" onchange="checkNovoCliente(this)">
+          <option value="">Selecione...</option>
+          <option value="__new__">+ Novo cliente</option>
+        </select>
+      </div>
+      <div class="form-group hidden" id="projetoClienteNovoGroup">
+        <label>Nome do novo cliente</label>
+        <input class="form-control" type="text" id="projetoClienteNovo" placeholder="Ex: Nubank">
+      </div>
+      <div class="form-group full">
+        <label>Projeto(s) *</label>
+        <div class="stack-grid" id="projetoGrid" style="max-height:120px"></div>
+        <div style="display:flex;gap:7px;margin-top:5px">
+          <input class="form-control" type="text" id="projetoNome" placeholder="Novo projeto..." style="flex:1">
+          <button class="btn btn-ghost btn-sm" onclick="adicionarProjeto()">+ Add</button>
+        </div>
+        <input type="hidden" id="projetoNomeSel">
+      </div>
+      <div class="form-group">
+        <label>Tipo de Contrato</label>
+        <select class="form-control" id="projetoContrato">
+          <option>Essencial</option><option>Squad</option><option>Talent Pipeline Pro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Data de Início</label><input class="form-control" type="date" id="projetoInicio"></div>
+      <div class="form-group"><label>Data de Encerramento</label><input class="form-control" type="date" id="projetoFim"></div>
+      <div class="form-group full"><label>Link do Contrato (PDF)</label><input class="form-control" type="url" id="projetoContratoPDF" placeholder="https://..."></div>
+      <div class="form-group full"><label>Links de Aditivos (separados por vírgula)</label><input class="form-control" type="text" id="projetoAditivos" placeholder="https://aditivo1.pdf, https://aditivo2.pdf"></div>
+      <div class="form-group">
+        <label>Cor do Projeto</label>
+        <input class="form-control" type="color" id="projetoCor" value="#00E5A0">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select class="form-control" id="projetoStatus">
+          <option value="Ativo">Ativo</option>
+          <option value="Encerrado">Encerrado</option>
+          <option value="Suspenso">Suspenso</option>
+        </select>
+      </div>
+      <div class="form-group full hidden" id="motivoEncerramentoGroup">
+        <label>Motivo de Encerramento</label>
+        <textarea class="form-control" id="projetoMotivo" placeholder="Descreva o motivo..."></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalProjeto')">Cancelar</button>
+    <button class="btn btn-accent" onclick="salvarProjeto()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL TURNOVER -->
+<div class="modal-overlay" id="modalTurnover">
+<div class="modal" style="max-width:480px">
+  <div class="modal-head">
+    <div class="modal-title">Registrar Desligamento</div>
+    <button class="icon-btn" onclick="closeModal('modalTurnover')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <div class="turnover-note"><div class="turnover-note-title">⚠️ Atenção</div><div class="turnover-note-text">A data de desligamento definirá automaticamente o status do alocado.</div></div>
+    <input type="hidden" id="tvAlocadoId">
+    <div class="form-grid">
+      <div class="form-group full"><label>Alocado</label><input class="form-control" type="text" id="tvAlocadoNome" disabled></div>
+      <div class="form-group"><label>Data de Desligamento</label><input class="form-control" type="date" id="tvData"></div>
+      <div class="form-group"><label>Motivo</label>
+        <select class="form-control" id="tvMotivo"><option>Pedido de demissão</option><option>Demissão sem justa causa</option><option>Demissão por justa causa</option><option>Término de contrato</option><option>Acordo mútuo</option><option>Outro</option></select>
+      </div>
+      <div class="form-group full"><label>Observações</label><textarea class="form-control" id="tvObs" placeholder="Detalhes..."></textarea></div>
+      <div class="form-group full"><label>Substituto</label>
+        <select class="form-control" id="tvSubstId"><option value="">— Sem substituto definido —</option></select>
+      </div>
+      <div class="form-group full"><label>Obs. Substituição</label><input class="form-control" type="text" id="tvSubst" placeholder="Ex: Em processo seletivo"></div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalTurnover')">Cancelar</button>
+    <button class="btn btn-danger" onclick="confirmarTurnover()">Confirmar Desligamento</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL ENCERRAMENTO CLIENTE -->
+<div class="modal-overlay" id="modalEncerrar">
+<div class="modal" style="max-width:480px">
+  <div class="modal-head">
+    <div class="modal-title">Encerrar Contrato</div>
+    <button class="icon-btn" onclick="closeModal('modalEncerrar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <div class="turnover-note">
+      <div class="turnover-note-title">⚠️ Atenção — Encerramento de contrato</div>
+      <div class="turnover-note-text">A data informada será aplicada automaticamente como data de desligamento de todos os alocados vinculados a este cliente. A partir desta data, eles passarão para o status <strong>Inativo</strong> e o projeto será marcado como <strong>Encerrado</strong>.</div>
+    </div>
+    <input type="hidden" id="encerrarClienteNome">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Cliente</label>
+        <input class="form-control" type="text" id="encerrarClienteDisplay" disabled>
+      </div>
+      <div class="form-group full">
+        <label>Data de Encerramento *</label>
+        <input class="form-control" type="date" id="encerrarData">
+      </div>
+      <div class="form-group full">
+        <label>Observações</label>
+        <textarea class="form-control" id="encerrarObs" placeholder="Descreva o motivo do encerramento..." style="min-height:80px"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalEncerrar')">Cancelar</button>
+    <button class="btn btn-danger" onclick="confirmarEncerramento()">Confirmar Encerramento</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL ACESSO -->
+<div class="modal-overlay" id="modalAcesso">
+<div class="modal" style="max-width:520px">
+  <div class="modal-head">
+    <div class="modal-title" id="modalAcessoTitle">Novo Acesso</div>
+    <button class="icon-btn" onclick="closeModal('modalAcesso')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="accessId">
+    <div class="info-box">
+      <strong>Fluxo de acesso:</strong> O usuário receberá um link mágico por e-mail para definir sua senha e acessar a plataforma.
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="accessNome" placeholder="Nome completo"></div>
+      <div class="form-group"><label>E-mail *</label><input class="form-control" type="email" id="accessEmail" placeholder="email@empresa.com"></div>
+      <div class="form-group"><label>Telefone</label><input class="form-control" type="tel" id="accessTelefone" placeholder="(11) 99999-9999"></div>
+      <div class="form-group"><label>Cargo exibido</label><input class="form-control" type="text" id="accessCargo" placeholder="Ex: Gerente de Projetos"></div>
+      <div class="form-group full">
+        <label>Perfil de Acesso</label>
+        <select class="form-control" id="accessPerfil" onchange="updateAccessFields()">
+          <option value="editor">Interno — Edição (acesso global, edição)</option>
+          <option value="viewer">Interno — Visualização (acesso global, somente leitura)</option>
+          <option value="cli-master">Cliente — Master (todos os projetos do cliente)</option>
+          <option value="cli-gestor">Cliente — Gestor (apenas seu time)</option>
+        </select>
+      </div>
+      <div class="form-group full" id="accessClienteGroup" style="display:none">
+        <label>Cliente vinculado</label>
+        <select class="form-control" id="accessCliente"></select>
+      </div>
+      <div class="form-group full" id="accessProjetosGroup" style="display:none">
+        <label>Projetos vinculados</label>
+        <div id="accessProjetosList" style="display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border-2)"></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalAcesso')">Cancelar</button>
+    <button class="btn btn-accent" onclick="salvarAcesso()">Enviar Link Mágico</button>
+  </div>
+</div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-head">
+    <div class="detail-avatar" id="detailAvatar"></div>
+    <div style="flex:1"><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700" id="detailName"></div><div style="font-size:var(--font-min);color:var(--text-3)" id="detailRole"></div></div>
+    <button class="icon-btn" onclick="closeDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="detail-body" id="detailBody"></div>
+</div>
+
+<script>
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const STACKS_DEF = ['Android','iOS','PHP','Node.JS','Java','Kotlin','C#','Python','Flutter','Ruby','React Native','Cypress','Vue.JS','Angular.JS','IAM','N8N'];
+let customStacks = [], allStacks = [...STACKS_DEF], selectedStacks = [];
+let histSal = [], histVH = [], origSal = null, origVH = null;
+
+/* ─── SUPABASE CLIENT ─────────────────────────────────── */
+const SUPA_URL = 'https://krguuguykcomwzolouwa.supabase.co';
+const SUPA_KEY = 'sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+/* ─── DB (cache local — preenchido via Supabase) ──────── */
+let db = { projetos:[], alocados:[], gestores:[], turnover:[], usuarios:[], contatos:[] };
+let currentUser = {email:'',role:'',name:'',cliente:''};
+let chartInstances = {};
+
+/* ─── STATUS (calculado no front, não no banco) ──────── */
+function calcStatus(adm, desl) {
+  if (!adm) return {status:'—',badge:'b-gray'};
+  const a = new Date(adm); a.setHours(0,0,0,0);
+  if (a > TODAY) return {status:'Em Admissão',badge:'b-purple'};
+  if (desl) {
+    const d = new Date(desl); d.setHours(0,0,0,0);
+    if (d > TODAY) return {status:'Desligamento Prev.',badge:'b-amber'};
+    return {status:'Inativo',badge:'b-red'};
+  }
+  return {status:'Ativo',badge:'b-green'};
+}
+function calcMeses(adm, desl, status) {
+  if (!adm) return 0;
+  const a = new Date(adm); a.setHours(0,0,0,0);
+  const f = (desl && status !== 'Ativo') ? new Date(desl) : new Date(TODAY);
+  return Math.max(0, Math.round((f-a)/(1000*60*60*24*30.44)));
+}
+function recalcAll() {
+  db.alocados.forEach(a => {
+    const s = calcStatus(a.admissao, a.desligamento);
+    a.status = s.status; a.badge = s.badge;
+    a.meses = calcMeses(a.admissao, a.desligamento, a.status);
+    a.mediaCusto = (a.valorHora||0)*168;
+  });
+}
+
+/* ─── MAPPERS: Supabase → formato local ──────────────── */
+function mapProjeto(r){
+  return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#00E5A0',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||''};
+}
+function mapGestor(r){
+  return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
+}
+function mapAlocado(r){
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+}
+function mapTurnover(r){
+  return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
+}
+function mapUsuario(r){
+  return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cargo:r.cargo||'',perfil:r.perfil,cliente:r.cliente||'',projetos:r.projetos||[],status:r.status};
+}
+function mapContato(r){
+  return {id:r.id,tipo:r.tipo,nome:r.nome,telefone:r.telefone||'',email:r.email||'',photo:r.photo_url||''};
+}
+
+/* ─── LOAD: carrega todos os dados do Supabase ──────── */
+async function loadAll(){
+  showLoading(true);
+  try {
+    const [pRes,gRes,aRes,tvRes,uRes,cRes] = await Promise.all([
+      supa.from('projetos').select('*').order('cliente'),
+      supa.from('gestores').select('*').order('nome'),
+      supa.from('alocados').select('*').order('nome'),
+      supa.from('turnover').select('*').order('data_desl',{ascending:false}),
+      supa.from('usuarios').select('*').order('nome'),
+      supa.from('contatos_onebrain').select('*').order('ordem'),
+    ]);
+    if(pRes.error) throw pRes.error;
+    if(gRes.error) throw gRes.error;
+    if(aRes.error) throw aRes.error;
+
+    db.projetos  = (pRes.data||[]).map(mapProjeto);
+    db.gestores  = (gRes.data||[]).map(mapGestor);
+    db.alocados  = (aRes.data||[]).map(mapAlocado);
+    db.turnover  = (tvRes.data||[]).map(mapTurnover);
+    db.usuarios  = (uRes.data||[]).map(mapUsuario);
+    db.contatos  = (cRes.data||[]).map(mapContato);
+
+    // Carregar histórico financeiro
+    const hRes = await supa.from('historico_financeiro').select('*').order('data_alt');
+    if(!hRes.error && hRes.data){
+      hRes.data.forEach(h=>{
+        const a=db.alocados.find(x=>x.id===h.alocado_id);
+        if(!a)return;
+        const entry={val:Number(h.valor_novo),data:h.data_alt};
+        if(h.tipo==='salario'){if(!a.salarioHist)a.salarioHist=[];a.salarioHist.push(entry);}
+        else{if(!a.valorHoraHist)a.valorHoraHist=[];a.valorHoraHist.push(entry);}
+      });
+    }
+    recalcAll();
+  } catch(e) {
+    console.error('Erro ao carregar dados:', e);
+    showToast('Erro ao carregar dados: '+e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function showLoading(show){
+  let el=document.getElementById('globalLoading');
+  if(!el){
+    el=document.createElement('div');
+    el.id='globalLoading';
+    el.style.cssText='position:fixed;inset:0;background:rgba(15,25,35,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px 32px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00E5A0" stroke-width="2.5" style="animation:spin 0.8s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Carregando...</div>';
+    document.body.appendChild(el);
+    const style=document.createElement('style');
+    style.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(style);
+  }
+  el.style.display=show?'flex':'none';
+}
+
+/* ─── AUTH ────────────────────────────────────────────── */
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  if(!email||!pass){showToast('Preencha e-mail e senha');return}
+
+  const loginBtn=document.querySelector('#loginPage .btn-accent');
+  if(loginBtn){loginBtn.textContent='Entrando...';loginBtn.disabled=true;}
+
+  try {
+    const {data,error}=await supa.auth.signInWithPassword({email,password:pass});
+    if(error) throw error;
+
+    // Busca perfil do usuário
+    const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',data.user.id).single();
+    if(ue) throw ue;
+
+    currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
+    await loadAll();
+    initApp();
+  } catch(e) {
+    showToast(e.message==='Invalid login credentials'?'E-mail ou senha incorretos':e.message);
+  } finally {
+    if(loginBtn){loginBtn.textContent='Entrar';loginBtn.disabled=false;}
+  }
+}
+
+async function logout(){
+  await supa.auth.signOut();
+  document.getElementById('loginPage').style.display='';
+  document.getElementById('appShell').classList.add('hidden');
+  Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
+  chartInstances={};
+  db={projetos:[],alocados:[],gestores:[],turnover:[],usuarios:[],contatos:[]};
+}
+
+function initApp(){
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('sidebarAvatar').textContent=getI(currentUser.name);
+  document.getElementById('sidebarName').textContent=currentUser.name;
+  const rb=document.getElementById('sidebarRoleBadge');
+  const roleLabels={editor:'Editor',viewer:'Visualizador','cli-master':'Master','cli-gestor':'Gestor'};
+  const roleClasses={editor:'role-editor',viewer:'role-viewer','cli-master':'role-cli-master','cli-gestor':'role-cli-gestor'};
+  rb.textContent=roleLabels[currentUser.role]||currentUser.role;
+  rb.className='role-badge '+(roleClasses[currentUser.role]||'role-viewer');
+  buildNav();
+  showPage('dashboard');
+}
+
+/* ─── AUTO-LOGIN: verifica sessão existente ──────────── */
+(async()=>{
+  const {data:{session}}=await supa.auth.getSession();
+  if(session){
+    const {data:u, error:ue}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
+    if(u){
+      currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
+      await loadAll();
+      initApp();
+    } else {
+      // Se não encontrou na tabela usuarios, faz logout forçado
+      await supa.auth.signOut();
+    }
+  }
+})();
+
+/* ─── HELPERS ─────────────────────────────────────────── */
+function toISO(d){return d.toISOString().split('T')[0]}
+function getI(n){return(n||'').split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
+function fBRL(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
+function fDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+
+/* ─── PROFILE HELPERS ─────────────────────────────────── */
+function isEditor(){return currentUser.role==='editor'}
+function isViewer(){return currentUser.role==='viewer'}
+function isCliMaster(){return currentUser.role==='cli-master'}
+function isCliGestor(){return currentUser.role==='cli-gestor'}
+function isInterno(){return isEditor()||isViewer()}
+function isCliente(){return isCliMaster()||isCliGestor()}
+
+function getVisibleAlocados(){
+  if(isEditor()||isViewer()) return db.alocados;
+  if(isCliMaster()){
+    const cl=currentUser.cliente;
+    return db.alocados.filter(a=>{const p=db.projetos.find(x=>x.id===a.projetoId);return p&&p.cliente===cl});
+  }
+  if(isCliGestor()){
+    const g=db.gestores.find(x=>x.email===currentUser.email);
+    return g?db.alocados.filter(a=>a.gestorId===g.id):[];
+  }
+  return [];
+}
+
+/* ─── NAV ─────────────────────────────────────────────── */
+function navItem(id,label,icon,badge){
+  return `<div class="nav-item" onclick="showPage('${id}')" id="nav-${id}">
+    ${icon}<span style="flex:1">${label}</span>${badge?`<span class="nav-badge" id="badge-${id}">${badge}</span>`:''}
+  </div>`;
+}
+const icons={
+  dashboard:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+  alocados:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  projetos:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+  gestores:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>`,
+  meutime:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  contato:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+  turnover:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+  acesso:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+};
+function buildNav(){
+  let html='';
+  if(isInterno()){
+    html+='<div class="nav-label">Principal</div>';
+    html+=navItem('dashboard','Dashboard',icons.dashboard,'');
+    html+=navItem('alocados','Alocados',icons.alocados,'');
+    html+=navItem('clientes','Clientes',icons.projetos,'');
+    html+=navItem('turnover','Turnover',icons.turnover,'');
+    html+='<div class="nav-label">Gestão de Acessos</div>';
+    html+=navItem('gestores','Gestores',icons.gestores,'');
+    html+=navItem('internos','Internos',icons.acesso,'');
+  }
+  if(isCliMaster()){
+    html+='<div class="nav-label">Principal</div>';
+    html+=navItem('dashboard','Dashboard',icons.dashboard,'');
+    html+=navItem('contato','Contato OneBrain',icons.contato,'');
+  }
+  if(isCliGestor()){
+    html+='<div class="nav-label">Principal</div>';
+    html+=navItem('meutime','Meu Time',icons.meutime,'');
+    html+=navItem('contato','Contato OneBrain',icons.contato,'');
+  }
+  document.getElementById('sidebarNav').innerHTML=html;
+}
+
+/* ─── PAGE ROUTER ─────────────────────────────────────── */
+function showPage(p){
+  const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
+  pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
+  document.getElementById('nav-'+p)?.classList.add('active');
+  const titles={dashboard:'Dashboard',alocados:'Alocados',clientes:'Clientes',projetos:'Clientes',gestores:'Gestores',meutime:'Meu Time',contato:'Contato OneBrain',turnover:'Turnover',internos:'Internos',acesso:'Internos'};
+  document.getElementById('pageTitle').textContent=titles[p]||p;
+  const actions=document.getElementById('topbarActions');
+  actions.innerHTML='';
+  closeDetail();
+  Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
+  chartInstances={};
+  if(p==='alocados'&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAlocado()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Alocado</button>`;
+  if((p==='clientes'||p==='projetos')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalProjeto()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Cliente</button>`;
+  if(p==='gestores'&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalGestor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Gestor</button>`;
+  if((p==='internos'||p==='acesso')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAcessoNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Interno</button>`;
+  recalcAll();
+  const mc=document.getElementById('mainContent');
+  const renders={dashboard:renderDashboard,alocados:renderAlocados,clientes:renderClientes,projetos:renderClientes,gestores:renderGestores,meutime:renderMeuTime,contato:renderContato,turnover:renderTurnover,internos:renderInternos,acesso:renderInternos};
+  if(renders[p]) renders[p](mc);
+}
+
+/* ─── DASHBOARD ───────────────────────────────────────── */
+function renderDashboard(mc){
+  if(isCliMaster()){renderDashboardMaster(mc);return;}
+  // INTERNO: filtros de cliente e projeto no topo
+  const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+  mc.innerHTML=`
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Cliente</div>
+      <select class="filter-sel" id="dashFilCliente" onchange="dashFilterChange()" style="width:180px">
+        <option value="">Todos os clientes</option>
+        ${clientes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Projeto</div>
+      <select class="filter-sel" id="dashFilProjeto" onchange="dashFilterChange()" style="width:180px">
+        <option value="">Todos os projetos</option>
+        ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+  <div id="dashContent"></div>`;
+  renderDashboardContent();
+}
+function dashFilterChange(){
+  const cli=document.getElementById('dashFilCliente')?.value||'';
+  const proj=document.getElementById('dashFilProjeto')?.value||'';
+  const projSel=document.getElementById('dashFilProjeto');
+  if(projSel){
+    projSel.innerHTML='<option value="">Todos os projetos</option>'+
+      db.projetos.filter(p=>!cli||p.cliente===cli).map(p=>`<option value="${p.id}"${p.id===proj?'selected':''}>${p.nome}</option>`).join('');
+    if(cli&&proj){const pObj=db.projetos.find(x=>x.id===proj);if(pObj&&pObj.cliente!==cli)projSel.value='';}
+  }
+  renderDashboardContent();
+}
+function renderDashboardContent(){
+  const cli=document.getElementById('dashFilCliente')?.value||'';
+  const proj=document.getElementById('dashFilProjeto')?.value||'';
+  let visAlocados=db.alocados.filter(a=>{
+    if(proj) return a.projetoId===proj;
+    if(cli){const p=db.projetos.find(x=>x.id===a.projetoId);return p&&p.cliente===cli;}
+    return true;
+  });
+  const ativos=visAlocados.filter(a=>a.status==='Ativo');
+  const fatEst=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
+  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+(a.valorHora),0)/ativos.length):0;
+  const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
+  const projAtivos=[...new Set(ativos.map(a=>a.projetoId))].length;
+  const meses=[];const now=new Date(TODAY);
+  for(let i=5;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),date:d})}
+  const atPorMes=meses.map(m=>visAlocados.filter(a=>{if(!a.admissao)return false;const adm=new Date(a.admissao);const desl=a.desligamento?new Date(a.desligamento):null;const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);return adm<mEnd&&(!desl||desl>=m.date);}).length);
+  const fatPorMes=meses.map(m=>Math.round(visAlocados.filter(a=>{if(!a.admissao)return false;const adm=new Date(a.admissao);const desl=a.desligamento?new Date(a.desligamento):null;const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);return adm<mEnd&&(!desl||desl>=m.date)&&a.status!=='Em Admissão';}).reduce((s,a)=>s+(a.valorHora*168),0)/1000));
+  const desPorMes=meses.map(m=>db.turnover.filter(t=>{if(!t.data)return false;const d=new Date(t.data);return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear();}).length);
+  const txTurnover=meses.map((m,i)=>atPorMes[i]>0?Math.round((desPorMes[i]/atPorMes[i])*100):0);
+  const desligPrevistos=visAlocados.filter(a=>a.status==='Desligamento Prev.'||(a.status==='Inativo'&&a.desligamento&&new Date(a.desligamento)>TODAY));
+  const fatDeslig=desligPrevistos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const admissaoList=visAlocados.filter(a=>a.status==='Em Admissão');
+  const fatAdm=admissaoList.reduce((s,a)=>s+(a.valorHora*168),0);
+  const emAdm=admissaoList.length;
+  const el=document.getElementById('dashContent');if(!el)return;
+  el.innerHTML=`
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--green-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div class="stat-value">${ativos.length}</div>
+      <div class="stat-label">Alocados Ativos</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:2px">Faturamento Est. Mensal</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--brand)">${fBRL(fatEst)}</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--red-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/></svg></div>
+      <div class="stat-value" style="color:var(--red)">${desligPrevistos.length}</div>
+      <div class="stat-label">Em Desligamento</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:2px">Faturamento Est. Mensal</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--red)">${fBRL(fatDeslig)}</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--purple-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="stat-value" style="color:var(--purple)">${emAdm}</div>
+      <div class="stat-label">Em Admissão</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:2px">Faturamento Est. Mensal</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--purple)">${fBRL(fatAdm)}</div>
+      </div>
+    </div>
+  </div>
+  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média Salarial</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700">${fBRL(mediaSal)}</div><div class="stat-delta delta-gray" style="margin-top:4px">ativos</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média V/H</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700">${fBRL(mediaVH)}/h</div><div class="stat-delta delta-gray" style="margin-top:4px">ativos</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média Meses Ativos</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700">${mediaMeses}m</div><div class="stat-delta delta-gray" style="margin-top:4px">permanência</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Projetos Ativos</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700">${projAtivos}</div><div class="stat-delta delta-green" style="margin-top:4px">em andamento</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="chart-card"><div class="chart-title">Faturamento Mensal<span>últimos 6 meses (R$ mil)</span></div><div style="position:relative;height:200px"><canvas id="chartFat"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Ativos por Mês<span>quantidade</span></div><div style="position:relative;height:200px"><canvas id="chartAtv"></canvas></div></div>
+  </div>
+  <div class="chart-card" style="margin-bottom:12px"><div class="chart-title">Turnover Mensal<span>desligamentos + taxa %</span></div><div style="position:relative;height:180px"><canvas id="chartTV"></canvas></div></div>
+  `;
+  const labels=meses.map(m=>m.label);
+  const cg={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}}}}};
+  Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};
+  chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'line',data:{labels,datasets:[{data:fatPorMes,borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#00E5A0',pointRadius:4}]},options:cg});
+  chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(43,108,176,0.15)',borderColor:'#2B6CB0',borderWidth:2,borderRadius:5}]},options:cg});
+  chartInstances.tv=new Chart(document.getElementById('chartTV'),{type:'bar',data:{labels,datasets:[{label:'Desligamentos',data:desPorMes,backgroundColor:'rgba(197,48,48,0.15)',borderColor:'#C53030',borderWidth:2,borderRadius:4,yAxisID:'y'},{label:'Taxa (%)',data:txTurnover,type:'line',borderColor:'#B7791F',backgroundColor:'transparent',tension:0.4,pointBackgroundColor:'#B7791F',pointRadius:4,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:12}}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{position:'left',grid:{color:'rgba(15,25,35,0.05)'},title:{display:true,text:'Desligamentos',font:{size:11}},ticks:{font:{size:11},stepSize:1}},y2:{position:'right',grid:{display:false},title:{display:true,text:'Taxa (%)',font:{size:11}},ticks:{font:{size:11},callback:v=>v+'%'}}}}});
+}
+
+/* ─── DASHBOARD MASTER (cli-master) ───────────────────── */
+function renderDashboardMaster(mc){
+  const cl=currentUser.cliente;
+  const projsCli=db.projetos.filter(p=>p.cliente===cl);
+  const multiProj=projsCli.length>1;
+  mc.innerHTML=`
+  ${multiProj?`<div style="display:flex;gap:10px;margin-bottom:20px;align-items:flex-end">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Projeto</div>
+      <select class="filter-sel" id="masterFilProjeto" onchange="renderDashboardMasterContent()" style="width:200px">
+        <option value="">Todos os projetos</option>
+        ${projsCli.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
+      </select>
+    </div>
+  </div>`:`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px"><span style="width:10px;height:10px;border-radius:50%;background:${projsCli[0]?.cor||'var(--accent)'}"></span><span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${projsCli[0]?.nome||cl}</span></div>`}
+  <div id="masterDashContent"></div>`;
+  renderDashboardMasterContent();
+}
+function renderDashboardMasterContent(){
+  const cl=currentUser.cliente;
+  const filtP=document.getElementById('masterFilProjeto')?.value||'';
+  let team=db.alocados.filter(a=>{
+    const p=db.projetos.find(x=>x.id===a.projetoId);
+    if(!p||p.cliente!==cl)return false;
+    return !filtP||a.projetoId===filtP;
+  });
+  const ativos=team.filter(a=>a.status==='Ativo');
+  const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
+  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.valorHora,0)/ativos.length):0;
+  const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
+  const el=document.getElementById('masterDashContent');if(!el)return;
+  el.innerHTML=`
+  <div class="viewer-stats" style="margin-bottom:20px">
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Qtd. Ativos</div><div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700">${ativos.length}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Fat. Est. Mês</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${fBRL(fat)}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média Sal.</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${fBRL(mediaSal)}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média V/H</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${fBRL(mediaVH)}/h</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média Ativos</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${mediaMeses}m</div></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header"><div class="table-title">Alocados (${team.length})</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Contrato</th><th>Admissão</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th></tr></thead>
+      <tbody>${team.map(a=>`<tr onclick="openDetailById('${a.id}')">
+        <td><div class="cell-name"><div class="avatar">${a.photo?`<img src="${a.photo}">`:`<span>${getI(a.nome)}</span>`}</div><div class="name-main">${a.nome}</div></div></td>
+        <td>${a.cargo}</td>
+        <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}</div></td>
+        <td><span class="badge b-gray">${a.contrato}</span></td>
+        <td>${fDate(a.admissao)}</td>
+        <td>${a.meses}m</td>
+        <td style="font-weight:600">${fBRL(a.salario)}</td>
+        <td>${fBRL(a.valorHora)}/h</td>
+        <td style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</td>
+        <td><span class="badge ${a.badge}">${a.status}</span></td>
+      </tr>`).join('')||`<tr><td colspan="10"><div class="empty-state"><div class="empty-text">Nenhum alocado</div></div></td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ─── ALOCADOS ────────────────────────────────────────── */
+let filStackSel = new Set();
+function renderAlocados(mc){
+  filStackSel = new Set();
+  const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+  const allStacks_=[...new Set(db.alocados.flatMap(a=>a.stack||[]))].sort();
+  mc.innerHTML=`
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Alocados</div>
+      <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srAlocado" oninput="filterAlocados()"></div>
+      <select class="filter-sel" id="filCliente" onchange="filterAlocadosByCliente()" style="width:140px">
+        <option value="">Todos os clientes</option>
+        ${clientes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <select class="filter-sel" id="filProjeto" onchange="filterAlocados()" style="width:140px">
+        <option value="">Todos os projetos</option>
+        ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
+      </select>
+      <div style="position:relative">
+        <button class="btn btn-ghost btn-sm" id="stackFilterBtn" onclick="toggleStackDropdown(event)" style="gap:5px">
+          Stack<span id="stackFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="stackDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:8px;z-index:200;min-width:200px;box-shadow:0 4px 16px rgba(15,25,35,0.12);max-height:220px;overflow-y:auto">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">FILTRAR POR STACK</div>
+          ${allStacks_.map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+            <input type="checkbox" value="${s}" onchange="toggleStackFilter(this)" style="accent-color:var(--brand);width:13px;height:13px">${s}
+          </label>`).join('')}
+          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="clearStackFilter()">Limpar filtro</button>
+          </div>
+        </div>
+      </div>
+      <select class="filter-sel" id="filStatus" onchange="filterAlocados()"><option value="">Todos os status</option><option>Em Admissão</option><option>Ativo</option><option>Desligamento Prev.</option><option>Inativo</option></select>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Projeto</th><th>Gestor</th><th>Contrato</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th><th style="width:70px"></th></tr></thead>
+      <tbody id="alocTbody"></tbody>
+    </table></div>
+  </div>`;
+  filterAlocados();
+}
+function toggleStackDropdown(e){
+  e.stopPropagation();
+  const d=document.getElementById('stackDropdown');
+  d.style.display=d.style.display==='none'?'block':'none';
+}
+function toggleStackFilter(cb){
+  if(cb.checked)filStackSel.add(cb.value); else filStackSel.delete(cb.value);
+  const cnt=document.getElementById('stackFilterCount');
+  if(filStackSel.size>0){cnt.style.display='inline';cnt.textContent=filStackSel.size;}
+  else cnt.style.display='none';
+  filterAlocados();
+}
+function clearStackFilter(){
+  filStackSel.clear();
+  document.querySelectorAll('#stackDropdown input[type=checkbox]').forEach(cb=>cb.checked=false);
+  const cnt=document.getElementById('stackFilterCount');if(cnt)cnt.style.display='none';
+  filterAlocados();
+}
+document.addEventListener('click',()=>{
+  const d=document.getElementById('stackDropdown');
+  if(d)d.style.display='none';
+});
+function filterAlocadosByCliente(){
+  const cli=document.getElementById('filCliente')?.value||'';
+  const projSel=document.getElementById('filProjeto');
+  if(projSel){
+    projSel.innerHTML='<option value="">Todos os projetos</option>'+
+      db.projetos.filter(p=>!cli||p.cliente===cli).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  }
+  filterAlocados();
+}
+function filterAlocados(){
+  const q=(document.getElementById('srAlocado')?.value||'').toLowerCase();
+  const fp=document.getElementById('filProjeto')?.value||'';
+  const fc=document.getElementById('filCliente')?.value||'';
+  const fs=document.getElementById('filStatus')?.value||'';
+  const list=db.alocados.filter(a=>{
+    if(q&&!a.nome.toLowerCase().includes(q)&&!a.cargo.toLowerCase().includes(q))return false;
+    if(fp&&a.projetoId!==fp)return false;
+    if(fc){const p=db.projetos.find(x=>x.id===a.projetoId);if(!p||p.cliente!==fc)return false;}
+    if(fs&&a.status!==fs)return false;
+    if(filStackSel.size>0&&![...(a.stack||[])].some(s=>filStackSel.has(s)))return false;
+    return true;
+  });
+  const tbody=document.getElementById('alocTbody');if(!tbody)return;
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="12"><div class="empty-state"><div class="empty-text">Nenhum alocado encontrado</div></div></td></tr>`;return}
+  const isE=isEditor();
+  tbody.innerHTML=list.map(a=>{
+    const g=db.gestores.find(x=>x.id===a.gestorId);
+    const pr=db.projetos.find(x=>x.id===a.projetoId);
+    return`<tr onclick="openDetailById('${a.id}')">
+      <td><div class="cell-name"><div class="avatar">${a.photo?`<img src="${a.photo}">`:`<span>${getI(a.nome)}</span>`}</div><div><div class="name-main">${a.nome}</div><div class="name-sub">${fDate(a.admissao)}</div></div></div></td>
+      <td>${a.cargo}</td>
+      <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}${(a.stack||[]).length>2?`<span class="tag">+${a.stack.length-2}</span>`:''}</div></td>
+      <td>${pr?`<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:${pr.cor}"></span>${pr.nome}</span>`:'—'}</td>
+      <td>${g?g.nome:'—'}</td>
+      <td><span class="badge b-gray">${a.contrato}</span></td>
+      <td>${a.meses}m</td>
+      <td style="font-weight:600">${fBRL(a.salario)}</td>
+      <td>${fBRL(a.valorHora)}/h</td>
+      <td style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</td>
+      <td><span class="badge ${a.badge}">${a.status}</span></td>
+      <td onclick="event.stopPropagation()"><div class="row-actions">
+        ${isE?`<button class="icon-btn" title="Editar" onclick="openModalAlocado('${a.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
+        ${isE&&a.status==='Ativo'?`<button class="icon-btn danger" title="Desligar" onclick="openTurnover('${a.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── CLIENTES (ex-Projetos) ──────────────────────────── */
+function renderClientes(mc){
+  const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+  mc.innerHTML=`
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Clientes (${clientes.length})</div>
+      <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar cliente..." id="srProjeto" oninput="filterProjetos()"></div>
+      <select class="filter-sel" id="filProjStatus" onchange="filterProjetos()">
+        <option value="">Todos os status</option>
+        <option value="Ativo">Ativos</option>
+        <option value="Encerrado">Encerrados</option>
+        <option value="Suspenso">Suspensos</option>
+      </select>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Cliente</th><th>Projetos</th><th>Alocados Ativos</th><th>Fat. Est. Mensal</th><th>Média Sal.</th><th>Média V/H</th><th>Contrato</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
+      <tbody id="projTbody"></tbody>
+    </table></div>
+  </div>`;
+  filterProjetos();
+}
+function filterProjetos(){
+  const q=(document.getElementById('srProjeto')?.value||'').toLowerCase();
+  const fs=document.getElementById('filProjStatus')?.value||'';
+  // Group by cliente
+  const allProjetos=db.projetos.filter(p=>
+    (!q||(p.cliente.toLowerCase().includes(q)||p.nome.toLowerCase().includes(q)))&&
+    (!fs||p.status===fs)
+  );
+  // Get unique clientes from filtered projetos
+  const clientesMap={};
+  allProjetos.forEach(p=>{
+    if(!clientesMap[p.cliente])clientesMap[p.cliente]={projetos:[],cor:p.cor};
+    clientesMap[p.cliente].projetos.push(p);
+  });
+  const tbody=document.getElementById('projTbody');if(!tbody)return;
+  if(!Object.keys(clientesMap).length){tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state"><div class="empty-text">Nenhum cliente encontrado</div></div></td></tr>`;return}
+  const isE=isEditor();
+  tbody.innerHTML=Object.entries(clientesMap).map(([cli,info])=>{
+    const projs=info.projetos;
+    const pal=db.alocados.filter(a=>projs.some(p=>p.id===a.projetoId)&&a.status==='Ativo');
+    const fat=pal.reduce((s,a)=>s+(a.valorHora*168),0);
+    const mSal=pal.length?Math.round(pal.reduce((s,a)=>s+a.salario,0)/pal.length):0;
+    const mVH=pal.length?Math.round(pal.reduce((s,a)=>s+a.valorHora,0)/pal.length):0;
+    const statusList=[...new Set(projs.map(p=>p.status))];
+    const contratoList=[...new Set(projs.map(p=>p.contrato))];
+    const stClass=statusList.includes('Ativo')?'b-green':statusList.includes('Suspenso')?'b-amber':'b-red';
+    const cor=projs[0]?.cor||'#ccc';
+    return`<tr onclick="showClienteDetail('${cli}')">
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${cor};flex-shrink:0"></span>
+        <span style="font-weight:600">${cli}</span>
+      </div></td>
+      <td>
+        <span class="badge b-gray">${projs.length} projeto${projs.length>1?'s':''}</span>
+      </td>
+      <td><span class="badge b-blue">${pal.length} alocados</span></td>
+      <td style="font-weight:600;color:var(--brand)">${fBRL(fat)}</td>
+      <td>${mSal?fBRL(mSal):'—'}</td>
+      <td>${mVH?fBRL(mVH)+'/h':'—'}</td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:3px">${contratoList.map(c=>`<span class="badge b-gray">${c}</span>`).join('')}</div></td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:3px">${statusList.map(s=>`<span class="badge ${'Ativo'===s?'b-green':'Encerrado'===s?'b-red':'b-amber'}">${s}</span>`).join('')}</div></td>
+      ${isE?`<td onclick="event.stopPropagation()"></td>`:''}
+    </tr>`;
+  }).join('');
+}
+function showClienteDetail(cli){
+  const projs=db.projetos.filter(p=>p.cliente===cli);
+  const pal=db.alocados.filter(a=>projs.some(p=>p.id===a.projetoId));
+  const ativos=pal.filter(a=>a.status==='Ativo');
+  const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const cor=projs[0]?.cor||'var(--accent)';
+  document.getElementById('detailAvatar').innerHTML=`<span style="font-size:15px;font-weight:800;color:var(--text)">${cli.slice(0,2).toUpperCase()}</span>`;
+  document.getElementById('detailAvatar').style.background=cor+'22';
+  document.getElementById('detailName').textContent=cli;
+  document.getElementById('detailRole').textContent=`${projs.length} projeto${projs.length>1?'s':''} · ${ativos.length} ativos`;
+  document.getElementById('detailBody').innerHTML=`
+    <div class="d-section">
+      <div class="d-section-title">Projetos (${projs.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;padding:6px 0">
+        ${projs.map(p=>{
+          const stClass={'Ativo':'b-green','Encerrado':'b-red','Suspenso':'b-amber'}[p.status]||'b-gray';
+          return`<span class="badge ${stClass}">${p.nome}</span>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="d-section">
+      <div class="d-section-title">Financeiro</div>
+      <div class="d-row"><span class="d-label">Total ativos</span><span class="d-val">${ativos.length}</span></div>
+      <div class="d-row"><span class="d-label">Fat. Est. Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(fat)}</span></div>
+    </div>
+    <div class="d-section">
+      <div class="d-section-title">Todos os Alocados (${pal.length})</div>
+      ${pal.map(a=>`<div class="d-row" onclick="openDetailById('${a.id}')" style="cursor:pointer"><span class="d-label">${a.nome}</span><span class="d-val"><span class="badge ${a.badge}" style="font-size:10px">${a.status}</span></span></div>`).join('')||'<div style="font-size:var(--font-min);color:var(--text-3);padding:6px 0">Sem alocados</div>'}
+    </div>
+    ${isEditor()?`<div style="display:flex;gap:7px;margin-top:4px">
+      <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openModalProjetoEdit('${projs[0]?.id||''}')">Editar</button>
+      ${projs.some(p=>p.status==='Ativo')?`<button class="btn btn-danger btn-sm" style="flex:1;justify-content:center" onclick="abrirEncerrarCliente('${cli}')">Encerrar</button>`:''}
+    </div>`:''}`;
+  document.getElementById('detailPanel').classList.add('open');
+}
+function showProjetoDetail(id){showClienteDetail(db.projetos.find(x=>x.id===id)?.cliente||'')}
+
+
+/* ─── GESTORES ────────────────────────────────────────── */
+function renderGestores(mc){
+  mc.innerHTML=`
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Gestores de Cliente</div>
+      <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srGest" oninput="filterGestores()"></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Cliente</th><th>Projeto</th><th>Tipo</th><th>Equipe</th><th style="width:70px"></th></tr></thead>
+      <tbody id="gestTbody"></tbody>
+    </table></div>
+  </div>`;
+  filterGestores();
+}
+function filterGestores(){
+  const q=(document.getElementById('srGest')?.value||'').toLowerCase();
+  const list=db.gestores.filter(g=>g.nome.toLowerCase().includes(q)||g.email.toLowerCase().includes(q));
+  const tbody=document.getElementById('gestTbody');if(!tbody)return;
+  if(!list.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-text">Nenhum gestor encontrado</div></div></td></tr>`;return}
+  tbody.innerHTML=list.map(g=>{
+    const pr=db.projetos.find(p=>p.id===g.projetoId);
+    const atv=db.alocados.filter(a=>a.gestorId===g.id&&a.status==='Ativo').length;
+    return`<tr onclick="openGestorDetail('${g.id}')">
+      <td><div class="cell-name"><div class="avatar"><span>${getI(g.nome)}</span></div><div><div class="name-main">${g.nome}</div><div class="name-sub">${g.telefone||''}</div></div></div></td>
+      <td style="color:var(--blue)">${g.email}</td>
+      <td>${g.telefone||'—'}</td>
+      <td>${g.cliente||'—'}</td>
+      <td>${pr?`<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:${pr.cor}"></span>${pr.nome}</span>`:'—'}</td>
+      <td><span class="badge ${g.tipo==='Master'?'b-amber':'b-blue'}">${g.tipo}</span></td>
+      <td><span class="badge b-gray">${atv} ativos</span></td>
+      <td onclick="event.stopPropagation()"><div class="row-actions" style="opacity:1">
+        ${isEditor()?`
+        <button class="icon-btn" title="Editar" onclick="openModalGestorEdit('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="icon-btn" title="Reenviar link mágico" onclick="reenviarLinkGestor('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        <button class="icon-btn danger" title="Excluir" onclick="excluirGestor('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        `:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── MEU TIME (cli-gestor only) ─────────────────────── */
+function renderMeuTime(mc){
+  const g=db.gestores.find(x=>x.email===currentUser.email);
+  if(!g){mc.innerHTML=`<div class="table-card"><div class="empty-state"><div class="empty-text">Nenhum time vinculado</div><div class="empty-sub">Seu e-mail não está associado a nenhum gestor</div></div></div>`;return}
+  const team=db.alocados.filter(a=>a.gestorId===g.id);
+  const ativos=team.filter(a=>a.status==='Ativo');
+  const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
+  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.valorHora,0)/ativos.length):0;
+  const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
+  mc.innerHTML=`
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+    <div class="detail-avatar" style="width:48px;height:48px;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;background:var(--accent-soft)">${getI(g.nome)}</div>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${g.nome}</div>
+      <div style="font-size:var(--font-min);color:var(--text-3)">${g.email}${g.cliente?' · '+g.cliente:''}</div>
+    </div>
+  </div>
+  <div class="viewer-stats">
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Qtd. Pessoas</div><div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700">${ativos.length}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Fat. Est. Mês</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${fBRL(fat)}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média Sal.</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${fBRL(mediaSal)}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média V/H</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${fBRL(mediaVH)}/h</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Média Ativos</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${mediaMeses}m</div></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header"><div class="table-title">Meu Time (${team.length})</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Contrato</th><th>Admissão</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th></tr></thead>
+      <tbody>${team.map(a=>`<tr onclick="openDetailById('${a.id}')">
+        <td><div class="cell-name"><div class="avatar">${a.photo?`<img src="${a.photo}">`:`<span>${getI(a.nome)}</span>`}</div><div class="name-main">${a.nome}</div></div></td>
+        <td>${a.cargo}</td>
+        <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}</div></td>
+        <td><span class="badge b-gray">${a.contrato}</span></td>
+        <td>${fDate(a.admissao)}</td>
+        <td>${a.meses}m</td>
+        <td style="font-weight:600">${fBRL(a.salario)}</td>
+        <td>${fBRL(a.valorHora)}/h</td>
+        <td style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</td>
+        <td><span class="badge ${a.badge}">${a.status}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ─── CONTATO ─────────────────────────────────────────── */
+function renderContato(mc){
+  mc.innerHTML=`
+  <div style="margin-bottom:16px">
+    <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:4px">Contato OneBrain</div>
+    <div style="font-size:var(--font-min);color:var(--text-3)">Equipe responsável pelo seu projeto</div>
+  </div>
+  <div class="contact-grid">
+    ${db.contatos.map(c=>`
+    <div class="contact-card">
+      <div class="contact-avatar" style="background:${c.tipo.includes('Business')?'var(--accent-soft)':'var(--blue-soft)'}">${c.photo?`<img src="${c.photo}">`:`<span style="font-size:20px;font-weight:700;color:${c.tipo.includes('Business')?'var(--accent-dim)':'var(--blue)'}">${getI(c.nome)}</span>`}</div>
+      <div class="contact-name">${c.nome}</div>
+      <div class="contact-role">${c.tipo}</div>
+      <div class="contact-info">
+        <div class="contact-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${c.email}</div>
+        <div class="contact-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 14a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 3h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 10.91a16 16 0 0 0 6.35 6.35l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${c.telefone}</div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ─── TURNOVER ────────────────────────────────────────── */
+function renderTurnover(mc){
+  const total=db.turnover.length;
+  const ativos=db.alocados.filter(a=>a.status==='Ativo').length;
+  const tx=ativos>0?Math.round((total/ativos)*100):0;
+  mc.innerHTML=`
+  <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:18px">
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Total de Desligamentos</div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:var(--red)">${total}</div></div>
+    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Taxa de Turnover</div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:${tx>20?'var(--red)':tx>10?'var(--amber)':'var(--green)'}">${tx}%</div></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header"><div class="table-title">Registro de Turnover (${db.turnover.length})</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Alocado</th><th>Data Desligamento</th><th>Motivo</th><th>Substituto</th><th>Obs.</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
+      <tbody>${db.turnover.length?db.turnover.map(t=>{
+        const subst=db.alocados.find(x=>x.id===t.substituicaoId);
+        return`<tr>
+          <td><strong>${t.alocadoNome}</strong></td>
+          <td>${fDate(t.data)}</td>
+          <td>${t.motivo}</td>
+          <td>${subst?subst.nome:(t.substituicao||'—')}</td>
+          <td style="color:var(--text-3)">${t.obs||''}</td>
+          <td><span class="badge ${t.status==='Cancelado'?'b-gray':'b-red'}">${t.status||'Confirmado'}</span></td>
+          ${isEditor()?`<td><div class="row-actions"><button class="icon-btn" onclick="openEditTurnover('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>`:''}
+        </tr>`;
+      }).join(''):`<tr><td colspan="7"><div class="empty-state"><div class="empty-text">Nenhum registro</div></div></td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ─── INTERNOS (ex-Acesso) ────────────────────────────── */
+function renderInternos(mc){
+  const internos=db.usuarios.filter(u=>u.perfil==='editor'||u.perfil==='viewer');
+  const roleLabel={editor:'Interno — Edição',viewer:'Interno — Visualização'};
+  const roleClass={editor:'b-green',viewer:'b-blue'};
+  mc.innerHTML=`
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Usuários Internos (${internos.length})</div>
+      <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srInterno" oninput="filterInternos()"></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Cargo</th><th>Perfil</th><th>Status</th><th style="width:90px"></th></tr></thead>
+      <tbody id="internoTbody"></tbody>
+    </table></div>
+  </div>`;
+  filterInternos();
+}
+function filterInternos(){
+  const q=(document.getElementById('srInterno')?.value||'').toLowerCase();
+  const internos=db.usuarios.filter(u=>(u.perfil==='editor'||u.perfil==='viewer')&&(u.nome.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)));
+  const tbody=document.getElementById('internoTbody');if(!tbody)return;
+  const roleLabel={editor:'Interno — Edição',viewer:'Interno — Visualização'};
+  const roleClass={editor:'b-green',viewer:'b-blue'};
+  if(!internos.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-text">Nenhum usuário interno encontrado</div></div></td></tr>`;return;}
+  tbody.innerHTML=internos.map(u=>`<tr>
+    <td><div class="cell-name"><div class="avatar">${getI(u.nome)}</div><div class="name-main">${u.nome}</div></div></td>
+    <td style="color:var(--blue)">${u.email}</td>
+    <td>${u.telefone||'—'}</td>
+    <td>${u.cargo||'—'}</td>
+    <td><span class="badge ${roleClass[u.perfil]||'b-gray'}">${roleLabel[u.perfil]||u.perfil}</span></td>
+    <td><span class="badge ${u.status==='ativo'?'b-green':u.status==='pendente'?'b-amber':'b-gray'}">${u.status}</span></td>
+    <td onclick="event.stopPropagation()"><div class="row-actions" style="opacity:1">
+      ${isEditor()?`
+      <button class="icon-btn" title="Editar" onclick="openModalAcessoEdit('${u.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="icon-btn" title="Reenviar link" onclick="reenviarLink('${u.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      <button class="icon-btn danger" title="Excluir" onclick="excluirAcesso('${u.id}','internos')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      `:''}
+    </div></td>
+  </tr>`).join('');
+}
+/* ─── GESTORES page (includes client users) ───────────── */
+function openDetailById(id){
+  const a=db.alocados.find(x=>x.id===id);if(!a)return;
+  const g=db.gestores.find(x=>x.id===a.gestorId);const pr=db.projetos.find(x=>x.id===a.projetoId);
+  const av=document.getElementById('detailAvatar');av.innerHTML=a.photo?`<img src="${a.photo}">`:(getI(a.nome));
+  document.getElementById('detailName').textContent=a.nome;
+  document.getElementById('detailRole').textContent=a.cargo+((a.stack||[]).length?' · '+a.stack.slice(0,3).join(', '):'');
+  const isE=isEditor();
+  const hSal=(a.salarioHist||[]).slice().reverse().slice(0,4);
+  const hVH=(a.valorHoraHist||[]).slice().reverse().slice(0,4);
+  document.getElementById('detailBody').innerHTML=`
+    <div class="d-section">
+      <div class="d-section-title">Status & Período</div>
+      <div class="d-row"><span class="d-label">Status</span><span class="d-val"><span class="badge ${a.badge}">${a.status}</span></span></div>
+      <div class="d-row"><span class="d-label">Admissão</span><span class="d-val">${fDate(a.admissao)}</span></div>
+      <div class="d-row"><span class="d-label">Desligamento</span><span class="d-val">${a.desligamento?fDate(a.desligamento):'—'}</span></div>
+      <div class="d-row"><span class="d-label">Meses Ativos</span><span class="d-val">${a.meses} meses</span></div>
+    </div>
+    <div class="d-section">
+      <div class="d-section-title">Informações</div>
+      <div class="d-row"><span class="d-label">Cargo</span><span class="d-val">${a.cargo}</span></div>
+      <div class="d-row"><span class="d-label">Stack</span><span class="d-val" style="font-size:12px">${(a.stack||[]).join(', ')||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Contrato</span><span class="d-val">${a.contrato}</span></div>
+      <div class="d-row"><span class="d-label">Projeto</span><span class="d-val">${pr?pr.nome:'—'}</span></div>
+      <div class="d-row"><span class="d-label">Gestor</span><span class="d-val">${g?g.nome:'—'}</span></div>
+      ${a.linkedin?`<div class="d-row"><span class="d-label">LinkedIn</span><span class="d-val"><a href="${a.linkedin}" target="_blank" style="color:var(--blue)">Ver perfil ↗</a></span></div>`:''}
+    </div>
+    ${isE?`<div class="d-section">
+      <div class="d-section-title">Financeiro</div>
+      <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
+      ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSal.map(h=>`${fDate(h.data)}: ${fBRL(h.val)}`).join(' → ')}</div>`:''}
+      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
+      ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hVH.map(h=>`${fDate(h.data)}: ${fBRL(h.val)}`).join(' → ')}</div>`:''}
+      <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:4px">
+      <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openModalAlocado('${a.id}')">Editar</button>
+      ${a.status==='Ativo'?`<button class="btn btn-danger btn-sm" style="flex:1;justify-content:center" onclick="openTurnover('${a.id}');closeDetail()">Desligar</button>`:''}
+    </div>`:''}`;
+  document.getElementById('detailPanel').classList.add('open');
+}
+function openGestorDetail(id){
+  const g=db.gestores.find(x=>x.id===id);if(!g)return;
+  const pr=db.projetos.find(x=>x.id===g.projetoId);
+  const team=db.alocados.filter(a=>a.gestorId===id);
+  document.getElementById('detailAvatar').textContent=getI(g.nome);
+  document.getElementById('detailName').textContent=g.nome;
+  document.getElementById('detailRole').textContent=g.tipo+' · '+(g.cliente||'');
+  document.getElementById('detailBody').innerHTML=`
+    <div class="d-section">
+      <div class="d-section-title">Informações</div>
+      <div class="d-row"><span class="d-label">E-mail</span><span class="d-val" style="color:var(--blue)">${g.email}</span></div>
+      <div class="d-row"><span class="d-label">Telefone</span><span class="d-val">${g.telefone||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Cliente</span><span class="d-val">${g.cliente||'—'}</span></div>
+      <div class="d-row"><span class="d-label">Projeto</span><span class="d-val">${pr?pr.nome:'—'}</span></div>
+      <div class="d-row"><span class="d-label">Tipo</span><span class="d-val"><span class="badge ${g.tipo==='Master'?'b-amber':'b-blue'}">${g.tipo}</span></span></div>
+    </div>
+    <div class="d-section">
+      <div class="d-section-title">Time (${team.length})</div>
+      ${team.map(a=>`<div class="d-row" onclick="openDetailById('${a.id}')" style="cursor:pointer"><span class="d-label">${a.nome}</span><span class="d-val" style="display:flex;align-items:center;gap:5px"><span class="badge ${a.badge}" style="font-size:10px">${a.status}</span></span></div>`).join('')||'<div style="font-size:var(--font-min);color:var(--text-3);padding:6px 0">Sem alocados</div>'}
+    </div>
+    ${isEditor()?`<button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="openModalGestorEdit('${g.id}')">Editar Gestor</button>`:''}`;
+  document.getElementById('detailPanel').classList.add('open');
+}
+function closeDetail(){document.getElementById('detailPanel').classList.remove('open')}
+
+/* ─── FORM HELPERS ────────────────────────────────────── */
+async function reenviarLinkGestor(id){
+  const g=db.gestores.find(x=>x.id===id);
+  if(!g){showToast('Gestor não encontrado');return}
+  await supa.auth.signInWithOtp({email:g.email});
+  showToast('Link mágico reenviado para '+g.email);
+}
+async function excluirGestor(id){
+  if(!confirm('Excluir este gestor? Alocados vinculados perderão o vínculo.'))return;
+  const {error}=await supa.from('gestores').delete().eq('id',id);
+  if(error){showToast('Erro: '+error.message);return}
+  await loadAll();
+  renderGestores(document.getElementById('mainContent'));
+  showToast('Gestor removido');
+}
+function filterGestorModalProjeto(){
+  const cli=document.getElementById('gestorCliente')?.value||'';
+  const ps=document.getElementById('gestorProjeto');
+  if(ps) ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>!cli||p.cliente===cli).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+}
+function buildGestorClienteSelect(selectedVal){
+  const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+  const sel=document.getElementById('gestorCliente');
+  sel.innerHTML='<option value="">Selecione o cliente...</option>'+clientes.map(c=>`<option value="${c}"${c===selectedVal?' selected':''}>${c}</option>`).join('');
+}
+function filterGestorProjByCliente(){
+  const cli=document.getElementById('alocadoCliente')?.value||'';
+  const gs=document.getElementById('alocadoGestor');
+  const ps=document.getElementById('alocadoProjeto');
+  if(gs) gs.innerHTML='<option value="">Selecione...</option>'+db.gestores.filter(g=>!cli||g.cliente===cli).map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
+  if(ps) ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>!cli||p.cliente===cli).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+}
+function buildStackGrid(){document.getElementById('stackGrid').innerHTML=allStacks.map(s=>`<label class="stack-label"><input type="checkbox" value="${s}" onchange="toggleStack(this)">${s}</label>`).join('');selectedStacks.forEach(s=>{const cb=document.querySelector(`#stackGrid input[value="${s}"]`);if(cb)cb.checked=true})}
+function toggleStack(cb){if(cb.checked){if(!selectedStacks.includes(cb.value))selectedStacks.push(cb.value)}else{selectedStacks=selectedStacks.filter(s=>s!==cb.value)}}
+function adicionarStack(){const v=document.getElementById('novaStack').value.trim();if(!v)return;if(!allStacks.includes(v)){allStacks.push(v);customStacks.push(v)}if(!selectedStacks.includes(v))selectedStacks.push(v);document.getElementById('novaStack').value='';buildStackGrid()}
+function calcMedia(){const vh=parseFloat(document.getElementById('alocadoVH').value)||0;document.getElementById('alocadoMC').value=fBRL(vh*168)}
+function recalcStatus(){
+  const adm=document.getElementById('alocadoAdm').value;const desl=document.getElementById('alocadoDesl').value;
+  const s=calcStatus(adm,desl);const m=calcMeses(adm,desl,s.status);
+  document.getElementById('alocadoStatus').value=s.status;document.getElementById('alocadoMeses').value=m+' meses';
+}
+function fetchLinkedinPhoto(){const url=document.getElementById('alocadoLinkedin').value.trim();if(!url){showToast('Informe o LinkedIn primeiro');return}document.getElementById('photoStatusText').textContent='Requer integração de backend com LinkedIn API';showToast('LinkedIn API: disponível via Supabase Edge Function')}
+function previewPhoto(input){const file=input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{const d=e.target.result;document.getElementById('alocadoPhoto').value=d;document.getElementById('photoPreviewCircle').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover">`;document.getElementById('photoStatusText').textContent='Foto carregada'};r.readAsDataURL(file)}
+
+/* ─── MODALS ALOCADO ──────────────────────────────────── */
+function openModalAlocado(id){
+  selectedStacks=[];histSal=[];histVH=[];origSal=null;origVH=null;
+  document.getElementById('alocadoId').value=id||'';
+  document.getElementById('modalAlocadoTitle').textContent=id?'Editar Alocado':'Cadastrar Alocado';
+  ['alocadoNome','alocadoLinkedin','alocadoSalario','alocadoVH','alocadoMC','alocadoAdm','alocadoDesl','alocadoStatus','alocadoMeses'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
+  document.getElementById('alocadoCargo').value='';
+  document.getElementById('alocadoContrato').value='Essencial';
+  document.getElementById('cargoNovoGroup').style.display='none';
+  document.getElementById('photoPreviewCircle').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  document.getElementById('photoStatusText').textContent='Nenhuma foto';
+  document.getElementById('alocadoPhoto').value='';
+  document.getElementById('histSalPanel').style.display='none';
+  document.getElementById('histVHPanel').style.display='none';
+  const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+  const cliSel=document.getElementById('alocadoCliente');
+  cliSel.innerHTML='<option value="">Selecione o cliente...</option>'+clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const gs=document.getElementById('alocadoGestor');gs.innerHTML='<option value="">Selecione...</option>';
+  const ps=document.getElementById('alocadoProjeto');ps.innerHTML='<option value="">Selecione...</option>';
+  if(id){
+    const a=db.alocados.find(x=>x.id===id);if(!a)return;
+    // Determine cliente from project
+    const proj=db.projetos.find(x=>x.id===a.projetoId);
+    const clienteVal=proj?proj.cliente:'';
+    cliSel.value=clienteVal;
+    // Cascade
+    if(clienteVal){
+      gs.innerHTML='<option value="">Selecione...</option>'+db.gestores.filter(g=>g.cliente===clienteVal).map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
+      ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>p.cliente===clienteVal).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+    }
+    document.getElementById('alocadoNome').value=a.nome;
+    document.getElementById('alocadoLinkedin').value=a.linkedin||'';
+    document.getElementById('alocadoCargo').value=a.cargo;
+    document.getElementById('alocadoGestor').value=a.gestorId;
+    document.getElementById('alocadoProjeto').value=a.projetoId||'';
+    document.getElementById('alocadoSalario').value=a.salario;
+    document.getElementById('alocadoVH').value=a.valorHora;
+    document.getElementById('alocadoMC').value=fBRL(a.mediaCusto);
+    document.getElementById('alocadoContrato').value=a.contrato;
+    document.getElementById('alocadoAdm').value=a.admissao;
+    document.getElementById('alocadoDesl').value=a.desligamento||'';
+    selectedStacks=[...(a.stack||[])];histSal=[...(a.salarioHist||[])];histVH=[...(a.valorHoraHist||[])];
+    origSal=a.salario;origVH=a.valorHora;
+    if(a.photo){document.getElementById('alocadoPhoto').value=a.photo;document.getElementById('photoPreviewCircle').innerHTML=`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`;document.getElementById('photoStatusText').textContent='Foto carregada';}
+    renderHistPanel('histSalList','histSalPanel',histSal);renderHistPanel('histVHList','histVHPanel',histVH);
+    recalcStatus();
+  }
+  allStacks=[...STACKS_DEF,...customStacks];buildStackGrid();openModal('modalAlocado');
+}
+function renderHistPanel(listId,panelId,hist){
+  const p=document.getElementById(panelId);if(!p)return;
+  if(!hist||!hist.length){p.style.display='none';return}
+  p.style.display='block';
+  document.getElementById(listId).innerHTML=hist.slice().reverse().map(h=>`<div class="hist-item"><span class="hist-val">${fBRL(h.val)}</span><span class="hist-date">${fDate(h.data)}</span></div>`).join('');
+}
+async function salvarAlocado(){
+  const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
+  let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
+  if(!cargo){showToast('Selecione o cargo');return}
+  const ns=parseFloat(document.getElementById('alocadoSalario').value)||0;
+  const nvh=parseFloat(document.getElementById('alocadoVH').value)||0;
+  const adm=document.getElementById('alocadoAdm').value;
+  const desl=document.getElementById('alocadoDesl').value||null;
+  const payload={
+    nome,cargo,
+    linkedin:document.getElementById('alocadoLinkedin').value.trim()||null,
+    photo_url:document.getElementById('alocadoPhoto').value||null,
+    stack:selectedStacks,
+    gestor_id:document.getElementById('alocadoGestor').value||null,
+    projeto_id:document.getElementById('alocadoProjeto').value||null,
+    salario:ns,valor_hora:nvh,
+    contrato:document.getElementById('alocadoContrato').value,
+    admissao:adm||null,
+    desligamento:desl
+  };
+  const id=document.getElementById('alocadoId').value;
+  let err;
+  if(id){
+    ({error:err}=await supa.from('alocados').update(payload).eq('id',id));
+  } else {
+    ({error:err}=await supa.from('alocados').insert(payload));
+  }
+  if(err){showToast('Erro: '+err.message);return}
+  await loadAll();
+  closeModal('modalAlocado');
+  filterAlocados();
+  showToast('Alocado salvo!');
+}
+
+/* ─── MODALS GESTOR ───────────────────────────────────── */
+function openModalGestor(){openModalGestorEdit(null)}
+function openModalGestorEdit(id){
+  document.getElementById('gestorId').value=id||'';
+  document.getElementById('modalGestorTitle').textContent=id?'Editar Gestor':'Cadastrar Gestor';
+  document.getElementById('gestorSaveBtn').textContent=id?'Salvar':'Enviar Link Mágico';
+  document.getElementById('gestorInfoBox').style.display=id?'none':'block';
+  ['gestorNome','gestorEmail','gestorTelefone'].forEach(f=>{document.getElementById(f).value=''});
+  document.getElementById('gestorTipo').value='Gestor de Time';
+  buildGestorClienteSelect('');
+  document.getElementById('gestorProjeto').innerHTML='<option value="">Selecione...</option>';
+  if(id){
+    const g=db.gestores.find(x=>x.id===id);
+    if(g){
+      document.getElementById('gestorNome').value=g.nome;
+      document.getElementById('gestorEmail').value=g.email;
+      document.getElementById('gestorTelefone').value=g.telefone||'';
+      document.getElementById('gestorTipo').value=g.tipo;
+      buildGestorClienteSelect(g.cliente||'');
+      // Cascade projetos para o cliente
+      const ps=document.getElementById('gestorProjeto');
+      ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>!g.cliente||p.cliente===g.cliente).map(p=>`<option value="${p.id}"${p.id===g.projetoId?' selected':''}>${p.nome}</option>`).join('');
+    }
+  }
+  openModal('modalGestor');
+}
+async function salvarGestor(){
+  const nome=document.getElementById('gestorNome').value.trim();const email=document.getElementById('gestorEmail').value.trim();
+  if(!nome||!email){showToast('Informe nome e e-mail');return}
+  const payload={nome,email,telefone:document.getElementById('gestorTelefone').value||null,cliente:document.getElementById('gestorCliente').value||null,projeto_id:document.getElementById('gestorProjeto').value||null,tipo:document.getElementById('gestorTipo').value};
+  const id=document.getElementById('gestorId').value;
+  let err;
+  if(id){
+    ({error:err}=await supa.from('gestores').update(payload).eq('id',id));
+  } else {
+    ({error:err}=await supa.from('gestores').insert(payload));
+    // Enviar link mágico
+    if(!err){
+      await supa.auth.admin?.inviteUserByEmail(email,{data:{perfil:'cli-gestor',nome}}).catch(()=>{});
+    }
+  }
+  if(err){showToast('Erro: '+err.message);return}
+  await loadAll();
+  closeModal('modalGestor');filterGestores();showToast(id?'Gestor salvo!':'Link mágico enviado para '+email);
+}
+
+let selectedProjetos = []; // array of {id, nome} - id='' means new
+
+function buildProjetoGrid(clienteVal, preSelected){
+  // preSelected: array of project ids already linked to this client
+  selectedProjetos = preSelected ? preSelected.map(id=>({id,nome:''})) : [];
+  renderProjetoGrid(clienteVal);
+}
+function renderProjetoGrid(clienteVal){
+  const grid=document.getElementById('projetoGrid');
+  if(!grid)return;
+  const existing=clienteVal?db.projetos.filter(p=>p.cliente===clienteVal):[];
+  // Also include any newly added (id='')
+  const newOnes=selectedProjetos.filter(s=>s.id==='');
+  const allItems=[...existing.map(p=>({id:p.id,nome:p.nome,isNew:false})),...newOnes.map(s=>({id:'',nome:s.nome,isNew:true}))];
+  if(!allItems.length){grid.innerHTML=`<div style="font-size:var(--font-min);color:var(--text-3);padding:8px;grid-column:1/-1">Selecione um cliente para ver projetos existentes ou adicione um novo abaixo.</div>`;return;}
+  grid.innerHTML=allItems.map((item,i)=>{
+    const checked=item.isNew?true:selectedProjetos.some(s=>s.id===item.id);
+    const key=item.isNew?`new_${i}`:item.id;
+    return`<label class="stack-label"><input type="checkbox" value="${key}" ${checked?'checked':''} onchange="toggleProjeto(this,'${item.id}','${item.nome.replace(/'/g,"\\'")}',${item.isNew})">${item.nome}</label>`;
+  }).join('');
+}
+function toggleProjeto(cb, id, nome, isNew){
+  if(cb.checked){
+    if(isNew){if(!selectedProjetos.some(s=>s.id===''&&s.nome===nome))selectedProjetos.push({id:'',nome});}
+    else{if(!selectedProjetos.some(s=>s.id===id))selectedProjetos.push({id,nome});}
+  } else {
+    if(isNew) selectedProjetos=selectedProjetos.filter(s=>!(s.id===''&&s.nome===nome));
+    else selectedProjetos=selectedProjetos.filter(s=>s.id!==id);
+  }
+}
+function adicionarProjeto(){
+  const v=document.getElementById('projetoNome').value.trim();
+  if(!v)return;
+  if(!selectedProjetos.some(s=>s.nome===v&&s.id===''))selectedProjetos.push({id:'',nome:v});
+  document.getElementById('projetoNome').value='';
+  const cli=document.getElementById('projetoClienteSel')?.value||'';
+  renderProjetoGrid(cli==='__new__'?'':cli);
+}
+function checkNovoCliente(sel){
+  document.getElementById('projetoClienteNovoGroup').classList.toggle('hidden',sel.value!=='__new__');
+  const cli=sel.value==='__new__'?'':sel.value;
+  selectedProjetos=[];
+  renderProjetoGrid(cli);
+}
+function checkNewCargo(sel){
+  document.getElementById('cargoNovoGroup').style.display=sel.value==='__new__'?'flex':'none';
+}
+function buildClienteSelect(selectedVal){
+  const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+  const sel=document.getElementById('projetoClienteSel');
+  sel.innerHTML=`<option value="">Selecione...</option>${clientes.map(c=>`<option value="${c}"${c===selectedVal?' selected':''}>${c}</option>`).join('')}<option value="__new__">+ Novo cliente</option>`;
+  if(selectedVal&&selectedVal!=='__new__') renderProjetoGrid(selectedVal);
+}
+function openModalProjeto(){openModalProjetoEdit(null)}
+function openModalProjetoEdit(id){
+  document.getElementById('projetoId').value=id||'';
+  document.getElementById('modalProjetoTitle').textContent=id?'Editar Cliente/Projeto':'Novo Cliente';
+  ['projetoNome','projetoInicio','projetoFim','projetoContratoPDF','projetoAditivos','projetoMotivo','projetoClienteNovo'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
+  selectedProjetos=[];
+  const pg=document.getElementById('projetoGrid');if(pg)pg.innerHTML='';
+  document.getElementById('projetoContrato').value='Essencial';
+  document.getElementById('projetoStatus').value='Ativo';
+  document.getElementById('projetoCor').value='#00E5A0';
+  document.getElementById('motivoEncerramentoGroup').classList.add('hidden');
+  document.getElementById('projetoClienteNovoGroup').classList.add('hidden');
+  document.getElementById('projetoStatus').onchange=function(){document.getElementById('motivoEncerramentoGroup').classList.toggle('hidden',this.value==='Ativo')};
+  buildClienteSelect(id?db.projetos.find(x=>x.id===id)?.cliente:'');
+  if(id){
+    const p=db.projetos.find(x=>x.id===id);if(!p)return;
+    buildClienteSelect(p.cliente||'');
+    // Pre-select this project in the grid
+    selectedProjetos=[{id:p.id,nome:p.nome}];
+    renderProjetoGrid(p.cliente||'');
+    document.getElementById('projetoNome').value='';
+    document.getElementById('projetoContrato').value=p.contrato;
+    document.getElementById('projetoInicio').value=p.inicio||'';
+    document.getElementById('projetoFim').value=p.fim||'';
+    document.getElementById('projetoContratoPDF').value=p.contratoLink||'';
+    document.getElementById('projetoAditivos').value=p.aditivos||'';
+    document.getElementById('projetoCor').value=p.cor||'#00E5A0';
+    document.getElementById('projetoStatus').value=p.status;
+    document.getElementById('projetoMotivo').value=p.motivo||'';
+    document.getElementById('motivoEncerramentoGroup').classList.toggle('hidden',p.status==='Ativo');
+  }
+  openModal('modalProjeto');
+}
+async function salvarProjeto(){
+  if(!selectedProjetos.length){showToast('Selecione ou adicione ao menos um projeto');return;}
+  let clienteSel=document.getElementById('projetoClienteSel').value;
+  if(clienteSel==='__new__')clienteSel=document.getElementById('projetoClienteNovo').value.trim();
+  if(!clienteSel){showToast('Informe o cliente');return}
+  const status=document.getElementById('projetoStatus').value;
+  const basePayload={cliente:clienteSel,contrato:document.getElementById('projetoContrato').value,inicio:document.getElementById('projetoInicio').value||null,fim:document.getElementById('projetoFim').value||null,contrato_link:document.getElementById('projetoContratoPDF').value||null,aditivos:document.getElementById('projetoAditivos').value||null,cor:document.getElementById('projetoCor').value,status,motivo:document.getElementById('projetoMotivo').value||null};
+  for(const sp of selectedProjetos){
+    if(sp.id===''&&sp.nome){
+      await supa.from('projetos').insert({...basePayload,nome:sp.nome});
+    } else if(sp.id){
+      const prev=db.projetos.find(x=>x.id===sp.id);
+      await supa.from('projetos').update({...basePayload,nome:sp.nome||prev?.nome}).eq('id',sp.id);
+      // Se encerrou, desligar alocados ativos
+      if(status==='Encerrado'&&prev?.status!=='Encerrado'&&basePayload.fim){
+        const ativosProj=db.alocados.filter(a=>a.projetoId===sp.id&&(a.status==='Ativo'||a.status==='Em Admissão'));
+        for(const a of ativosProj){
+          await supa.from('alocados').update({desligamento:basePayload.fim}).eq('id',a.id);
+        }
+      }
+    }
+  }
+  await loadAll();
+  closeModal('modalProjeto');
+  renderClientes(document.getElementById('mainContent'));
+  showToast(selectedProjetos.length>1?'Projetos salvos!':'Projeto salvo!');
+}
+function encerrarProjeto(id){
+  // Find the client from this project and open the encerrar modal
+  const p=db.projetos.find(x=>x.id===id);
+  if(!p)return;
+  abrirEncerrarCliente(p.cliente);
+}
+function abrirEncerrarCliente(cli){
+  document.getElementById('encerrarClienteNome').value=cli;
+  document.getElementById('encerrarClienteDisplay').value=cli;
+  document.getElementById('encerrarData').value=toISO(TODAY);
+  document.getElementById('encerrarObs').value='';
+  openModal('modalEncerrar');
+}
+async function confirmarEncerramento(){
+  const cli=document.getElementById('encerrarClienteNome').value;
+  const data=document.getElementById('encerrarData').value;
+  const obs=document.getElementById('encerrarObs').value;
+  if(!data){showToast('Informe a data de encerramento');return;}
+  const projsCli=db.projetos.filter(p=>p.cliente===cli&&p.status==='Ativo');
+  for(const p of projsCli){
+    await supa.from('projetos').update({status:'Encerrado',fim:data,motivo:obs||'Encerramento de contrato'}).eq('id',p.id);
+    const ativosProj=db.alocados.filter(a=>a.projetoId===p.id&&(a.status==='Ativo'||a.status==='Em Admissão'));
+    for(const a of ativosProj){
+      await supa.from('alocados').update({desligamento:data}).eq('id',a.id);
+    }
+  }
+  await loadAll();
+  closeModal('modalEncerrar');closeDetail();
+  renderClientes(document.getElementById('mainContent'));
+  showToast(`Contrato com ${cli} encerrado — alocados desligados em ${fDate(data)}`);
+}
+
+/* ─── MODALS TURNOVER ─────────────────────────────────── */
+function openTurnover(aid){
+  const a=db.alocados.find(x=>x.id===aid);if(!a)return;
+  document.getElementById('tvAlocadoId').value=aid;
+  document.getElementById('tvAlocadoNome').value=a.nome;
+  document.getElementById('tvData').value=toISO(TODAY);
+  document.getElementById('tvObs').value='';
+  document.getElementById('tvSubst').value='';
+  const substSel=document.getElementById('tvSubstId');
+  substSel.innerHTML='<option value="">— Sem substituto definido —</option>'+
+    db.alocados.filter(x=>x.id!==aid&&x.status==='Ativo').map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
+  resetTurnoverFooter();
+  openModal('modalTurnover');
+}
+async function confirmarTurnover(){
+  const aid=document.getElementById('tvAlocadoId').value;
+  const a=db.alocados.find(x=>x.id===aid);if(!a)return;
+  const data=document.getElementById('tvData').value;
+  if(!data){showToast('Informe a data');return}
+  await supa.from('alocados').update({desligamento:data}).eq('id',aid);
+  await supa.from('turnover').insert({
+    alocado_id:aid,alocado_nome:a.nome,data_desl:data,
+    motivo:document.getElementById('tvMotivo').value,
+    obs:document.getElementById('tvObs').value||null,
+    substituto_id:document.getElementById('tvSubstId').value||null,
+    substituicao_obs:document.getElementById('tvSubst').value||null,
+    status:'Confirmado'
+  });
+  await loadAll();
+  closeModal('modalTurnover');filterAlocados();showToast('Desligamento registrado');
+}
+function openEditTurnover(id){
+  const t=db.turnover.find(x=>x.id===id);if(!t)return;
+  document.getElementById('tvAlocadoId').value=t.alocadoId;
+  document.getElementById('tvAlocadoNome').value=t.alocadoNome;
+  document.getElementById('tvData').value=t.data;
+  document.getElementById('tvObs').value=t.obs||'';
+  document.getElementById('tvSubst').value=t.substituicao||'';
+  const motSel=document.getElementById('tvMotivo');
+  for(let i=0;i<motSel.options.length;i++){if(motSel.options[i].value===t.motivo||motSel.options[i].text===t.motivo){motSel.selectedIndex=i;break;}}
+  const substSel=document.getElementById('tvSubstId');
+  substSel.innerHTML='<option value="">— Sem substituto definido —</option>'+
+    db.alocados.filter(x=>x.id!==t.alocadoId).map(x=>`<option value="${x.id}"${x.id===t.substituicaoId?' selected':''}>${x.nome}</option>`).join('');
+  const footer=document.querySelector('#modalTurnover .modal-footer');
+  footer.innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('modalTurnover')">Cancelar</button>
+    <button class="btn btn-danger" onclick="cancelarDesligamento('${id}')">Cancelar Desligamento</button>
+    <button class="btn btn-accent" onclick="salvarEdicaoTurnover('${id}')">Salvar Edição</button>`;
+  openModal('modalTurnover');
+}
+async function salvarEdicaoTurnover(id){
+  const payload={
+    motivo:document.getElementById('tvMotivo').value,
+    obs:document.getElementById('tvObs').value||null,
+    substituto_id:document.getElementById('tvSubstId').value||null,
+    substituicao_obs:document.getElementById('tvSubst').value||null,
+    data_desl:document.getElementById('tvData').value
+  };
+  await supa.from('turnover').update(payload).eq('id',id);
+  await loadAll();
+  closeModal('modalTurnover');resetTurnoverFooter();
+  renderTurnover(document.getElementById('mainContent'));showToast('Turnover atualizado');
+}
+async function cancelarDesligamento(id){
+  if(!confirm('Cancelar este desligamento? O alocado voltará ao status Ativo.'))return;
+  const t=db.turnover.find(x=>x.id===id);if(!t)return;
+  await supa.from('turnover').update({status:'Cancelado'}).eq('id',id);
+  await supa.from('alocados').update({desligamento:null}).eq('id',t.alocadoId);
+  await loadAll();
+  closeModal('modalTurnover');resetTurnoverFooter();
+  renderTurnover(document.getElementById('mainContent'));showToast('Desligamento cancelado');
+}
+function resetTurnoverFooter(){
+  const footer=document.querySelector('#modalTurnover .modal-footer');
+  footer.innerHTML=`<button class="btn btn-ghost" onclick="closeModal('modalTurnover')">Cancelar</button><button class="btn btn-danger" onclick="confirmarTurnover()">Confirmar Desligamento</button>`;
+}
+
+/* ─── MODALS ACESSO ───────────────────────────────────── */
+function openModalAcessoNew(){
+  document.getElementById('accessId').value='';
+  document.getElementById('modalAcessoTitle').textContent='Novo Usuário Interno';
+  ['accessNome','accessEmail','accessTelefone','accessCargo'].forEach(f=>{document.getElementById(f).value=''});
+  document.getElementById('accessPerfil').value='editor';
+  // For internos, limit options
+  const sel=document.getElementById('accessPerfil');
+  sel.innerHTML=`<option value="editor">Interno — Edição (acesso global, edição)</option>
+    <option value="viewer">Interno — Visualização (acesso global, somente leitura)</option>`;
+  updateAccessFields();
+  openModal('modalAcesso');
+}
+function openModalAcessoClienteNew(){
+  document.getElementById('accessId').value='';
+  document.getElementById('modalAcessoTitle').textContent='Novo Acesso de Cliente';
+  ['accessNome','accessEmail','accessTelefone','accessCargo'].forEach(f=>{document.getElementById(f).value=''});
+  const sel=document.getElementById('accessPerfil');
+  sel.innerHTML=`<option value="cli-master">Cliente — Master (todos os projetos do cliente)</option>
+    <option value="cli-gestor">Cliente — Gestor (apenas seu time)</option>`;
+  document.getElementById('accessPerfil').value='cli-master';
+  updateAccessFields();
+  openModal('modalAcesso');
+}
+function openModalAcessoEdit(id){
+  const u=db.usuarios.find(x=>x.id===id);if(!u)return;
+  document.getElementById('accessId').value=id;
+  document.getElementById('modalAcessoTitle').textContent='Editar Acesso';
+  document.getElementById('accessNome').value=u.nome;
+  document.getElementById('accessEmail').value=u.email;
+  document.getElementById('accessTelefone').value=u.telefone||'';
+  document.getElementById('accessCargo').value=u.cargo||'';
+  // Detect context: if user is interno, show only internal profiles
+  const sel=document.getElementById('accessPerfil');
+  const isInternalUser=u.perfil==='editor'||u.perfil==='viewer';
+  if(isInternalUser){
+    sel.innerHTML=`<option value="editor">Interno — Edição (acesso global, edição)</option>
+      <option value="viewer">Interno — Visualização (acesso global, somente leitura)</option>`;
+  } else {
+    sel.innerHTML=`<option value="cli-master">Cliente — Master (todos os projetos do cliente)</option>
+      <option value="cli-gestor">Cliente — Gestor (apenas seu time)</option>`;
+  }
+  sel.value=u.perfil;
+  updateAccessFields();
+  setTimeout(()=>{if(u.cliente){const cl=document.getElementById('accessCliente');if(cl)cl.value=u.cliente;}},50);
+  openModal('modalAcesso');
+}
+function updateAccessFields(){
+  const perfil=document.getElementById('accessPerfil').value;
+  const isClient=perfil==='cli-master'||perfil==='cli-gestor';
+  document.getElementById('accessClienteGroup').style.display=isClient?'block':'none';
+  document.getElementById('accessProjetosGroup').style.display=perfil==='cli-gestor'?'block':'none';
+  if(isClient){
+    const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
+    document.getElementById('accessCliente').innerHTML=clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  }
+  if(perfil==='cli-gestor'){
+    document.getElementById('accessProjetosList').innerHTML=db.projetos.map(p=>`<label style="display:flex;align-items:center;gap:7px;font-size:var(--font-min);cursor:pointer"><input type="checkbox" value="${p.id}" style="accent-color:var(--brand)"><span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${p.cor}"></span>${p.nome}</span></label>`).join('');
+  }
+}
+async function salvarAcesso(){
+  const nome=document.getElementById('accessNome').value.trim();
+  const email=document.getElementById('accessEmail').value.trim();
+  if(!nome||!email){showToast('Informe nome e e-mail');return}
+  const perfil=document.getElementById('accessPerfil').value;
+  const clienteEl=document.getElementById('accessCliente');
+  const cliente=clienteEl?clienteEl.value||'':'';
+  const projSel=[...document.querySelectorAll('#accessProjetosList input:checked')].map(i=>i.value);
+  const payload={nome,email,telefone:document.getElementById('accessTelefone').value||null,cargo:document.getElementById('accessCargo').value||null,perfil,cliente:cliente||null,projetos:projSel,status:'pendente'};
+  const id=document.getElementById('accessId').value;
+  let err;
+  if(id){
+    ({error:err}=await supa.from('usuarios').update(payload).eq('id',id));
+  } else {
+    // Invita o usuário via Supabase Auth (magic link)
+    const {error:invErr}=await supa.auth.signInWithOtp({email,options:{data:{perfil,nome}}});
+    if(invErr&&!invErr.message.includes('already registered')){showToast('Erro ao enviar link: '+invErr.message);return}
+    // Upsert na tabela usuarios (será completado pelo trigger, mas garante os metadados)
+    ({error:err}=await supa.from('usuarios').upsert({...payload,id:(await supa.from('usuarios').select('id').eq('email',email).single())?.data?.id||undefined},{onConflict:'email'}));
+  }
+  if(err){showToast('Erro: '+err.message);return}
+  await loadAll();
+  closeModal('modalAcesso');
+  const mc=document.getElementById('mainContent');
+  const isCliPerfil=perfil==='cli-master'||perfil==='cli-gestor';
+  if(isCliPerfil)renderGestores(mc);else renderInternos(mc);
+  showToast(id?'Acesso atualizado!':'Link mágico enviado para '+email);
+}
+async function reenviarLink(id){
+  const u=db.usuarios.find(x=>x.id===id);
+  if(!u){showToast('Usuário não encontrado');return}
+  await supa.auth.signInWithOtp({email:u.email});
+  showToast('Link reenviado para '+u.email);
+}
+async function excluirAcesso(id,page){
+  if(!confirm('Excluir este acesso?'))return;
+  await supa.from('usuarios').delete().eq('id',id);
+  await loadAll();
+  const mc=document.getElementById('mainContent');
+  if(page==='gestores')renderGestores(mc);
+  else renderInternos(mc);
+  showToast('Acesso removido');
+}
+
+/* ─── UTILS ───────────────────────────────────────────── */
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+let tt;function showToast(m){document.getElementById('toast-msg').textContent=m;document.getElementById('toast').classList.add('show');clearTimeout(tt);tt=setTimeout(()=>document.getElementById('toast').classList.remove('show'),2800)}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();['modalAlocado','modalGestor','modalProjeto','modalTurnover','modalAcesso','modalEncerrar'].forEach(id=>{closeModal(id);if(id==='modalTurnover')resetTurnoverFooter();})}});
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
+</script>
+</body>
+</html>
