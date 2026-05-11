@@ -252,17 +252,19 @@ input[type=file]{display:none}
       <div style="font-size:10px;color:var(--text-3);letter-spacing:2px;text-transform:uppercase">Gestão de Alocados</div>
     </div>
   </div>
-  <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:3px">Defina sua senha</div>
-  <div style="font-size:var(--font-min);color:var(--text-2);margin-bottom:22px">Crie uma senha para acessar a plataforma</div>
+  <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:3px">Bem-vindo</div>
+  <div style="font-size:var(--font-min);color:var(--text-2);margin-bottom:22px">Altere a sua senha</div>
   <div class="form-group" style="margin-bottom:10px">
-    <label>Nova senha</label>
+    <label>Senha</label>
     <input class="form-control" type="password" id="newPass" placeholder="Mínimo 8 caracteres">
   </div>
   <div class="form-group" style="margin-bottom:20px">
-    <label>Confirmar senha</label>
+    <label>Confirmar Senha</label>
     <input class="form-control" type="password" id="confirmPass" placeholder="Repita a senha" onkeydown="if(event.key==='Enter')definirSenha()">
   </div>
-  <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:var(--font-min)" onclick="definirSenha()">Salvar senha e entrar</button>
+  <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:var(--font-min)" onclick="definirSenha()">Salvar Senha</button>
+  <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:14px">Não tem acesso? Solicite ao administrador.</p>
+  <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px;line-height:1.7">Use o e-mail e senha definidos no convite.</p>
 </div>
 
 <!-- TELA DE LOGIN NORMAL -->
@@ -850,21 +852,38 @@ function initApp(){
 
 /* ─── AUTO-LOGIN: verifica sessão existente ──────────── */
 (async()=>{
-  // Detecta token de redefinição/confirmação na URL
+  // Detecta token de redefinição/confirmação na URL (hash ou query string)
   const hash=window.location.hash;
+  const search=window.location.search;
+  let accessToken=null, refreshToken='', tokenType='';
+
   if(hash&&hash.includes('access_token')){
     const params=new URLSearchParams(hash.replace('#',''));
-    const accessToken=params.get('access_token');
-    const refreshToken=params.get('refresh_token')||'';
+    accessToken=params.get('access_token');
+    refreshToken=params.get('refresh_token')||'';
+    tokenType=params.get('type')||'';
+  } else if(search&&search.includes('token=')){
+    const params=new URLSearchParams(search.replace('?',''));
+    const token=params.get('token');
     const type=params.get('type');
-    if(accessToken){
-      await supa.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
-      window.history.replaceState(null,'',window.location.pathname);
-      // Mostra tela de redefinição de senha
-      document.getElementById('resetCard').style.display='block';
-      document.getElementById('loginCard').style.display='none';
-      return;
+    if(token&&type){
+      // Verifica o token OTP para obter a sessão
+      const {data:vData,error:vErr}=await supa.auth.verifyOtp({token_hash:token,type});
+      if(!vErr&&vData?.session){
+        accessToken=vData.session.access_token;
+        refreshToken=vData.session.refresh_token||'';
+        tokenType=type;
+      }
     }
+  }
+
+  if(accessToken){
+    await supa.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+    window.history.replaceState(null,'',window.location.pathname);
+    document.getElementById('loginPage').style.display='';
+    document.getElementById('resetCard').style.display='block';
+    document.getElementById('loginCard').style.display='none';
+    return;
   }
   const {data:{session}}=await supa.auth.getSession();
   if(session){
@@ -892,22 +911,22 @@ async function definirSenha(){
   try{
     const {error}=await supa.auth.updateUser({password:nova});
     if(error)throw error;
-    showToast('Senha definida com sucesso!');
+    // Atualiza status para ativo
     const {data:{session}}=await supa.auth.getSession();
     if(session){
-      const {data:u}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
-      if(u){
-        await supa.from('usuarios').update({status:'ativo'}).eq('id',session.user.id);
-        currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
-        await loadAll();
-        initApp();
-        return;
-      }
+      await supa.from('usuarios').update({status:'ativo'}).eq('id',session.user.id);
     }
+    await supa.auth.signOut();
+    showToast('Senha definida! Faça login com suas novas credenciais.');
+    // Volta para tela de login
+    document.getElementById('resetCard').style.display='none';
+    document.getElementById('loginCard').style.display='';
+    document.getElementById('newPass').value='';
+    document.getElementById('confirmPass').value='';
   }catch(e){
     showToast('Erro: '+e.message);
   }finally{
-    btn.textContent='Salvar senha e entrar';btn.disabled=false;
+    btn.textContent='Salvar Senha';btn.disabled=false;
   }
 }
 
