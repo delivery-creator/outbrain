@@ -2139,11 +2139,20 @@ async function salvarAcesso(){
   if(id){
     ({error:err}=await supa.from('usuarios').update(payload).eq('id',id));
   } else {
-    // Invita o usuário via Supabase Auth (magic link)
     const {error:invErr}=await supa.auth.signInWithOtp({email,options:{data:{perfil,nome}}});
     if(invErr&&!invErr.message.includes('already registered')){showToast('Erro ao enviar link: '+invErr.message);return}
-    // Upsert na tabela usuarios (será completado pelo trigger, mas garante os metadados)
-    ({error:err}=await supa.from('usuarios').upsert({...payload,id:(await supa.from('usuarios').select('id').eq('email',email).single())?.data?.id||undefined},{onConflict:'email'}));
+    // Verifica se já existe na tabela usuarios
+    const {data:existUser}=await supa.from('usuarios').select('id').eq('email',email).maybeSingle();
+    if(existUser){
+      ({error:err}=await supa.from('usuarios').update(payload).eq('id',existUser.id));
+    } else {
+      // Busca o id do auth.users recém criado
+      await new Promise(r=>setTimeout(r,1500));
+      const {data:authUser}=await supa.from('usuarios').select('id').eq('email',email).maybeSingle();
+      if(authUser){
+        ({error:err}=await supa.from('usuarios').update(payload).eq('id',authUser.id));
+      }
+    }
   }
   if(err){showToast('Erro: '+err.message);return}
   await loadAll();
