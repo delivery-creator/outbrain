@@ -2158,19 +2158,25 @@ async function salvarAcesso(){
   if(id){
     ({error:err}=await supa.from('usuarios').update(payload).eq('id',id));
   } else {
-    const {error:invErr}=await supa.auth.signInWithOtp({email,options:{data:{perfil,nome}}});
-    if(invErr&&!invErr.message.includes('already registered')){showToast('Erro ao enviar link: '+invErr.message);return}
-    // Verifica se já existe na tabela usuarios
-    const {data:existUser}=await supa.from('usuarios').select('id').eq('email',email).maybeSingle();
-    if(existUser){
-      ({error:err}=await supa.from('usuarios').update(payload).eq('id',existUser.id));
-    } else {
-      // Busca o id do auth.users recém criado
-      await new Promise(r=>setTimeout(r,1500));
-      const {data:authUser}=await supa.from('usuarios').select('id').eq('email',email).maybeSingle();
-      if(authUser){
-        ({error:err}=await supa.from('usuarios').update(payload).eq('id',authUser.id));
+    // Usa Edge Function para convidar via Admin API (sem rate limit do OTP)
+    try {
+      const invRes = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'
+        },
+        body: JSON.stringify({email, nome, perfil})
+      });
+      const invData = await invRes.json();
+      if(!invData.ok) throw new Error(invData.error||'Erro ao enviar convite');
+      // Upsert na tabela usuarios
+      const {data:existUser} = await supa.from('usuarios').select('id').eq('email',email).maybeSingle();
+      if(existUser){
+        ({error:err}=await supa.from('usuarios').update(payload).eq('id',existUser.id));
       }
+    } catch(e) {
+      showToast('Erro: '+e.message); return;
     }
   }
   if(err){showToast('Erro: '+err.message);return}
