@@ -1666,6 +1666,15 @@ async function reenviarLinkGestor(id){
 }
 async function excluirGestor(id){
   if(!confirm('Excluir este gestor? Alocados vinculados perderão o vínculo.'))return;
+  const g=db.gestores.find(x=>x.id===id);
+  // Deleta do Auth via Edge Function
+  if(g){
+    await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
+      body:JSON.stringify({action:'delete',email:g.email})
+    });
+  }
   const {error}=await supa.from('gestores').delete().eq('id',id);
   if(error){showToast('Erro: '+error.message);return}
   await loadAll();
@@ -1852,9 +1861,12 @@ async function salvarGestor(){
     ({error:err}=await supa.from('gestores').update(payload).eq('id',id));
   } else {
     ({error:err}=await supa.from('gestores').insert(payload));
-    // Enviar link mágico
     if(!err){
-      await supa.auth.admin?.inviteUserByEmail(email,{data:{perfil:'cli-gestor',nome}}).catch(()=>{});
+      await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
+        body:JSON.stringify({action:'invite',email,nome,perfil:'cli-gestor'})
+      });
     }
   }
   if(err){showToast('Erro: '+err.message);return}
