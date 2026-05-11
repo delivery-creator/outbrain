@@ -240,7 +240,7 @@ input[type=file]{display:none}
 </div>
 
 <!-- LOGIN -->
-<div id="loginPage">
+<div id="loginPage" style="display:none">
 <div class="login-page">
 
 <!-- TELA DE REDEFINIÇÃO DE SENHA -->
@@ -821,9 +821,12 @@ async function logout(){
   await supa.auth.signOut();
   document.getElementById('loginPage').style.display='';
   document.getElementById('appShell').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('active-session');
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
   db={projetos:[],alocados:[],gestores:[],turnover:[],usuarios:[],contatos:[]};
+  currentUser={email:'',role:'',name:'',cliente:''};
+  window.location.hash='';
 }
 
 function initApp(){
@@ -872,7 +875,10 @@ function initApp(){
       initApp();
     } else {
       await supa.auth.signOut();
+      document.getElementById('loginPage').style.display='';
     }
+  } else {
+    document.getElementById('loginPage').style.display='';
   }
 })();
 
