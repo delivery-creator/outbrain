@@ -2194,7 +2194,14 @@ async function reenviarLink(id){
   showToast('Link reenviado para '+u.email);
 }
 async function excluirAcesso(id,page){
-  if(!confirm('Excluir este acesso?'))return;
+  if(!confirm('Excluir este acesso? O usuário perderá o acesso imediatamente.'))return;
+  // Deleta do Auth via Edge Function
+  await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
+    body:JSON.stringify({action:'delete',user_id:id})
+  });
+  // Deleta de public.usuarios
   await supa.from('usuarios').delete().eq('id',id);
   await loadAll();
   const mc=document.getElementById('mainContent');
