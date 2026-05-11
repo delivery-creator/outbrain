@@ -1592,7 +1592,7 @@ function filterInternos(){
   </tr>`).join('');
 }
 /* ─── GESTORES page (includes client users) ───────────── */
-function openDetailById(id){
+async function openDetailById(id){
   const a=db.alocados.find(x=>x.id===id);if(!a)return;
   const g=db.gestores.find(x=>x.id===a.gestorId);const pr=db.projetos.find(x=>x.id===a.projetoId);
   const av=document.getElementById('detailAvatar');av.innerHTML=a.photo?`<img src="${a.photo}">`:(getI(a.nome));
@@ -1601,6 +1601,17 @@ function openDetailById(id){
   const isE=isEditor();
   const hSal=(a.salarioHist||[]).slice().reverse().slice(0,4);
   const hVH=(a.valorHoraHist||[]).slice().reverse().slice(0,4);
+
+  // Busca histórico de realocação
+  const {data:histReloc}=await supa.from('historico_realocacao').select(`
+    *,
+    projeto_ant:projetos!projeto_id_ant(nome,cliente),
+    projeto_novo:projetos!projeto_id_novo(nome,cliente)
+  `).eq('alocado_id',id).order('data_alt',{ascending:false});
+
+  // Busca substituições (turnover onde ele é o substituto)
+  const {data:substDe}=await supa.from('turnover').select('*').eq('substituto_id',id).eq('status','Confirmado');
+
   document.getElementById('detailBody').innerHTML=`
     <div class="d-section">
       <div class="d-section-title">Status & Período</div>
@@ -1625,8 +1636,26 @@ function openDetailById(id){
       <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
       ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hVH.map(h=>`${fDate(h.data)}: ${fBRL(h.val)}`).join(' → ')}</div>`:''}
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
-    </div>
-    <div style="display:flex;gap:7px;margin-top:4px">
+    </div>`:''}
+    ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
+    <div class="d-section">
+      <div class="d-section-title">Histórico de Movimentação</div>
+      ${(substDe||[]).map(t=>`
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:700;color:var(--blue)">↩ Substituição</div>
+          <div style="font-size:13px;color:var(--text);margin-top:2px">Substituiu <strong>${t.alocado_nome}</strong></div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fDate(t.data_desl)}</div>
+        </div>`).join('')}
+      ${(histReloc||[]).filter(h=>!h.motivo?.startsWith('Substituição')).map(h=>`
+        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:700;color:var(--amber)">⇄ Realocação</div>
+          <div style="font-size:13px;color:var(--text);margin-top:2px">
+            ${h.projeto_ant?.nome||'—'} → ${h.projeto_novo?.nome||'—'}
+          </div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fDate(h.data_alt)}</div>
+        </div>`).join('')}
+    </div>`:''}
+    ${isE?`<div style="display:flex;gap:7px;margin-top:4px">
       <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openModalAlocado('${a.id}')">Editar</button>
       ${a.status==='Ativo'?`<button class="btn btn-danger btn-sm" style="flex:1;justify-content:center" onclick="openTurnover('${a.id}');closeDetail()">Desligar</button>`:''}
     </div>`:''}`;
