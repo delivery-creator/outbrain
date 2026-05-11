@@ -827,6 +827,8 @@ async function logout(){
 }
 
 function initApp(){
+  if(document.getElementById('appShell').classList.contains('active-session')){return}
+  document.getElementById('appShell').classList.add('active-session');
   document.getElementById('loginPage').style.display='none';
   document.getElementById('appShell').classList.remove('hidden');
   document.getElementById('sidebarAvatar').textContent=getI(currentUser.name);
@@ -837,7 +839,10 @@ function initApp(){
   rb.textContent=roleLabels[currentUser.role]||currentUser.role;
   rb.className='role-badge '+(roleClasses[currentUser.role]||'role-viewer');
   buildNav();
-  showPage('dashboard');
+  const validPages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
+  const hashPage=window.location.hash.replace('#','');
+  const startPage=validPages.includes(hashPage)?hashPage:'dashboard';
+  showPage(startPage);
 }
 
 /* ─── AUTO-LOGIN: verifica sessão existente ──────────── */
@@ -970,6 +975,8 @@ function buildNav(){
 
 /* ─── PAGE ROUTER ─────────────────────────────────────── */
 function showPage(p){
+  // Salva página atual na URL
+  window.location.hash = p;
   const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
   pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
   document.getElementById('nav-'+p)?.classList.add('active');
