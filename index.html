@@ -1599,8 +1599,10 @@ async function openDetailById(id){
   document.getElementById('detailName').textContent=a.nome;
   document.getElementById('detailRole').textContent=a.cargo+((a.stack||[]).length?' · '+a.stack.slice(0,3).join(', '):'');
   const isE=isEditor();
-  const hSal=(a.salarioHist||[]).slice().reverse().slice(0,4);
-  const hVH=(a.valorHoraHist||[]).slice().reverse().slice(0,4);
+  // Busca histórico financeiro do banco
+  const {data:histFin}=await supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt',{ascending:false});
+  const hSal=(histFin||[]).filter(h=>h.tipo==='salario').slice(0,4);
+  const hVH=(histFin||[]).filter(h=>h.tipo==='valor_hora').slice(0,4);
 
   // Busca histórico de realocação
   const {data:histReloc}=await supa.from('historico_realocacao').select(`
@@ -1632,9 +1634,9 @@ async function openDetailById(id){
     ${isE?`<div class="d-section">
       <div class="d-section-title">Financeiro</div>
       <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
-      ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSal.map(h=>`${fDate(h.data)}: ${fBRL(h.val)}`).join(' → ')}</div>`:''}
+      ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSal.map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
       <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
-      ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hVH.map(h=>`${fDate(h.data)}: ${fBRL(h.val)}`).join(' → ')}</div>`:''}
+      ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hVH.map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
     </div>`:''}
     ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
@@ -1824,8 +1826,8 @@ async function salvarAlocado(){
   const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
   if(!cargo){showToast('Selecione o cargo');return}
-  const ns=parseFloat(document.getElementById('alocadoSalario').value)||0;
-  const nvh=parseFloat(document.getElementById('alocadoVH').value)||0;
+  const ns=parseFloat(String(document.getElementById('alocadoSalario').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
+  const nvh=parseFloat(String(document.getElementById('alocadoVH').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
   const adm=document.getElementById('alocadoAdm').value;
   const desl=document.getElementById('alocadoDesl').value||null;
   const payload={
