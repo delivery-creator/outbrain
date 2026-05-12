@@ -1897,11 +1897,17 @@ function openGestorDetail(id){
 function closeDetail(){document.getElementById('detailPanel').classList.remove('open')}
 
 /* ─── FORM HELPERS ────────────────────────────────────── */
-async function reenviarLinkGestor(id){
-  const g=db.gestores.find(x=>x.id===id);
-  if(!g){showToast('Gestor não encontrado');return}
-  await supa.auth.signInWithOtp({email:g.email});
-  showToast('Link mágico reenviado para '+g.email);
+async function reenviarLinkGestor(id) {
+  const g = db.gestores.find(x => x.id === id);
+  if (!g) { showToast('Gestor não encontrado'); return }
+  const res = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb' },
+    body: JSON.stringify({ action: 'invite', email: g.email, nome: g.nome, perfil: g.tipo })
+  });
+  const data = await res.json();
+  if (!data.ok) { showToast('Erro: ' + data.error); return }
+  showToast('Link reenviado para ' + g.email);
 }
 async function excluirGestor(id){
   if(!confirm('Excluir este gestor? Alocados vinculados perderão o vínculo.'))return;
@@ -2392,11 +2398,17 @@ async function salvarAcesso(){
   if(isCliPerfil)renderGestores(mc);else renderInternos(mc);
   showToast(id?'Acesso atualizado!':'Link mágico enviado para '+email);
 }
-async function reenviarLink(id){
-  const u=db.usuarios.find(x=>x.id===id);
-  if(!u){showToast('Usuário não encontrado');return}
-  await supa.auth.signInWithOtp({email:u.email});
-  showToast('Link reenviado para '+u.email);
+async function reenviarLink(id) {
+  const u = db.usuarios.find(x => x.id === id);
+  if (!u) { showToast('Usuário não encontrado'); return }
+  const res = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb' },
+    body: JSON.stringify({ action: 'invite', email: u.email, nome: u.nome, perfil: u.perfil })
+  });
+  const data = await res.json();
+  if (!data.ok) { showToast('Erro: ' + data.error); return }
+  showToast('Link reenviado para ' + u.email);
 }
 async function excluirAcesso(id,page){
   if(!confirm('Excluir este acesso? O usuário perderá o acesso imediatamente.'))return;
