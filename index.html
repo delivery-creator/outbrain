@@ -80,6 +80,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--surface-2);color:var(--te
 .delta-amber{background:var(--amber-soft);color:var(--amber)}
 .delta-blue{background:var(--blue-soft);color:var(--blue)}
 .delta-gray{background:var(--surface-3);color:var(--text-2)}
+.delta-red{background:var(--red-soft);color:var(--red)}
 
 /* CHART CARDS */
 .chart-card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:16px}
@@ -230,6 +231,17 @@ input[type=file]{display:none}
 
 /* INFO BOX */
 .info-box{background:var(--blue-soft);border:1px solid rgba(43,108,176,0.18);border-radius:var(--radius);padding:10px 14px;font-size:var(--font-min);color:var(--blue);margin-bottom:16px}
+
+/* TURNOVER METRICS CARDS */
+.tv-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.tv-metric-card{background:var(--surface);border-radius:var(--radius-lg);padding:18px;border:1px solid var(--border);position:relative;overflow:hidden}
+.tv-metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.tv-metric-card.card-taxa::before{background:var(--accent)}
+.tv-metric-card.card-evitados::before{background:var(--blue)}
+.tv-metric-card.card-saving::before{background:var(--green)}
+.tv-metric-label{font-size:12px;font-weight:700;color:var(--text-3);letter-spacing:0.3px;margin-bottom:8px}
+.tv-metric-value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1;margin-bottom:4px}
+.tv-metric-sub{font-size:12px;color:var(--text-3)}
 </style>
 </head>
 <body>
@@ -289,9 +301,9 @@ input[type=file]{display:none}
   <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:var(--font-min)" onclick="doLogin()">Entrar</button>
   <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:14px">Não tem acesso? Solicite ao administrador.</p>
   <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px;line-height:1.7">Use o e-mail e senha definidos no convite.</p>
-</div><!-- fim loginCard -->
-</div><!-- fim login-page -->
-</div><!-- fim loginPage -->
+</div>
+</div>
+</div>
 
 <!-- APP -->
 <div id="appShell" class="hidden">
@@ -569,10 +581,15 @@ input[type=file]{display:none}
         <select class="form-control" id="tvMotivo"><option>Pedido de demissão</option><option>Demissão sem justa causa</option><option>Demissão por justa causa</option><option>Término de contrato</option><option>Acordo mútuo</option><option>Outro</option></select>
       </div>
       <div class="form-group full"><label>Observações</label><textarea class="form-control" id="tvObs" placeholder="Detalhes..."></textarea></div>
-      <div class="form-group full"><label>Substituto</label>
-        <select class="form-control" id="tvSubstId"><option value="">— Sem substituto definido —</option></select>
+      <div class="form-group full">
+        <label>Substituto</label>
+        <select class="form-control" id="tvSubstId">
+          <!-- ✅ MODIFICADO: opção padrão renomeada + nova opção "Em processo seletivo" -->
+          <option value="">Sem substituição</option>
+          <option value="__em_processo__">Em processo seletivo</option>
+        </select>
       </div>
-      <div class="form-group full"><label>Obs. Substituição</label><input class="form-control" type="text" id="tvSubst" placeholder="Ex: Em processo seletivo"></div>
+      <div class="form-group full"><label>Obs. Substituição</label><input class="form-control" type="text" id="tvSubst" placeholder="Ex: Previsão de entrada em 30 dias"></div>
     </div>
   </div>
   <div class="modal-footer">
@@ -681,12 +698,12 @@ const SUPA_URL = 'https://krguuguykcomwzolouwa.supabase.co';
 const SUPA_KEY = 'sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-/* ─── DB (cache local — preenchido via Supabase) ──────── */
+/* ─── DB ──────────────────────────────────────────────── */
 let db = { projetos:[], alocados:[], gestores:[], turnover:[], usuarios:[], contatos:[] };
 let currentUser = {email:'',role:'',name:'',cliente:''};
 let chartInstances = {};
 
-/* ─── STATUS (calculado no front, não no banco) ──────── */
+/* ─── STATUS ──────────────────────────────────────────── */
 function calcStatus(adm, desl) {
   if (!adm) return {status:'—',badge:'b-gray'};
   const a = new Date(adm); a.setHours(0,0,0,0);
@@ -713,7 +730,45 @@ function recalcAll() {
   });
 }
 
-/* ─── MAPPERS: Supabase → formato local ──────────────── */
+/* ─── HELPER: verifica se turnover tem substituição ──── */
+// Retorna true se o registro tem substituto concreto OU está em processo seletivo
+function tvTemSubstituicao(t) {
+  return (t.substituicaoId && t.substituicaoId !== '') || t.substituicao === '__em_processo__' || t.substituicao === 'Em processo seletivo';
+}
+
+/* ─── HELPER: calcula métricas de turnover por ano ───── */
+function calcTurnoverMetrics(ano, filtroProjetoIds) {
+  const tvAno = db.turnover.filter(t => {
+    if (t.status === 'Cancelado') return false;
+    if (!t.data) return false;
+    if (new Date(t.data).getFullYear() !== ano) return false;
+    if (filtroProjetoIds && filtroProjetoIds.length > 0) {
+      const alocado = db.alocados.find(a => a.id === t.alocadoId);
+      if (!alocado || !filtroProjetoIds.includes(alocado.projetoId)) return false;
+    }
+    return true;
+  });
+
+  const totalDeslig = tvAno.length;
+  const comSubst = tvAno.filter(t => tvTemSubstituicao(t)).length;
+  const semSubst = totalDeslig - comSubst; // vagas perdidas
+
+  const ativos = db.alocados.filter(a => a.status === 'Ativo').length;
+  const taxaBruta = ativos > 0 ? Math.round((totalDeslig / ativos) * 100) : 0;
+  const taxaLiquida = ativos > 0 ? Math.round((semSubst / ativos) * 100) : 0;
+
+  // Saving: soma valor_hora × 168 dos alocados desligados com substituição
+  const saving = tvAno
+    .filter(t => tvTemSubstituicao(t))
+    .reduce((s, t) => {
+      const alocado = db.alocados.find(a => a.id === t.alocadoId);
+      return s + ((alocado?.valorHora || 0) * 168);
+    }, 0);
+
+  return { totalDeslig, comSubst, semSubst, taxaBruta, taxaLiquida, saving, ativos };
+}
+
+/* ─── MAPPERS ─────────────────────────────────────────── */
 function mapProjeto(r){
   return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#00E5A0',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||''};
 }
@@ -733,7 +788,7 @@ function mapContato(r){
   return {id:r.id,tipo:r.tipo,nome:r.nome,telefone:r.telefone||'',email:r.email||'',photo:r.photo_url||''};
 }
 
-/* ─── LOAD: carrega todos os dados do Supabase ──────── */
+/* ─── LOAD ────────────────────────────────────────────── */
 async function loadAll(){
   showLoading(true);
   try {
@@ -756,7 +811,6 @@ async function loadAll(){
     db.usuarios  = (uRes.data||[]).map(mapUsuario);
     db.contatos  = (cRes.data||[]).map(mapContato);
 
-    // Carregar histórico financeiro
     const hRes = await supa.from('historico_financeiro').select('*').order('data_alt');
     if(!hRes.error && hRes.data){
       hRes.data.forEach(h=>{
@@ -796,19 +850,13 @@ async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
   if(!email||!pass){showToast('Preencha e-mail e senha');return}
-
   const loginBtn=document.querySelector('#loginPage .btn-accent');
   if(loginBtn){loginBtn.textContent='Entrando...';loginBtn.disabled=true;}
-
   try {
     const {data,error}=await supa.auth.signInWithPassword({email,password:pass});
     if(error) throw error;
-
-    // Busca perfil do usuário
     const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',data.user.id).single();
-    console.log('PERFIL RETORNADO:', u, 'ERRO:', ue);
     if(ue) throw ue;
-
     currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
     await loadAll();
     initApp();
@@ -850,13 +898,11 @@ function initApp(){
   showPage(startPage);
 }
 
-/* ─── AUTO-LOGIN: verifica sessão existente ──────────── */
+/* ─── AUTO-LOGIN ──────────────────────────────────────── */
 (async()=>{
-  // Detecta token de redefinição/confirmação na URL (hash ou query string)
   const hash=window.location.hash;
   const search=window.location.search;
   let accessToken=null, refreshToken='', tokenType='';
-
   if(hash&&hash.includes('access_token')){
     const params=new URLSearchParams(hash.replace('#',''));
     accessToken=params.get('access_token');
@@ -867,7 +913,6 @@ function initApp(){
     const token=params.get('token');
     const type=params.get('type');
     if(token&&type){
-      // Verifica o token OTP para obter a sessão
       const {data:vData,error:vErr}=await supa.auth.verifyOtp({token_hash:token,type});
       if(!vErr&&vData?.session){
         accessToken=vData.session.access_token;
@@ -876,7 +921,6 @@ function initApp(){
       }
     }
   }
-
   if(accessToken){
     await supa.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
     window.history.replaceState(null,'',window.location.pathname);
@@ -911,14 +955,12 @@ async function definirSenha(){
   try{
     const {error}=await supa.auth.updateUser({password:nova});
     if(error)throw error;
-    // Atualiza status para ativo
     const {data:{session}}=await supa.auth.getSession();
     if(session){
       await supa.from('usuarios').update({status:'ativo'}).eq('id',session.user.id);
     }
     await supa.auth.signOut();
     showToast('Senha definida! Faça login com suas novas credenciais.');
-    // Volta para tela de login
     document.getElementById('resetCard').style.display='none';
     document.getElementById('loginCard').style.display='';
     document.getElementById('newPass').value='';
@@ -1000,7 +1042,6 @@ function buildNav(){
 
 /* ─── PAGE ROUTER ─────────────────────────────────────── */
 function showPage(p){
-  // Salva página atual na URL
   window.location.hash = p;
   const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
   pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
@@ -1025,7 +1066,6 @@ function showPage(p){
 /* ─── DASHBOARD ───────────────────────────────────────── */
 function renderDashboard(mc){
   if(isCliMaster()){renderDashboardMaster(mc);return;}
-  // INTERNO: filtros de cliente e projeto no topo
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   mc.innerHTML=`
   <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
@@ -1047,6 +1087,7 @@ function renderDashboard(mc){
   <div id="dashContent"></div>`;
   renderDashboardContent();
 }
+
 function dashFilterChange(){
   const cli=document.getElementById('dashFilCliente')?.value||'';
   const proj=document.getElementById('dashFilProjeto')?.value||'';
@@ -1058,6 +1099,7 @@ function dashFilterChange(){
   }
   renderDashboardContent();
 }
+
 function renderDashboardContent(){
   const cli=document.getElementById('dashFilCliente')?.value||'';
   const proj=document.getElementById('dashFilProjeto')?.value||'';
@@ -1066,23 +1108,69 @@ function renderDashboardContent(){
     if(cli){const p=db.projetos.find(x=>x.id===a.projetoId);return p&&p.cliente===cli;}
     return true;
   });
+
   const ativos=visAlocados.filter(a=>a.status==='Ativo');
   const fatEst=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
   const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
   const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+(a.valorHora),0)/ativos.length):0;
   const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
   const projAtivos=[...new Set(ativos.map(a=>a.projetoId))].length;
+
   const meses=[];const now=new Date(TODAY);
   for(let i=5;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),date:d})}
-  const atPorMes=meses.map(m=>visAlocados.filter(a=>{if(!a.admissao)return false;const adm=new Date(a.admissao);const desl=a.desligamento?new Date(a.desligamento):null;const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);return adm<mEnd&&(!desl||desl>=m.date);}).length);
-  const fatPorMes=meses.map(m=>Math.round(visAlocados.filter(a=>{if(!a.admissao)return false;const adm=new Date(a.admissao);const desl=a.desligamento?new Date(a.desligamento):null;const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);return adm<mEnd&&(!desl||desl>=m.date)&&a.status!=='Em Admissão';}).reduce((s,a)=>s+(a.valorHora*168),0)/1000));
-  const desPorMes=meses.map(m=>db.turnover.filter(t=>{if(!t.data)return false;const d=new Date(t.data);return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear();}).length);
-  const txTurnover=meses.map((m,i)=>atPorMes[i]>0?Math.round((desPorMes[i]/atPorMes[i])*100):0);
+
+  const atPorMes=meses.map(m=>visAlocados.filter(a=>{
+    if(!a.admissao)return false;
+    const adm=new Date(a.admissao);
+    const desl=a.desligamento?new Date(a.desligamento):null;
+    const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);
+    return adm<mEnd&&(!desl||desl>=m.date);
+  }).length);
+
+  const fatPorMes=meses.map(m=>Math.round(visAlocados.filter(a=>{
+    if(!a.admissao)return false;
+    const adm=new Date(a.admissao);
+    const desl=a.desligamento?new Date(a.desligamento):null;
+    const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);
+    return adm<mEnd&&(!desl||desl>=m.date)&&a.status!=='Em Admissão';
+  }).reduce((s,a)=>s+(a.valorHora*168),0)/1000));
+
   const desligPrevistos=visAlocados.filter(a=>a.status==='Desligamento Prev.'||(a.status==='Inativo'&&a.desligamento&&new Date(a.desligamento)>TODAY));
   const fatDeslig=desligPrevistos.reduce((s,a)=>s+(a.valorHora*168),0);
   const admissaoList=visAlocados.filter(a=>a.status==='Em Admissão');
   const fatAdm=admissaoList.reduce((s,a)=>s+(a.valorHora*168),0);
   const emAdm=admissaoList.length;
+
+  // ✅ NOVO: métricas de turnover para o gráfico (com filtro de projeto se aplicável)
+  const filtroProjetoIds = proj ? [proj] : (cli ? db.projetos.filter(p=>p.cliente===cli).map(p=>p.id) : null);
+
+  const desPorMesSemSubst = meses.map(m => {
+    return db.turnover.filter(t => {
+      if(t.status==='Cancelado') return false;
+      if(!t.data) return false;
+      const d=new Date(t.data);
+      return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear()
+        && !tvTemSubstituicao(t)
+        && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
+    }).length;
+  });
+
+  const desPorMesComSubst = meses.map(m => {
+    return db.turnover.filter(t => {
+      if(t.status==='Cancelado') return false;
+      if(!t.data) return false;
+      const d=new Date(t.data);
+      return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear()
+        && tvTemSubstituicao(t)
+        && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
+    }).length;
+  });
+
+  // Taxa líquida: apenas desligamentos sem substituição / ativos no mês
+  const txLiquidaPorMes = meses.map((m,i) =>
+    atPorMes[i]>0 ? Math.round((desPorMesSemSubst[i]/atPorMes[i])*100) : 0
+  );
+
   const el=document.getElementById('dashContent');if(!el)return;
   el.innerHTML=`
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -1124,17 +1212,78 @@ function renderDashboardContent(){
     <div class="chart-card"><div class="chart-title">Faturamento Mensal<span>últimos 6 meses (R$ mil)</span></div><div style="position:relative;height:200px"><canvas id="chartFat"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Ativos por Mês<span>quantidade</span></div><div style="position:relative;height:200px"><canvas id="chartAtv"></canvas></div></div>
   </div>
-  <div class="chart-card" style="margin-bottom:12px"><div class="chart-title">Turnover Mensal<span>desligamentos + taxa %</span></div><div style="position:relative;height:180px"><canvas id="chartTV"></canvas></div></div>
+  <div class="chart-card" style="margin-bottom:12px">
+    <div class="chart-title">Turnover Mensal
+      <span>últimos 6 meses</span>
+      <span style="margin-left:12px;display:inline-flex;align-items:center;gap:10px;font-size:11px">
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(197,48,48,0.7);display:inline-block"></span>Vaga perdida</span>
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(139,139,139,0.4);display:inline-block"></span>Com substituição</span>
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#C53030;display:inline-block;border-radius:2px"></span>Taxa líquida %</span>
+      </span>
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartTV"></canvas></div>
+  </div>
   `;
+
   const labels=meses.map(m=>m.label);
   const cg={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}}}}};
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};
+
   chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'line',data:{labels,datasets:[{data:fatPorMes,borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#00E5A0',pointRadius:4}]},options:cg});
   chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(43,108,176,0.15)',borderColor:'#2B6CB0',borderWidth:2,borderRadius:5}]},options:cg});
-  chartInstances.tv=new Chart(document.getElementById('chartTV'),{type:'bar',data:{labels,datasets:[{label:'Desligamentos',data:desPorMes,backgroundColor:'rgba(197,48,48,0.15)',borderColor:'#C53030',borderWidth:2,borderRadius:4,yAxisID:'y'},{label:'Taxa (%)',data:txTurnover,type:'line',borderColor:'#B7791F',backgroundColor:'transparent',tension:0.4,pointBackgroundColor:'#B7791F',pointRadius:4,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{font:{size:12}}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{position:'left',grid:{color:'rgba(15,25,35,0.05)'},title:{display:true,text:'Desligamentos',font:{size:11}},ticks:{font:{size:11},stepSize:1}},y2:{position:'right',grid:{display:false},title:{display:true,text:'Taxa (%)',font:{size:11}},ticks:{font:{size:11},callback:v=>v+'%'}}}}});
+
+  // ✅ NOVO gráfico de turnover: barras empilhadas + linha taxa líquida
+  chartInstances.tv=new Chart(document.getElementById('chartTV'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Vaga perdida',
+          data:desPorMesSemSubst,
+          backgroundColor:'rgba(197,48,48,0.7)',
+          borderColor:'#C53030',
+          borderWidth:1,
+          borderRadius:3,
+          stack:'deslig'
+        },
+        {
+          label:'Com substituição',
+          data:desPorMesComSubst,
+          backgroundColor:'rgba(139,139,139,0.3)',
+          borderColor:'rgba(139,139,139,0.5)',
+          borderWidth:1,
+          borderRadius:3,
+          stack:'deslig'
+        },
+        {
+          label:'Taxa líquida (%)',
+          data:txLiquidaPorMes,
+          type:'line',
+          borderColor:'#C53030',
+          backgroundColor:'transparent',
+          tension:0.4,
+          pointBackgroundColor:'#C53030',
+          pointRadius:4,
+          borderWidth:2,
+          yAxisID:'y2'
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:12}}},
+        y:{position:'left',grid:{color:'rgba(15,25,35,0.05)'},title:{display:true,text:'Desligamentos',font:{size:11}},ticks:{font:{size:11},stepSize:1},stacked:true},
+        y2:{position:'right',grid:{display:false},title:{display:true,text:'Taxa líquida (%)',font:{size:11}},ticks:{font:{size:11},callback:v=>v+'%'}}
+      }
+    }
+  });
 }
 
-/* ─── DASHBOARD MASTER (cli-master) ───────────────────── */
+/* ─── DASHBOARD MASTER ────────────────────────────────── */
 function renderDashboardMaster(mc){
   const cl=currentUser.cliente;
   const projsCli=db.projetos.filter(p=>p.cliente===cl);
@@ -1152,6 +1301,7 @@ function renderDashboardMaster(mc){
   <div id="masterDashContent"></div>`;
   renderDashboardMasterContent();
 }
+
 function renderDashboardMasterContent(){
   const cl=currentUser.cliente;
   const filtP=document.getElementById('masterFilProjeto')?.value||'';
@@ -1237,6 +1387,7 @@ function renderAlocados(mc){
   </div>`;
   filterAlocados();
 }
+
 function toggleStackDropdown(e){
   e.stopPropagation();
   const d=document.getElementById('stackDropdown');
@@ -1307,7 +1458,7 @@ function filterAlocados(){
   }).join('');
 }
 
-/* ─── CLIENTES (ex-Projetos) ──────────────────────────── */
+/* ─── CLIENTES ────────────────────────────────────────── */
 function renderClientes(mc){
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   mc.innerHTML=`
@@ -1332,12 +1483,10 @@ function renderClientes(mc){
 function filterProjetos(){
   const q=(document.getElementById('srProjeto')?.value||'').toLowerCase();
   const fs=document.getElementById('filProjStatus')?.value||'';
-  // Group by cliente
   const allProjetos=db.projetos.filter(p=>
     (!q||(p.cliente.toLowerCase().includes(q)||p.nome.toLowerCase().includes(q)))&&
     (!fs||p.status===fs)
   );
-  // Get unique clientes from filtered projetos
   const clientesMap={};
   allProjetos.forEach(p=>{
     if(!clientesMap[p.cliente])clientesMap[p.cliente]={projetos:[],cor:p.cor};
@@ -1354,16 +1503,13 @@ function filterProjetos(){
     const mVH=pal.length?Math.round(pal.reduce((s,a)=>s+a.valorHora,0)/pal.length):0;
     const statusList=[...new Set(projs.map(p=>p.status))];
     const contratoList=[...new Set(projs.map(p=>p.contrato))];
-    const stClass=statusList.includes('Ativo')?'b-green':statusList.includes('Suspenso')?'b-amber':'b-red';
     const cor=projs[0]?.cor||'#ccc';
     return`<tr onclick="showClienteDetail('${cli}')">
       <td><div style="display:flex;align-items:center;gap:8px">
         <span style="width:10px;height:10px;border-radius:50%;background:${cor};flex-shrink:0"></span>
         <span style="font-weight:600">${cli}</span>
       </div></td>
-      <td>
-        <span class="badge b-gray">${projs.length} projeto${projs.length>1?'s':''}</span>
-      </td>
+      <td><span class="badge b-gray">${projs.length} projeto${projs.length>1?'s':''}</span></td>
       <td><span class="badge b-blue">${pal.length} alocados</span></td>
       <td style="font-weight:600;color:var(--brand)">${fBRL(fat)}</td>
       <td>${mSal?fBRL(mSal):'—'}</td>
@@ -1388,10 +1534,7 @@ function showClienteDetail(cli){
     <div class="d-section">
       <div class="d-section-title">Projetos (${projs.length})</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;padding:6px 0">
-        ${projs.map(p=>{
-          const stClass={'Ativo':'b-green','Encerrado':'b-red','Suspenso':'b-amber'}[p.status]||'b-gray';
-          return`<span class="badge ${stClass}">${p.nome}</span>`;
-        }).join('')}
+        ${projs.map(p=>{const stClass={'Ativo':'b-green','Encerrado':'b-red','Suspenso':'b-amber'}[p.status]||'b-gray';return`<span class="badge ${stClass}">${p.nome}</span>`;}).join('')}
       </div>
     </div>
     <div class="d-section">
@@ -1409,8 +1552,6 @@ function showClienteDetail(cli){
     </div>`:''}`;
   document.getElementById('detailPanel').classList.add('open');
 }
-function showProjetoDetail(id){showClienteDetail(db.projetos.find(x=>x.id===id)?.cliente||'')}
-
 
 /* ─── GESTORES ────────────────────────────────────────── */
 function renderGestores(mc){
@@ -1454,10 +1595,10 @@ function filterGestores(){
   }).join('');
 }
 
-/* ─── MEU TIME (cli-gestor only) ─────────────────────── */
+/* ─── MEU TIME ────────────────────────────────────────── */
 function renderMeuTime(mc){
   const g=db.gestores.find(x=>x.email===currentUser.email);
-  if(!g){mc.innerHTML=`<div class="table-card"><div class="empty-state"><div class="empty-text">Nenhum time vinculado</div><div class="empty-sub">Seu e-mail não está associado a nenhum gestor</div></div></div>`;return}
+  if(!g){mc.innerHTML=`<div class="table-card"><div class="empty-state"><div class="empty-text">Nenhum time vinculado</div></div></div>`;return}
   const team=db.alocados.filter(a=>a.gestorId===g.id);
   const ativos=team.filter(a=>a.status==='Ativo');
   const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
@@ -1522,25 +1663,58 @@ function renderContato(mc){
 
 /* ─── TURNOVER ────────────────────────────────────────── */
 function renderTurnover(mc){
-  const total=db.turnover.length;
-  const ativos=db.alocados.filter(a=>a.status==='Ativo').length;
-  const tx=ativos>0?Math.round((total/ativos)*100):0;
+  const anoAtual = TODAY.getFullYear();
+  // ✅ NOVO: calcula métricas usando a função centralizada
+  const metrics = calcTurnoverMetrics(anoAtual, null);
+
+  // Taxa bruta para exibição na tabela (mantém contexto)
+  const taxaBrutaLabel = metrics.ativos > 0
+    ? Math.round((metrics.totalDeslig / metrics.ativos) * 100)
+    : 0;
+
   mc.innerHTML=`
-  <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:18px">
-    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Total de Desligamentos</div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:var(--red)">${total}</div></div>
-    <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Taxa de Turnover</div><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:${tx>20?'var(--red)':tx>10?'var(--amber)':'var(--green)'}">${tx}%</div></div>
+  <!-- ✅ NOVO: 3 cards de métricas de turnover -->
+  <div class="tv-metrics">
+    <div class="tv-metric-card card-taxa">
+      <div class="tv-metric-label">Taxa Líquida de Turnover</div>
+      <div class="tv-metric-value" style="color:${metrics.taxaLiquida>20?'var(--red)':metrics.taxaLiquida>10?'var(--amber)':'var(--green)'}">${metrics.taxaLiquida}%</div>
+      <div class="tv-metric-sub">Vagas perdidas em ${anoAtual} · Taxa bruta: ${taxaBrutaLabel}%</div>
+    </div>
+    <div class="tv-metric-card card-evitados">
+      <div class="tv-metric-label">Desligamentos Evitados em ${anoAtual}</div>
+      <div class="tv-metric-value" style="color:var(--blue)">${metrics.comSubst}</div>
+      <div class="tv-metric-sub">${metrics.comSubst === 1 ? 'substituição confirmada ou em processo' : 'substituições confirmadas ou em processo'}</div>
+    </div>
+    <div class="tv-metric-card card-saving">
+      <div class="tv-metric-label">Saving Estimado em ${anoAtual}</div>
+      <div class="tv-metric-value" style="color:var(--green);font-size:20px">${fBRL(metrics.saving)}</div>
+      <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
+    </div>
   </div>
+
   <div class="table-card">
     <div class="table-header"><div class="table-title">Registro de Turnover (${db.turnover.length})</div></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Alocado</th><th>Data Desligamento</th><th>Motivo</th><th>Substituto</th><th>Obs.</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
       <tbody>${db.turnover.length?db.turnover.map(t=>{
-        const subst=db.alocados.find(x=>x.id===t.substituicaoId);
+        // ✅ NOVO: exibe "Em processo seletivo" corretamente na coluna
+        const subst = db.alocados.find(x=>x.id===t.substituicaoId);
+        let substLabel = '—';
+        let substBadge = '';
+        if (subst) {
+          substLabel = subst.nome;
+          substBadge = `<span class="badge b-green" style="font-size:10px;margin-left:4px">Confirmado</span>`;
+        } else if (t.substituicao === '__em_processo__' || t.substituicao === 'Em processo seletivo') {
+          substLabel = 'Em processo seletivo';
+          substBadge = `<span class="badge b-amber" style="font-size:10px;margin-left:4px">Em processo</span>`;
+        } else {
+          substBadge = `<span class="badge b-red" style="font-size:10px;margin-left:4px">Vaga perdida</span>`;
+        }
         return`<tr>
           <td><strong>${t.alocadoNome}</strong></td>
           <td>${fDate(t.data)}</td>
           <td>${t.motivo}</td>
-          <td>${subst?subst.nome:(t.substituicao||'—')}</td>
+          <td style="white-space:nowrap">${substLabel}${substBadge}</td>
           <td style="color:var(--text-3)">${t.obs||''}</td>
           <td><span class="badge ${t.status==='Cancelado'?'b-gray':'b-red'}">${t.status||'Confirmado'}</span></td>
           ${isEditor()?`<td><div class="row-actions"><button class="icon-btn" onclick="openEditTurnover('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>`:''}
@@ -1550,11 +1724,9 @@ function renderTurnover(mc){
   </div>`;
 }
 
-/* ─── INTERNOS (ex-Acesso) ────────────────────────────── */
+/* ─── INTERNOS ────────────────────────────────────────── */
 function renderInternos(mc){
   const internos=db.usuarios.filter(u=>u.perfil==='editor'||u.perfil==='viewer');
-  const roleLabel={editor:'Interno — Edição',viewer:'Interno — Visualização'};
-  const roleClass={editor:'b-green',viewer:'b-blue'};
   mc.innerHTML=`
   <div class="table-card">
     <div class="table-header">
@@ -1591,7 +1763,8 @@ function filterInternos(){
     </div></td>
   </tr>`).join('');
 }
-/* ─── GESTORES page (includes client users) ───────────── */
+
+/* ─── DETAIL PANEL ────────────────────────────────────── */
 async function openDetailById(id){
   const a=db.alocados.find(x=>x.id===id);if(!a)return;
   const g=db.gestores.find(x=>x.id===a.gestorId);const pr=db.projetos.find(x=>x.id===a.projetoId);
@@ -1599,21 +1772,11 @@ async function openDetailById(id){
   document.getElementById('detailName').textContent=a.nome;
   document.getElementById('detailRole').textContent=a.cargo+((a.stack||[]).length?' · '+a.stack.slice(0,3).join(', '):'');
   const isE=isEditor();
-  // Busca histórico financeiro do banco
   const {data:histFin}=await supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt',{ascending:false});
   const hSal=(histFin||[]).filter(h=>h.tipo==='salario').slice(0,4);
   const hVH=(histFin||[]).filter(h=>h.tipo==='valor_hora').slice(0,4);
-
-  // Busca histórico de realocação
-  const {data:histReloc}=await supa.from('historico_realocacao').select(`
-    *,
-    projeto_ant:projetos!projeto_id_ant(nome,cliente),
-    projeto_novo:projetos!projeto_id_novo(nome,cliente)
-  `).eq('alocado_id',id).order('data_alt',{ascending:false});
-
-  // Busca substituições (turnover onde ele é o substituto)
+  const {data:histReloc}=await supa.from('historico_realocacao').select(`*,projeto_ant:projetos!projeto_id_ant(nome,cliente),projeto_novo:projetos!projeto_id_novo(nome,cliente)`).eq('alocado_id',id).order('data_alt',{ascending:false});
   const {data:substDe}=await supa.from('turnover').select('*').eq('substituto_id',id).eq('status','Confirmado');
-
   document.getElementById('detailBody').innerHTML=`
     <div class="d-section">
       <div class="d-section-title">Status & Período</div>
@@ -1642,20 +1805,8 @@ async function openDetailById(id){
     ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
     <div class="d-section">
       <div class="d-section-title">Histórico de Movimentação</div>
-      ${(substDe||[]).map(t=>`
-        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:700;color:var(--blue)">↩ Substituição</div>
-          <div style="font-size:13px;color:var(--text);margin-top:2px">Substituiu <strong>${t.alocado_nome}</strong></div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fDate(t.data_desl)}</div>
-        </div>`).join('')}
-      ${(histReloc||[]).filter(h=>!h.motivo?.startsWith('Substituição')).map(h=>`
-        <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:700;color:var(--amber)">⇄ Realocação</div>
-          <div style="font-size:13px;color:var(--text);margin-top:2px">
-            ${h.projeto_ant?.cliente||'—'}/${h.projeto_ant?.nome||'—'} → ${h.projeto_novo?.cliente||'—'}/${h.projeto_novo?.nome||'—'}
-          </div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fDate(h.data_alt)}</div>
-        </div>`).join('')}
+      ${(substDe||[]).map(t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--blue)">↩ Substituição</div><div style="font-size:13px;color:var(--text);margin-top:2px">Substituiu <strong>${t.alocado_nome}</strong></div><div style="font-size:12px;color:var(--text-3);margin-top:2px">${fDate(t.data_desl)}</div></div>`).join('')}
+      ${(histReloc||[]).filter(h=>!h.motivo?.startsWith('Substituição')).map(h=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;font-weight:700;color:var(--amber)">⇄ Realocação</div><div style="font-size:13px;color:var(--text);margin-top:2px">${h.projeto_ant?.cliente||'—'}/${h.projeto_ant?.nome||'—'} → ${h.projeto_novo?.cliente||'—'}/${h.projeto_novo?.nome||'—'}</div><div style="font-size:12px;color:var(--text-3);margin-top:2px">${fDate(h.data_alt)}</div></div>`).join('')}
     </div>`:''}
     ${isE?`<div style="display:flex;gap:7px;margin-top:4px">
       <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openModalAlocado('${a.id}')">Editar</button>
@@ -1698,7 +1849,6 @@ async function reenviarLinkGestor(id){
 async function excluirGestor(id){
   if(!confirm('Excluir este gestor? Alocados vinculados perderão o vínculo.'))return;
   const g=db.gestores.find(x=>x.id===id);
-  // Deleta do Auth via Edge Function
   if(g){
     await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user',{
       method:'POST',
@@ -1738,7 +1888,6 @@ function recalcStatus(){
   const s=calcStatus(adm,desl);const m=calcMeses(adm,desl,s.status);
   document.getElementById('alocadoStatus').value=s.status;document.getElementById('alocadoMeses').value=m+' meses';
 }
-function fetchLinkedinPhoto(){showToast('Use o campo do Slack para buscar a foto automaticamente');}
 async function fetchSlackPhoto(){
   const email=document.getElementById('alocadoSlackEmail').value.trim();
   if(!email){showToast('Informe o e-mail do Slack');return}
@@ -1788,11 +1937,9 @@ function openModalAlocado(id){
   const ps=document.getElementById('alocadoProjeto');ps.innerHTML='<option value="">Selecione...</option>';
   if(id){
     const a=db.alocados.find(x=>x.id===id);if(!a)return;
-    // Determine cliente from project
     const proj=db.projetos.find(x=>x.id===a.projetoId);
     const clienteVal=proj?proj.cliente:'';
     cliSel.value=clienteVal;
-    // Cascade
     if(clienteVal){
       gs.innerHTML='<option value="">Selecione...</option>'+db.gestores.filter(g=>g.cliente===clienteVal).map(g=>`<option value="${g.id}">${g.nome}</option>`).join('');
       ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>p.cliente===clienteVal).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
@@ -1844,16 +1991,10 @@ async function salvarAlocado(){
   };
   const id=document.getElementById('alocadoId').value;
   let err;
-  if(id){
-    ({error:err}=await supa.from('alocados').update(payload).eq('id',id));
-  } else {
-    ({error:err}=await supa.from('alocados').insert(payload));
-  }
+  if(id){({error:err}=await supa.from('alocados').update(payload).eq('id',id));}
+  else{({error:err}=await supa.from('alocados').insert(payload));}
   if(err){showToast('Erro: '+err.message);return}
-  await loadAll();
-  closeModal('modalAlocado');
-  filterAlocados();
-  showToast('Alocado salvo!');
+  await loadAll();closeModal('modalAlocado');filterAlocados();showToast('Alocado salvo!');
 }
 
 /* ─── MODALS GESTOR ───────────────────────────────────── */
@@ -1875,7 +2016,6 @@ function openModalGestorEdit(id){
       document.getElementById('gestorTelefone').value=g.telefone||'';
       document.getElementById('gestorTipo').value=g.tipo;
       buildGestorClienteSelect(g.cliente||'');
-      // Cascade projetos para o cliente
       const ps=document.getElementById('gestorProjeto');
       ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>!g.cliente||p.cliente===g.cliente).map(p=>`<option value="${p.id}"${p.id===g.projetoId?' selected':''}>${p.nome}</option>`).join('');
     }
@@ -1888,9 +2028,8 @@ async function salvarGestor(){
   const payload={nome,email,telefone:document.getElementById('gestorTelefone').value||null,cliente:document.getElementById('gestorCliente').value||null,projeto_id:document.getElementById('gestorProjeto').value||null,tipo:document.getElementById('gestorTipo').value};
   const id=document.getElementById('gestorId').value;
   let err;
-  if(id){
-    ({error:err}=await supa.from('gestores').update(payload).eq('id',id));
-  } else {
+  if(id){({error:err}=await supa.from('gestores').update(payload).eq('id',id));}
+  else{
     ({error:err}=await supa.from('gestores').insert(payload));
     if(!err){
       await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user',{
@@ -1901,14 +2040,12 @@ async function salvarGestor(){
     }
   }
   if(err){showToast('Erro: '+err.message);return}
-  await loadAll();
-  closeModal('modalGestor');filterGestores();showToast(id?'Gestor salvo!':'Link mágico enviado para '+email);
+  await loadAll();closeModal('modalGestor');filterGestores();showToast(id?'Gestor salvo!':'Link mágico enviado para '+email);
 }
 
-let selectedProjetos = []; // array of {id, nome} - id='' means new
-
+/* ─── MODALS PROJETO ──────────────────────────────────── */
+let selectedProjetos = [];
 function buildProjetoGrid(clienteVal, preSelected){
-  // preSelected: array of project ids already linked to this client
   selectedProjetos = preSelected ? preSelected.map(id=>({id,nome:''})) : [];
   renderProjetoGrid(clienteVal);
 }
@@ -1916,7 +2053,6 @@ function renderProjetoGrid(clienteVal){
   const grid=document.getElementById('projetoGrid');
   if(!grid)return;
   const existing=clienteVal?db.projetos.filter(p=>p.cliente===clienteVal):[];
-  // Also include any newly added (id='')
   const newOnes=selectedProjetos.filter(s=>s.id==='');
   const allItems=[...existing.map(p=>({id:p.id,nome:p.nome,isNew:false})),...newOnes.map(s=>({id:'',nome:s.nome,isNew:true}))];
   if(!allItems.length){grid.innerHTML=`<div style="font-size:var(--font-min);color:var(--text-3);padding:8px;grid-column:1/-1">Selecione um cliente para ver projetos existentes ou adicione um novo abaixo.</div>`;return;}
@@ -1975,7 +2111,6 @@ function openModalProjetoEdit(id){
   if(id){
     const p=db.projetos.find(x=>x.id===id);if(!p)return;
     buildClienteSelect(p.cliente||'');
-    // Pre-select this project in the grid
     selectedProjetos=[{id:p.id,nome:p.nome}];
     renderProjetoGrid(p.cliente||'');
     document.getElementById('projetoNome').value='';
@@ -2004,25 +2139,13 @@ async function salvarProjeto(){
     } else if(sp.id){
       const prev=db.projetos.find(x=>x.id===sp.id);
       await supa.from('projetos').update({...basePayload,nome:sp.nome||prev?.nome}).eq('id',sp.id);
-      // Se encerrou, desligar alocados ativos
       if(status==='Encerrado'&&prev?.status!=='Encerrado'&&basePayload.fim){
         const ativosProj=db.alocados.filter(a=>a.projetoId===sp.id&&(a.status==='Ativo'||a.status==='Em Admissão'));
-        for(const a of ativosProj){
-          await supa.from('alocados').update({desligamento:basePayload.fim}).eq('id',a.id);
-        }
+        for(const a of ativosProj){await supa.from('alocados').update({desligamento:basePayload.fim}).eq('id',a.id);}
       }
     }
   }
-  await loadAll();
-  closeModal('modalProjeto');
-  renderClientes(document.getElementById('mainContent'));
-  showToast(selectedProjetos.length>1?'Projetos salvos!':'Projeto salvo!');
-}
-function encerrarProjeto(id){
-  // Find the client from this project and open the encerrar modal
-  const p=db.projetos.find(x=>x.id===id);
-  if(!p)return;
-  abrirEncerrarCliente(p.cliente);
+  await loadAll();closeModal('modalProjeto');renderClientes(document.getElementById('mainContent'));showToast(selectedProjetos.length>1?'Projetos salvos!':'Projeto salvo!');
 }
 function abrirEncerrarCliente(cli){
   document.getElementById('encerrarClienteNome').value=cli;
@@ -2040,14 +2163,9 @@ async function confirmarEncerramento(){
   for(const p of projsCli){
     await supa.from('projetos').update({status:'Encerrado',fim:data,motivo:obs||'Encerramento de contrato'}).eq('id',p.id);
     const ativosProj=db.alocados.filter(a=>a.projetoId===p.id&&(a.status==='Ativo'||a.status==='Em Admissão'));
-    for(const a of ativosProj){
-      await supa.from('alocados').update({desligamento:data}).eq('id',a.id);
-    }
+    for(const a of ativosProj){await supa.from('alocados').update({desligamento:data}).eq('id',a.id);}
   }
-  await loadAll();
-  closeModal('modalEncerrar');closeDetail();
-  renderClientes(document.getElementById('mainContent'));
-  showToast(`Contrato com ${cli} encerrado — alocados desligados em ${fDate(data)}`);
+  await loadAll();closeModal('modalEncerrar');closeDetail();renderClientes(document.getElementById('mainContent'));showToast(`Contrato com ${cli} encerrado — alocados desligados em ${fDate(data)}`);
 }
 
 /* ─── MODALS TURNOVER ─────────────────────────────────── */
@@ -2059,7 +2177,10 @@ function openTurnover(aid){
   document.getElementById('tvObs').value='';
   document.getElementById('tvSubst').value='';
   const substSel=document.getElementById('tvSubstId');
-  substSel.innerHTML='<option value="">— Sem substituto definido —</option>'+
+  // ✅ MODIFICADO: opções atualizadas
+  substSel.innerHTML=
+    '<option value="">Sem substituição</option>' +
+    '<option value="__em_processo__">Em processo seletivo</option>' +
     db.alocados.filter(x=>x.id!==aid&&x.status==='Ativo').map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
   resetTurnoverFooter();
   openModal('modalTurnover');
@@ -2069,17 +2190,20 @@ async function confirmarTurnover(){
   const a=db.alocados.find(x=>x.id===aid);if(!a)return;
   const data=document.getElementById('tvData').value;
   if(!data){showToast('Informe a data');return}
+  const substVal=document.getElementById('tvSubstId').value;
+  const isEmProcesso=substVal==='__em_processo__';
+  const substId=(!substVal||isEmProcesso)?null:substVal;
+  const substObs=isEmProcesso?'__em_processo__':(document.getElementById('tvSubst').value||null);
   await supa.from('alocados').update({desligamento:data}).eq('id',aid);
   await supa.from('turnover').insert({
     alocado_id:aid,alocado_nome:a.nome,data_desl:data,
     motivo:document.getElementById('tvMotivo').value,
     obs:document.getElementById('tvObs').value||null,
-    substituto_id:document.getElementById('tvSubstId').value||null,
-    substituicao_obs:document.getElementById('tvSubst').value||null,
+    substituto_id:substId,
+    substituicao_obs:substObs,
     status:'Confirmado'
   });
-  await loadAll();
-  closeModal('modalTurnover');filterAlocados();showToast('Desligamento registrado');
+  await loadAll();closeModal('modalTurnover');filterAlocados();showToast('Desligamento registrado');
 }
 function openEditTurnover(id){
   const t=db.turnover.find(x=>x.id===id);if(!t)return;
@@ -2087,12 +2211,17 @@ function openEditTurnover(id){
   document.getElementById('tvAlocadoNome').value=t.alocadoNome;
   document.getElementById('tvData').value=t.data;
   document.getElementById('tvObs').value=t.obs||'';
-  document.getElementById('tvSubst').value=t.substituicao||'';
+  document.getElementById('tvSubst').value=(t.substituicao&&t.substituicao!=='__em_processo__')?t.substituicao:'';
   const motSel=document.getElementById('tvMotivo');
   for(let i=0;i<motSel.options.length;i++){if(motSel.options[i].value===t.motivo||motSel.options[i].text===t.motivo){motSel.selectedIndex=i;break;}}
   const substSel=document.getElementById('tvSubstId');
-  substSel.innerHTML='<option value="">— Sem substituto definido —</option>'+
+  const isEmProcesso=t.substituicao==='__em_processo__'||t.substituicao==='Em processo seletivo';
+  substSel.innerHTML=
+    '<option value="">Sem substituição</option>' +
+    '<option value="__em_processo__">Em processo seletivo</option>' +
     db.alocados.filter(x=>x.id!==t.alocadoId).map(x=>`<option value="${x.id}"${x.id===t.substituicaoId?' selected':''}>${x.nome}</option>`).join('');
+  if(isEmProcesso) substSel.value='__em_processo__';
+  else if(t.substituicaoId) substSel.value=t.substituicaoId;
   const footer=document.querySelector('#modalTurnover .modal-footer');
   footer.innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal('modalTurnover')">Cancelar</button>
@@ -2101,26 +2230,24 @@ function openEditTurnover(id){
   openModal('modalTurnover');
 }
 async function salvarEdicaoTurnover(id){
+  const substVal=document.getElementById('tvSubstId').value;
+  const isEmProcesso=substVal==='__em_processo__';
   const payload={
     motivo:document.getElementById('tvMotivo').value,
     obs:document.getElementById('tvObs').value||null,
-    substituto_id:document.getElementById('tvSubstId').value||null,
-    substituicao_obs:document.getElementById('tvSubst').value||null,
+    substituto_id:(!substVal||isEmProcesso)?null:substVal,
+    substituicao_obs:isEmProcesso?'__em_processo__':(document.getElementById('tvSubst').value||null),
     data_desl:document.getElementById('tvData').value
   };
   await supa.from('turnover').update(payload).eq('id',id);
-  await loadAll();
-  closeModal('modalTurnover');resetTurnoverFooter();
-  renderTurnover(document.getElementById('mainContent'));showToast('Turnover atualizado');
+  await loadAll();closeModal('modalTurnover');resetTurnoverFooter();renderTurnover(document.getElementById('mainContent'));showToast('Turnover atualizado');
 }
 async function cancelarDesligamento(id){
   if(!confirm('Cancelar este desligamento? O alocado voltará ao status Ativo.'))return;
   const t=db.turnover.find(x=>x.id===id);if(!t)return;
   await supa.from('turnover').update({status:'Cancelado'}).eq('id',id);
   await supa.from('alocados').update({desligamento:null}).eq('id',t.alocadoId);
-  await loadAll();
-  closeModal('modalTurnover');resetTurnoverFooter();
-  renderTurnover(document.getElementById('mainContent'));showToast('Desligamento cancelado');
+  await loadAll();closeModal('modalTurnover');resetTurnoverFooter();renderTurnover(document.getElementById('mainContent'));showToast('Desligamento cancelado');
 }
 function resetTurnoverFooter(){
   const footer=document.querySelector('#modalTurnover .modal-footer');
@@ -2132,22 +2259,9 @@ function openModalAcessoNew(){
   document.getElementById('accessId').value='';
   document.getElementById('modalAcessoTitle').textContent='Novo Usuário Interno';
   ['accessNome','accessEmail','accessTelefone','accessCargo'].forEach(f=>{document.getElementById(f).value=''});
-  document.getElementById('accessPerfil').value='editor';
-  // For internos, limit options
   const sel=document.getElementById('accessPerfil');
   sel.innerHTML=`<option value="editor">Interno — Edição (acesso global, edição)</option>
     <option value="viewer">Interno — Visualização (acesso global, somente leitura)</option>`;
-  updateAccessFields();
-  openModal('modalAcesso');
-}
-function openModalAcessoClienteNew(){
-  document.getElementById('accessId').value='';
-  document.getElementById('modalAcessoTitle').textContent='Novo Acesso de Cliente';
-  ['accessNome','accessEmail','accessTelefone','accessCargo'].forEach(f=>{document.getElementById(f).value=''});
-  const sel=document.getElementById('accessPerfil');
-  sel.innerHTML=`<option value="cli-master">Cliente — Master (todos os projetos do cliente)</option>
-    <option value="cli-gestor">Cliente — Gestor (apenas seu time)</option>`;
-  document.getElementById('accessPerfil').value='cli-master';
   updateAccessFields();
   openModal('modalAcesso');
 }
@@ -2159,7 +2273,6 @@ function openModalAcessoEdit(id){
   document.getElementById('accessEmail').value=u.email;
   document.getElementById('accessTelefone').value=u.telefone||'';
   document.getElementById('accessCargo').value=u.cargo||'';
-  // Detect context: if user is interno, show only internal profiles
   const sel=document.getElementById('accessPerfil');
   const isInternalUser=u.perfil==='editor'||u.perfil==='viewer';
   if(isInternalUser){
@@ -2201,30 +2314,22 @@ async function salvarAcesso(){
   if(id){
     ({error:err}=await supa.from('usuarios').update(payload).eq('id',id));
   } else {
-    // Usa Edge Function para convidar via Admin API (sem rate limit do OTP)
     try {
       const invRes = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'
-        },
+        headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
         body: JSON.stringify({email, nome, perfil})
       });
       const invData = await invRes.json();
       if(!invData.ok) throw new Error(invData.error||'Erro ao enviar convite');
-      // Upsert na tabela usuarios
       const {data:existUser} = await supa.from('usuarios').select('id').eq('email',email).maybeSingle();
-      if(existUser){
-        ({error:err}=await supa.from('usuarios').update(payload).eq('id',existUser.id));
-      }
+      if(existUser){({error:err}=await supa.from('usuarios').update(payload).eq('id',existUser.id));}
     } catch(e) {
       showToast('Erro: '+e.message); return;
     }
   }
   if(err){showToast('Erro: '+err.message);return}
-  await loadAll();
-  closeModal('modalAcesso');
+  await loadAll();closeModal('modalAcesso');
   const mc=document.getElementById('mainContent');
   const isCliPerfil=perfil==='cli-master'||perfil==='cli-gestor';
   if(isCliPerfil)renderGestores(mc);else renderInternos(mc);
@@ -2238,13 +2343,11 @@ async function reenviarLink(id){
 }
 async function excluirAcesso(id,page){
   if(!confirm('Excluir este acesso? O usuário perderá o acesso imediatamente.'))return;
-  // Deleta do Auth via Edge Function
   await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/invite-user',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
     body:JSON.stringify({action:'delete',user_id:id})
   });
-  // Deleta de public.usuarios
   await supa.from('usuarios').delete().eq('id',id);
   await loadAll();
   const mc=document.getElementById('mainContent');
