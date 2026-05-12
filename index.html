@@ -236,11 +236,11 @@ input[type=file]{display:none}
 .tv-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .tv-metric-card{background:var(--surface);border-radius:var(--radius-lg);padding:18px;border:1px solid var(--border);position:relative;overflow:hidden}
 .tv-metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.tv-metric-card.card-taxa::before{background:var(--red)}
+.tv-metric-card.card-taxa::before{background:var(--accent)}
 .tv-metric-card.card-evitados::before{background:var(--blue)}
 .tv-metric-card.card-saving::before{background:var(--green)}
 .tv-metric-label{font-size:12px;font-weight:700;color:var(--text-3);letter-spacing:0.3px;margin-bottom:8px}
-.tv-metric-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;line-height:1;margin-bottom:4px}
+.tv-metric-value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1;margin-bottom:4px}
 .tv-metric-sub{font-size:12px;color:var(--text-3)}
 </style>
 </head>
@@ -1171,6 +1171,21 @@ function renderDashboardContent(){
     atPorMes[i]>0 ? Math.round((desPorMesSemSubst[i]/atPorMes[i])*100) : 0
   );
 
+  // Saving estimado por mês: V/H × 168 dos desligados com substituição
+  const savingPorMes = meses.map(m => {
+    return Math.round(db.turnover.filter(t => {
+      if(t.status==='Cancelado') return false;
+      if(!t.data) return false;
+      const d=new Date(t.data);
+      return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear()
+        && tvTemSubstituicao(t)
+        && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
+    }).reduce((s,t) => {
+      const alocado = db.alocados.find(a=>a.id===t.alocadoId);
+      return s + ((alocado?.valorHora||0)*168);
+    }, 0) / 1000);
+  });
+
   const el=document.getElementById('dashContent');if(!el)return;
   el.innerHTML=`
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -1222,6 +1237,12 @@ function renderDashboardContent(){
       </span>
     </div>
     <div style="position:relative;height:200px"><canvas id="chartTV"></canvas></div>
+  </div>
+  <div class="chart-card" style="margin-bottom:12px">
+    <div class="chart-title">Saving Estimado
+      <span>últimos 6 meses (R$ mil) · desligamentos com substituição</span>
+    </div>
+    <div style="position:relative;height:200px"><canvas id="chartSaving"></canvas></div>
   </div>
   `;
 
@@ -1278,6 +1299,42 @@ function renderDashboardContent(){
         x:{grid:{display:false},ticks:{font:{size:12}}},
         y:{position:'left',grid:{color:'rgba(15,25,35,0.05)'},title:{display:true,text:'Desligamentos',font:{size:11}},ticks:{font:{size:11},stepSize:1},stacked:true},
         y2:{position:'right',grid:{display:false},title:{display:true,text:'Taxa líquida (%)',font:{size:11}},ticks:{font:{size:11},callback:v=>v+'%'}}
+      }
+    }
+  });
+
+  // Gráfico Saving Estimado por mês
+  chartInstances.saving=new Chart(document.getElementById('chartSaving'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data:savingPorMes,
+        backgroundColor:'rgba(39,103,73,0.18)',
+        borderColor:'#276749',
+        borderWidth:2,
+        borderRadius:5,
+        hoverBackgroundColor:'rgba(39,103,73,0.28)'
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label: ctx => 'R$ '+(ctx.parsed.y*1000).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})
+          }
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:12}}},
+        y:{
+          grid:{color:'rgba(15,25,35,0.05)'},
+          ticks:{font:{size:12},callback:v=>'R$ '+v+'k'},
+          beginAtZero:true
+        }
       }
     }
   });
@@ -1687,7 +1744,7 @@ function renderTurnover(mc){
     </div>
     <div class="tv-metric-card card-saving">
       <div class="tv-metric-label">Saving Estimado em ${anoAtual}</div>
-      <div class="tv-metric-value" style="color:var(--green)">${fBRL(metrics.saving)}</div>
+      <div class="tv-metric-value" style="color:var(--green);font-size:20px">${fBRL(metrics.saving)}</div>
       <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
     </div>
   </div>
