@@ -240,7 +240,7 @@ input[type=file]{display:none}
 .tv-metric-card.card-evitados::before{background:var(--blue)}
 .tv-metric-card.card-saving::before{background:var(--green)}
 .tv-metric-label{font-size:12px;font-weight:700;color:var(--text-3);letter-spacing:0.3px;margin-bottom:8px}
-.tv-metric-value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1;margin-bottom:4px}
+.tv-metric-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;line-height:1;margin-bottom:4px}
 .tv-metric-sub{font-size:12px;color:var(--text-3)}
 </style>
 </head>
@@ -1744,7 +1744,7 @@ function renderTurnover(mc){
     </div>
     <div class="tv-metric-card card-saving">
       <div class="tv-metric-label">Saving Estimado em ${anoAtual}</div>
-      <div class="tv-metric-value" style="color:var(--green);font-size:20px">${fBRL(metrics.saving)}</div>
+      <div class="tv-metric-value" style="color:var(--green)">${fBRL(metrics.saving)}</div>
       <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
     </div>
   </div>
