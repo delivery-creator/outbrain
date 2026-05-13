@@ -917,7 +917,7 @@ function initApp(){
   rb.textContent=roleLabels[currentUser.role]||currentUser.role;
   rb.className='role-badge '+(roleClasses[currentUser.role]||'role-viewer');
   buildNav();
-  const validPages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
+  const validPages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora'];
   const hashPage=window.location.hash.replace('#','');
   const startPage=validPages.includes(hashPage)?hashPage:'dashboard';
   showPage(startPage);
@@ -1054,6 +1054,7 @@ const icons={
   contato:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
   turnover:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
   acesso:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  calculadora:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>`,
 };
 function buildNav(){
   let html='';
@@ -1063,6 +1064,7 @@ function buildNav(){
     html+=navItem('alocados','Alocados',icons.alocados,'');
     html+=navItem('clientes','Clientes',icons.projetos,'');
     html+=navItem('turnover','Turnover',icons.turnover,'');
+    html+=navItem('calculadora','Calculadora',icons.calculadora,'');
     html+='<div class="nav-label">Gestão de Acessos</div>';
     html+=navItem('gestores','Gestores',icons.gestores,'');
     html+=navItem('internos','Internos',icons.acesso,'');
@@ -1086,7 +1088,7 @@ function showPage(p){
   const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
   pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
   document.getElementById('nav-'+p)?.classList.add('active');
-  const titles={dashboard:'Dashboard',alocados:'Alocados',clientes:'Clientes',projetos:'Clientes',gestores:'Gestores',meutime:'Meu Time',contato:'Contato OneBrain',turnover:'Turnover',internos:'Internos',acesso:'Internos'};
+  const titles={dashboard:'Dashboard',alocados:'Alocados',clientes:'Clientes',projetos:'Clientes',gestores:'Gestores',meutime:'Meu Time',contato:'Contato OneBrain',turnover:'Turnover',internos:'Internos',acesso:'Internos',calculadora:'Calculadora'};
   document.getElementById('pageTitle').textContent=titles[p]||p;
   const actions=document.getElementById('topbarActions');
   actions.innerHTML='';
@@ -1099,7 +1101,7 @@ function showPage(p){
   if((p==='internos'||p==='acesso')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAcessoNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Interno</button>`;
   recalcAll();
   const mc=document.getElementById('mainContent');
-  const renders={dashboard:renderDashboard,alocados:renderAlocados,clientes:renderClientes,projetos:renderClientes,gestores:renderGestores,meutime:renderMeuTime,contato:renderContato,turnover:renderTurnover,internos:renderInternos,acesso:renderInternos};
+  const renders={dashboard:renderDashboard,alocados:renderAlocados,clientes:renderClientes,projetos:renderClientes,gestores:renderGestores,meutime:renderMeuTime,contato:renderContato,turnover:renderTurnover,internos:renderInternos,acesso:renderInternos,calculadora:renderCalculadora};
   if(renders[p]) renders[p](mc);
 }
 
@@ -1778,7 +1780,224 @@ function renderContato(mc){
     </div>`).join('')}
   </div>`;
 }
+/* ─── CALCULADORA ─────────────────────────────────────── */
+let paramCalc = null;
 
+async function loadParamCalc(){
+  const {data} = await supa.from('parametros_calculadora').select('*').single();
+  paramCalc = data;
+}
+
+async function renderCalculadora(mc){
+  await loadParamCalc();
+  const isE = isEditor();
+  const p = paramCalc;
+
+  mc.innerHTML=`
+  <!-- PARÂMETROS BASE -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="chart-title" style="margin-bottom:0">Parâmetros Base</div>
+    </div>
+    <!-- FIXOS -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <span class="badge b-gray">Imposto ${(p.imposto*100).toFixed(0)}%</span>
+      <span class="badge b-gray">Custo CLT ${(p.custo_clt*100).toFixed(0)}%</span>
+      <span class="badge b-gray">PIS+COFINS+IR+CSLL ${(p.pis_cofins*100).toFixed(2)}%</span>
+    </div>
+    <!-- EDITÁVEIS -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div class="form-group">
+        <label>% Lucro</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input class="form-control" type="number" id="paramLucro" value="${(p.pct_lucro*100).toFixed(0)}" ${!isE?'disabled':''} oninput="recalcAll_calc()">
+          <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Infra (R$)</label>
+        <input class="form-control" type="number" id="paramInfra" value="${p.infra}" ${!isE?'disabled':''} oninput="recalcAll_calc()">
+      </div>
+      <div class="form-group">
+        <label>Equipamento</label>
+        <select class="form-control" id="paramEquip" ${!isE?'disabled':''} onchange="recalcAll_calc()">
+          <option value="395" ${p.custo_equipamento==395?'selected':''}>Notebook — R$ 395</option>
+          <option value="1165" ${p.custo_equipamento==1165?'selected':''}>Macbook — R$ 1.165</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Horas/mês</label>
+        <input class="form-control" type="number" id="paramHoras" value="${p.horas_mes}" oninput="recalcAll_calc()">
+      </div>
+    </div>
+    ${isE?`<button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="salvarParamCalc()">Salvar parâmetros</button>`:''}
+  </div>
+
+  <!-- CALCULADORAS -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+
+    <!-- CALC VALOR HORA -->
+    <div class="chart-card">
+      <div class="chart-title">Calculadora — Valor Hora</div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Valor Hora (R$)</label>
+        <input class="form-control" type="number" id="calcVH" placeholder="Ex: 131" oninput="calcVH()">
+      </div>
+      <div id="resultVH" style="display:none">
+        <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rVH_custoCliente" style="font-weight:600;color:var(--brand)"></span></div>
+        <div class="d-row"><span class="d-label">Valor Líquido (−imposto)</span><span class="d-val" id="rVH_liquido"></span></div>
+        <div class="d-row"><span class="d-label">$ Lucro</span><span class="d-val" id="rVH_lucro" style="color:var(--green);font-weight:600"></span></div>
+        <div class="d-row"><span class="d-label">Valor p/ Contratação</span><span class="d-val" id="rVH_contratacao"></span></div>
+        <div class="d-row"><span class="d-label">Líquido Prop. Comercial</span><span class="d-val" id="rVH_propComercial"></span></div>
+        <div class="d-row" style="background:var(--amber-soft);border-radius:var(--radius);padding:6px 10px;margin-top:6px">
+          <span class="d-label" style="color:var(--amber);font-weight:700">Custo CTH 6 meses</span>
+          <span class="d-val" id="rVH_cth" style="color:var(--amber);font-weight:700"></span>
+        </div>
+        <div class="d-row"><span class="d-label" style="font-size:11px">PIS+COFINS+IR+CSLL 6,15%</span><span class="d-val" id="rVH_pis" style="font-size:11px;color:var(--text-3)"></span></div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--font-min)">
+          <input type="radio" name="calcBase" value="vh" onchange="toggleBtnCriar()" style="accent-color:var(--brand)">
+          Usar esta calculadora para criar alocado
+        </label>
+      </div>
+    </div>
+
+    <!-- CALC CUSTO COLABORADOR -->
+    <div class="chart-card">
+      <div class="chart-title">Calculadora — Custo Colaborador</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="form-group">
+          <label>Modalidade</label>
+          <select class="form-control" id="calcModalidade" onchange="calcCC()">
+            <option value="">—</option>
+            <option value="PJ">PJ</option>
+            <option value="CLT">CLT</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Salário (R$)</label>
+          <input class="form-control" type="number" id="calcSal" placeholder="Ex: 7800" oninput="calcCC()">
+        </div>
+      </div>
+      <div id="resultCC" style="display:none">
+        <div class="d-row"><span class="d-label">Custo Colaborador</span><span class="d-val" id="rCC_custoColab"></span></div>
+        <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rCC_custoCliente" style="font-weight:600;color:var(--brand)"></span></div>
+        <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val" id="rCC_vh" style="font-weight:600"></span></div>
+        <div class="d-row"><span class="d-label" style="font-size:11px">PIS+COFINS+IR+CSLL 6,15%</span><span class="d-val" id="rCC_pis" style="font-size:11px;color:var(--text-3)"></span></div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--font-min)">
+          <input type="radio" name="calcBase" value="cc" onchange="toggleBtnCriar()" style="accent-color:var(--brand)">
+          Usar esta calculadora para criar alocado
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTÃO CRIAR ALOCADO -->
+  ${isE?`<div style="display:flex;justify-content:flex-end">
+    <button class="btn btn-accent" id="btnCriarAlocado" disabled onclick="criarAlocadoFromCalc()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Criar Alocado
+    </button>
+  </div>`:''}
+  `;
+}
+
+function getParamCalc(){
+  return {
+    lucro: (parseFloat(document.getElementById('paramLucro')?.value)||25) / 100,
+    infra: parseFloat(document.getElementById('paramInfra')?.value)||2500,
+    equip: parseFloat(document.getElementById('paramEquip')?.value)||395,
+    horas: parseFloat(document.getElementById('paramHoras')?.value)||168,
+    imposto: paramCalc?.imposto||0.13,
+    custo_clt: paramCalc?.custo_clt||0.85,
+    pis_cofins: paramCalc?.pis_cofins||0.0615,
+  };
+}
+
+function calcVH(){
+  const vh = parseFloat(document.getElementById('calcVH')?.value)||0;
+  if(!vh){ document.getElementById('resultVH').style.display='none'; return; }
+  const {lucro,infra,equip,horas,imposto,pis_cofins} = getParamCalc();
+  const custoCliente = vh * horas;
+  const liquido = custoCliente * (1 - imposto);
+  const dolLucro = custoCliente * lucro;
+  const contratacao = custoCliente - dolLucro - infra - equip;
+  const propComercial = liquido + dolLucro;
+  const cth6 = (custoCliente / horas) * 1.2 * 6; // aproximação CTH
+  const pisTot = custoCliente * pis_cofins;
+  document.getElementById('rVH_custoCliente').textContent = fBRL(custoCliente);
+  document.getElementById('rVH_liquido').textContent = fBRL(liquido);
+  document.getElementById('rVH_lucro').textContent = fBRL(dolLucro);
+  document.getElementById('rVH_contratacao').textContent = fBRL(contratacao);
+  document.getElementById('rVH_propComercial').textContent = fBRL(propComercial);
+  document.getElementById('rVH_cth').textContent = fBRL(cth6);
+  document.getElementById('rVH_pis').textContent = fBRL(pisTot);
+  document.getElementById('resultVH').style.display='block';
+}
+
+function calcCC(){
+  const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
+  const mod = document.getElementById('calcModalidade')?.value||'';
+  if(!sal||!mod){ document.getElementById('resultCC').style.display='none'; return; }
+  const {lucro,infra,equip,horas,imposto,custo_clt,pis_cofins} = getParamCalc();
+  const custoColab = mod==='CLT' ? sal * (1 + custo_clt) : sal;
+  const custoCliente = (custoColab + infra + equip) / (1 - lucro - imposto);
+  const valorHora = Math.round(custoCliente / horas);
+  const pisTot = custoCliente * pis_cofins;
+  document.getElementById('rCC_custoColab').textContent = fBRL(custoColab);
+  document.getElementById('rCC_custoCliente').textContent = fBRL(custoCliente);
+  document.getElementById('rCC_vh').textContent = fBRL(valorHora)+'/h';
+  document.getElementById('rCC_pis').textContent = fBRL(pisTot);
+  document.getElementById('resultCC').style.display='block';
+}
+
+function recalcAll_calc(){
+  calcVH();
+  calcCC();
+}
+
+function toggleBtnCriar(){
+  const btn = document.getElementById('btnCriarAlocado');
+  if(btn) btn.disabled = false;
+}
+
+function criarAlocadoFromCalc(){
+  const base = document.querySelector('input[name="calcBase"]:checked')?.value;
+  if(!base) return;
+  let vh = null, sal = null, mod = null;
+  if(base === 'vh'){
+    vh = parseFloat(document.getElementById('calcVH')?.value)||null;
+  } else {
+    sal = parseFloat(document.getElementById('calcSal')?.value)||null;
+    mod = document.getElementById('calcModalidade')?.value||null;
+    vh = parseFloat(document.getElementById('rCC_vh')?.textContent?.replace(/[^\d]/g,''))||null;
+  }
+  openModalAlocado();
+  setTimeout(()=>{
+    if(vh) document.getElementById('alocadoVH').value = vh;
+    if(sal) document.getElementById('alocadoSalario').value = sal;
+    if(mod) document.getElementById('alocadoModalidade').value = mod;
+    calcMedia();
+  }, 100);
+}
+
+async function salvarParamCalc(){
+  const {lucro,infra,equip,horas} = getParamCalc();
+  const {error} = await supa.from('parametros_calculadora').update({
+    pct_lucro: lucro,
+    infra,
+    custo_equipamento: equip,
+    tipo_equipamento: equip == 395 ? 'Notebook' : 'Macbook',
+    horas_mes: horas,
+    updated_at: new Date().toISOString()
+  }).eq('id', paramCalc.id);
+  if(error){ showToast('Erro ao salvar: '+error.message); return; }
+  await loadParamCalc();
+  showToast('Parâmetros salvos!');
+}
 /* ─── TURNOVER ────────────────────────────────────────── */
 function renderTurnover(mc){
   const anoAtual = TODAY.getFullYear();
