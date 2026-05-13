@@ -1873,18 +1873,18 @@ async function openDetailById(id){
     </div>
     ${isE?`<div class="d-section">
       <div class="d-section-title">Financeiro</div>
-      <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
-      ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSal.map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
-      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
-      ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hVH.map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
-          ${a.senioridade?`
-      <div class="d-row">
-        <span class="d-label">Senioridade</span>
-        <span class="d-val" style="font-weight:600">${a.senioridade}</span>
-      </div>
-      ${hSen.length>0?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSen.map(h=>`${fDate(h.data_alt)}: ${h.valor_ant} → ${h.valor_novo}`).join(' · ')}</div>`:''}
-    `:''}
+      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
+      ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hVH].reverse().map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
+      <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
+      ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hSal].reverse().map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
+      ${a.senioridade?`
+        <div class="d-row">
+          <span class="d-label">Senioridade</span>
+          <span class="d-val" style="font-weight:600">${a.senioridade}</span>
+        </div>
+        ${hSen.length>0?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hSen].map(h=>`${fDate(h.data_alt)}: ${h.senioridade_ant} → ${h.senioridade_nova}`).join(' → ')}</div>`:''}
+      `:''}
     </div>`:''}
     ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
     <div class="d-section">
