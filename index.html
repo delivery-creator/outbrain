@@ -392,6 +392,16 @@ input[type=file]{display:none}
           <option value="__new__">+ Novo cargo</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Senioridade</label>
+        <select class="form-control" id="alocadoSenioridade">
+          <option value="">—</option>
+          <option value="JR">JR</option>
+          <option value="PL">PL</option>
+          <option value="SR">SR</option>
+          <option value="ESP">ESP</option>
+        </select>
+      </div>
       <div class="form-group hidden" id="cargoNovoGroup" style="display:none"><label>Nome do cargo</label><input class="form-control" type="text" id="cargoNovo" placeholder="Ex: DevOps"></div>
       <div class="form-group full">
         <label>Stack(s)</label>
@@ -780,7 +790,7 @@ function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
 }
 function mapAlocado(r){
-  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
 }
 function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
@@ -984,6 +994,7 @@ function toISO(d){return d.toISOString().split('T')[0]}
 function getI(n){return(n||'').split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
 function fBRL(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function fCargo(cargo,sen){return cargo+(sen?' '+sen:'');}
 
 /* ─── PROFILE HELPERS ─────────────────────────────────── */
 function isEditor(){return currentUser.role==='editor'}
@@ -1394,7 +1405,7 @@ function renderDashboardMasterContent(){
       <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Contrato</th><th>Admissão</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th></tr></thead>
       <tbody>${team.map(a=>`<tr onclick="openDetailById('${a.id}')">
         <td><div class="cell-name"><div class="avatar">${a.photo?`<img src="${a.photo}">`:`<span>${getI(a.nome)}</span>`}</div><div class="name-main">${a.nome}</div></div></td>
-        <td>${a.cargo}</td>
+        <td>${fCargo(a.cargo,a.senioridade)}</td>
         <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}</div></td>
         <td><span class="badge b-gray">${a.contrato}</span></td>
         <td>${fDate(a.admissao)}</td>
@@ -1504,7 +1515,7 @@ function filterAlocados(){
     const pr=db.projetos.find(x=>x.id===a.projetoId);
     return`<tr onclick="openDetailById('${a.id}')">
       <td><div class="cell-name"><div class="avatar">${a.photo?`<img src="${a.photo}">`:`<span>${getI(a.nome)}</span>`}</div><div><div class="name-main">${a.nome}</div><div class="name-sub">${fDate(a.admissao)}</div></div></div></td>
-      <td>${a.cargo}</td>
+      <td>${fCargo(a.cargo,a.senioridade)}</td>
       <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}${(a.stack||[]).length>2?`<span class="tag">+${a.stack.length-2}</span>`:''}</div></td>
       <td>${pr?`<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:${pr.cor}"></span>${pr.nome}</span>`:'—'}</td>
       <td>${g?g.nome:'—'}</td>
@@ -1690,7 +1701,7 @@ function renderMeuTime(mc){
       <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Contrato</th><th>Admissão</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th></tr></thead>
       <tbody>${team.map(a=>`<tr onclick="openDetailById('${a.id}')">
         <td><div class="cell-name"><div class="avatar">${a.photo?`<img src="${a.photo}">`:`<span>${getI(a.nome)}</span>`}</div><div class="name-main">${a.nome}</div></div></td>
-        <td>${a.cargo}</td>
+        <td>${fCargo(a.cargo,a.senioridade)}</td>
         <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}</div></td>
         <td><span class="badge b-gray">${a.contrato}</span></td>
         <td>${fDate(a.admissao)}</td>
@@ -1834,7 +1845,7 @@ async function openDetailById(id){
   const g=db.gestores.find(x=>x.id===a.gestorId);const pr=db.projetos.find(x=>x.id===a.projetoId);
   const av=document.getElementById('detailAvatar');av.innerHTML=a.photo?`<img src="${a.photo}">`:(getI(a.nome));
   document.getElementById('detailName').textContent=a.nome;
-  document.getElementById('detailRole').textContent=a.cargo+((a.stack||[]).length?' · '+a.stack.slice(0,3).join(', '):'');
+  document.getElementById('detailRole').textContent=fCargo(a.cargo,a.senioridade)+((a.stack||[]).length?' · '+a.stack.slice(0,3).join(', '):'');
   const isE=isEditor();
   const {data:histFin}=await supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt',{ascending:false});
   const hSal=(histFin||[]).filter(h=>h.tipo==='salario').slice(0,4);
@@ -1851,7 +1862,7 @@ async function openDetailById(id){
     </div>
     <div class="d-section">
       <div class="d-section-title">Informações</div>
-      <div class="d-row"><span class="d-label">Cargo</span><span class="d-val">${a.cargo}</span></div>
+      <div class="d-row"><span class="d-label">Cargo</span><span class="d-val">${fCargo(a.cargo,a.senioridade)}</span></div>
       <div class="d-row"><span class="d-label">Stack</span><span class="d-val" style="font-size:12px">${(a.stack||[]).join(', ')||'—'}</span></div>
       <div class="d-row"><span class="d-label">Contrato</span><span class="d-val">${a.contrato}</span></div>
       <div class="d-row"><span class="d-label">Projeto</span><span class="d-val">${pr?pr.nome:'—'}</span></div>
@@ -1993,6 +2004,7 @@ function openModalAlocado(id){
   document.getElementById('modalAlocadoTitle').textContent=id?'Editar Alocado':'Cadastrar Alocado';
   ['alocadoNome','alocadoLinkedin','alocadoSlackEmail','alocadoSalario','alocadoVH','alocadoMC','alocadoAdm','alocadoDesl','alocadoStatus','alocadoMeses'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
   document.getElementById('alocadoCargo').value='';
+  document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoContrato').value='Essencial';
   document.getElementById('cargoNovoGroup').style.display='none';
   document.getElementById('photoPreviewCircle').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
@@ -2017,6 +2029,7 @@ function openModalAlocado(id){
     document.getElementById('alocadoNome').value=a.nome;
     document.getElementById('alocadoLinkedin').value=a.linkedin||'';
     document.getElementById('alocadoCargo').value=a.cargo;
+    document.getElementById('alocadoSenioridade').value=a.senioridade||'';
     document.getElementById('alocadoGestor').value=a.gestorId;
     document.getElementById('alocadoProjeto').value=a.projetoId||'';
     document.getElementById('alocadoSalario').value=a.salario;
@@ -2054,7 +2067,7 @@ async function salvarAlocado(){
     stack:selectedStacks,
     gestor_id:document.getElementById('alocadoGestor').value||null,
     projeto_id:document.getElementById('alocadoProjeto').value||null,
-    salario:ns,valor_hora:nvh,
+    senioridade:document.getElementById('alocadoSenioridade').value||null, salario:ns,valor_hora:nvh,
     contrato:document.getElementById('alocadoContrato').value,
     admissao:adm||null,
     desligamento:desl
