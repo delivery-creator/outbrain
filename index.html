@@ -2063,7 +2063,6 @@ function renderHistPanel(listId,panelId,hist){
 async function salvarAlocado(){
   const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
   const novaSen=document.getElementById('alocadoSenioridade').value||null;
-  const id=document.getElementById('alocadoId').value;
   const alocadoAtual=db.alocados.find(x=>x.id===id);
   const senAnterior=alocadoAtual?.senioridade||'';
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
