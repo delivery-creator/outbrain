@@ -1223,7 +1223,7 @@ function renderDashboardContent(){
         <div class="stat-label">Alocados Ativos</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
-        ${calcSenDist(ativos).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} <span style="color:var(--text-3)">${s.pct}%</span></div>`).join('')}
+        ${calcSenDist(ativos).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} → ${s.pct}%</div>`).join('')}
       </div>
     </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
@@ -1239,7 +1239,7 @@ function renderDashboardContent(){
         <div class="stat-label">Em Desligamento</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
-        ${calcSenDist(desligPrevistos).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} <span style="color:var(--text-3)">${s.pct}%</span></div>`).join('')}
+        ${calcSenDist(desligPrevistos).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} → ${s.pct}%</div>`).join('')}
       </div>
     </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
@@ -1255,7 +1255,7 @@ function renderDashboardContent(){
           <div class="stat-label">Em Admissão</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
-          ${calcSenDist(admissaoList).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} <span style="color:var(--text-3)">${s.pct}%</span></div>`).join('')}
+          ${calcSenDist(admissaoList).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} → ${s.pct}%</div>`).join('')}
         </div>
       </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
