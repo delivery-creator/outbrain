@@ -859,8 +859,11 @@ async function doLogin(){
   try {
     const {data,error}=await supa.auth.signInWithPassword({email,password:pass});
     if(error) throw error;
-    const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',data.user.id).single();
-    if(ue) throw ue;
+    const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',data.user.id).maybeSingle();
+    if(!u){
+      await supa.auth.signOut();
+      throw new Error('Acesso não configurado. Contate o administrador.');
+    }
     currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
     await loadAll();
     initApp();
