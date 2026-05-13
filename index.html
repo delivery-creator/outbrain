@@ -1882,7 +1882,7 @@ async function openDetailById(id){
         <span class="d-label">Senioridade</span>
         <span class="d-val" style="font-weight:600">${a.senioridade}</span>
       </div>
-      ${hSen.length>0?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSen.map(h=>`${fDate(h.data_alt)}: ${h.valor_novo}`).join(' → ')}</div>`:''}
+      ${hSen.length>0?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSen.map(h=>`${fDate(h.data_alt)}: ${h.valor_ant} → ${h.valor_novo}`).join(' · ')}</div>`:''}
     `:''}
     </div>`:''}
     ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
@@ -2092,13 +2092,14 @@ async function salvarAlocado(){
   
   // Registra histórico de senioridade apenas se havia valor anterior E mudou
   if(_idAtual && senAnterior && novaSen && senAnterior !== novaSen){
-    await supa.from('historico_financeiro').insert({
-      alocado_id:id,
-      tipo:'senioridade',
-      valor_novo:novaSen,
-      data_alt:toISO(TODAY)
-    });
-  }
+  await supa.from('historico_financeiro').insert({
+    alocado_id:_idAtual,
+    tipo:'senioridade',
+    valor_ant:senAnterior,
+    valor_novo:novaSen,
+    data_alt:toISO(TODAY)
+  });
+}
   await loadAll();closeModal('modalAlocado');filterAlocados();showToast('Alocado salvo!');
 }
 
