@@ -1850,7 +1850,8 @@ async function openDetailById(id){
   const {data:histFin}=await supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt',{ascending:false});
   const hSal=(histFin||[]).filter(h=>h.tipo==='salario').slice(0,4);
   const hVH=(histFin||[]).filter(h=>h.tipo==='valor_hora').slice(0,4);
-  const hSen=(histFin||[]).filter(h=>h.tipo==='senioridade').slice(0,6);
+  const {data:histSen}=await supa.from('historico_senioridade').select('*').eq('alocado_id',id).order('data_alt',{ascending:true});
+  const hSen=histSen||[];
   const {data:histReloc}=await supa.from('historico_realocacao').select(`*,projeto_ant:projetos!projeto_id_ant(nome,cliente),projeto_novo:projetos!projeto_id_novo(nome,cliente)`).eq('alocado_id',id).order('data_alt',{ascending:false});
   const {data:substDe}=await supa.from('turnover').select('*').eq('substituto_id',id).eq('status','Confirmado');
   document.getElementById('detailBody').innerHTML=`
@@ -2092,11 +2093,10 @@ async function salvarAlocado(){
   
   // Registra histórico de senioridade apenas se havia valor anterior E mudou
   if(_idAtual && senAnterior && novaSen && senAnterior !== novaSen){
-  await supa.from('historico_financeiro').insert({
+  await supa.from('historico_senioridade').insert({
     alocado_id:_idAtual,
-    tipo:'senioridade',
-    valor_ant:senAnterior,
-    valor_novo:novaSen,
+    senioridade_ant:senAnterior,
+    senioridade_nova:novaSen,
     data_alt:toISO(TODAY)
   });
 }
