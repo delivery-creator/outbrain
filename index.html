@@ -1850,6 +1850,7 @@ async function openDetailById(id){
   const {data:histFin}=await supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt',{ascending:false});
   const hSal=(histFin||[]).filter(h=>h.tipo==='salario').slice(0,4);
   const hVH=(histFin||[]).filter(h=>h.tipo==='valor_hora').slice(0,4);
+  const hSen=(histFin||[]).filter(h=>h.tipo==='senioridade').slice(0,6);
   const {data:histReloc}=await supa.from('historico_realocacao').select(`*,projeto_ant:projetos!projeto_id_ant(nome,cliente),projeto_novo:projetos!projeto_id_novo(nome,cliente)`).eq('alocado_id',id).order('data_alt',{ascending:false});
   const {data:substDe}=await supa.from('turnover').select('*').eq('substituto_id',id).eq('status','Confirmado');
   document.getElementById('detailBody').innerHTML=`
@@ -1876,6 +1877,13 @@ async function openDetailById(id){
       <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
       ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hVH.map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
+          ${a.senioridade?`
+      <div class="d-row">
+        <span class="d-label">Senioridade</span>
+        <span class="d-val" style="font-weight:600">${a.senioridade}</span>
+      </div>
+      ${hSen.length>0?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${hSen.map(h=>`${fDate(h.data_alt)}: ${h.valor_novo}`).join(' → ')}</div>`:''}
+    `:''}
     </div>`:''}
     ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
     <div class="d-section">
@@ -2029,7 +2037,7 @@ function openModalAlocado(id){
     document.getElementById('alocadoNome').value=a.nome;
     document.getElementById('alocadoLinkedin').value=a.linkedin||'';
     document.getElementById('alocadoCargo').value=a.cargo;
-    document.getElementById('alocadoSenioridade').value=a.senioridade||'';
+    document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
     document.getElementById('alocadoGestor').value=a.gestorId;
     document.getElementById('alocadoProjeto').value=a.projetoId||'';
     document.getElementById('alocadoSalario').value=a.salario;
@@ -2054,6 +2062,10 @@ function renderHistPanel(listId,panelId,hist){
 }
 async function salvarAlocado(){
   const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
+  const novaSen=document.getElementById('alocadoSenioridade').value||null;
+  const id=document.getElementById('alocadoId').value;
+  const alocadoAtual=db.alocados.find(x=>x.id===id);
+  const senAnterior=alocadoAtual?.senioridade||'';
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
   if(!cargo){showToast('Selecione o cargo');return}
   const ns=parseFloat(String(document.getElementById('alocadoSalario').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
@@ -2077,6 +2089,16 @@ async function salvarAlocado(){
   if(id){({error:err}=await supa.from('alocados').update(payload).eq('id',id));}
   else{({error:err}=await supa.from('alocados').insert(payload));}
   if(err){showToast('Erro: '+err.message);return}
+  
+  // Registra histórico de senioridade apenas se havia valor anterior E mudou
+  if(id && senAnterior && novaSen && senAnterior !== novaSen){
+    await supa.from('historico_financeiro').insert({
+      alocado_id:id,
+      tipo:'senioridade',
+      valor_novo:novaSen,
+      data_alt:toISO(TODAY)
+    });
+  }
   await loadAll();closeModal('modalAlocado');filterAlocados();showToast('Alocado salvo!');
 }
 
