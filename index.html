@@ -422,9 +422,17 @@ input[type=file]{display:none}
         <label>Projeto</label>
         <select class="form-control" id="alocadoProjeto"><option value="">Selecione...</option></select>
       </div>
-      <div class="form-group full">
+      <div class="form-group">
         <label>Tipo de Contrato</label>
         <select class="form-control" id="alocadoContrato"><option>Essencial</option><option>Squad</option><option>Talent Pipeline Pro</option></select>
+      </div>
+      <div class="form-group">
+        <label>Modalidade</label>
+        <select class="form-control" id="alocadoModalidade">
+          <option value="">—</option>
+          <option value="PJ">PJ</option>
+          <option value="CLT">CLT</option>
+        </select>
       </div>
 
       <div class="section-div">Financeiro</div>
@@ -790,7 +798,7 @@ function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
 }
 function mapAlocado(r){
-  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
 }
 function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
@@ -2044,6 +2052,7 @@ function openModalAlocado(id){
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoContrato').value='Essencial';
+  document.getElementById('alocadoModalidade').value='';
   document.getElementById('cargoNovoGroup').style.display='none';
   document.getElementById('photoPreviewCircle').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   document.getElementById('photoStatusText').textContent='Nenhuma foto';
@@ -2068,6 +2077,7 @@ function openModalAlocado(id){
     document.getElementById('alocadoLinkedin').value=a.linkedin||'';
     document.getElementById('alocadoCargo').value=a.cargo;
     document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
+    document.getElementById('alocadoModalidade').value=a.modalidade||'';
     document.getElementById('alocadoGestor').value=a.gestorId;
     document.getElementById('alocadoProjeto').value=a.projetoId||'';
     document.getElementById('alocadoSalario').value=a.salario;
@@ -2110,6 +2120,7 @@ async function salvarAlocado(){
     gestor_id:document.getElementById('alocadoGestor').value||null,
     projeto_id:document.getElementById('alocadoProjeto').value||null,
     senioridade:document.getElementById('alocadoSenioridade').value||null, salario:ns,valor_hora:nvh,
+    modalidade:document.getElementById('alocadoModalidade').value||null,
     contrato:document.getElementById('alocadoContrato').value,
     admissao:adm||null,
     desligamento:desl
