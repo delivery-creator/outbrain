@@ -995,6 +995,14 @@ function getI(n){return(n||'').split(' ').slice(0,2).map(x=>x[0]).join('').toUpp
 function fBRL(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function fCargo(cargo,sen){return cargo+(sen?' '+sen:'');}
+function calcSenDist(lista){
+  const ordem=['JR','PL','SR','ESP'];
+  const total=lista.length;
+  if(!total)return[];
+  const counts={};
+  lista.forEach(a=>{if(a.senioridade)counts[a.senioridade]=(counts[a.senioridade]||0)+1;});
+  return ordem.filter(s=>counts[s]).map(s=>({sen:s,qtd:counts[s],pct:Math.round(counts[s]/total*100)}));
+}
 
 /* ─── PROFILE HELPERS ─────────────────────────────────── */
 function isEditor(){return currentUser.role==='editor'}
@@ -1209,8 +1217,15 @@ function renderDashboardContent(){
   <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
     <div class="stat-card">
       <div class="stat-icon" style="background:var(--green-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
-      <div class="stat-value">${ativos.length}</div>
-      <div class="stat-label">Alocados Ativos</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="stat-value">${ativos.length}</div>
+        <div class="stat-label">Alocados Ativos</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
+        ${calcSenDist(ativos).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} <span style="color:var(--text-3)">${s.pct}%</span></div>`).join('')}
+      </div>
+    </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
         <div style="font-size:12px;color:var(--text-3);margin-bottom:2px">Faturamento Est. Mensal</div>
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--brand)">${fBRL(fatEst)}</div>
@@ -1218,8 +1233,15 @@ function renderDashboardContent(){
     </div>
     <div class="stat-card">
       <div class="stat-icon" style="background:var(--red-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/></svg></div>
-      <div class="stat-value" style="color:var(--red)">${desligPrevistos.length}</div>
-      <div class="stat-label">Em Desligamento</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="stat-value" style="color:var(--red)">${desligPrevistos.length}</div>
+        <div class="stat-label">Em Desligamento</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
+        ${calcSenDist(desligPrevistos).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} <span style="color:var(--text-3)">${s.pct}%</span></div>`).join('')}
+      </div>
+    </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
         <div style="font-size:12px;color:var(--text-3);margin-bottom:2px">Faturamento Est. Mensal</div>
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--red)">${fBRL(fatDeslig)}</div>
@@ -1227,8 +1249,15 @@ function renderDashboardContent(){
     </div>
     <div class="stat-card">
       <div class="stat-icon" style="background:var(--purple-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-      <div class="stat-value" style="color:var(--purple)">${emAdm}</div>
-      <div class="stat-label">Em Admissão</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="stat-value" style="color:var(--purple)">${emAdm}</div>
+          <div class="stat-label">Em Admissão</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;text-align:right">
+          ${calcSenDist(admissaoList).map(s=>`<div style="font-size:11px;color:var(--text-3);white-space:nowrap"><span style="font-weight:700;color:var(--text-2)">${s.sen}</span> ${s.qtd} <span style="color:var(--text-3)">${s.pct}%</span></div>`).join('')}
+        </div>
+      </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
         <div style="font-size:12px;color:var(--text-3);margin-bottom:2px">Faturamento Est. Mensal</div>
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--purple)">${fBRL(fatAdm)}</div>
