@@ -2063,7 +2063,8 @@ function renderHistPanel(listId,panelId,hist){
 async function salvarAlocado(){
   const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
   const novaSen=document.getElementById('alocadoSenioridade').value||null;
-  const alocadoAtual=db.alocados.find(x=>x.id===id);
+  const _idAtual=document.getElementById('alocadoId').value;
+  const alocadoAtual=db.alocados.find(x=>x.id===_idAtual);
   const senAnterior=alocadoAtual?.senioridade||'';
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
   if(!cargo){showToast('Selecione o cargo');return}
@@ -2090,7 +2091,7 @@ async function salvarAlocado(){
   if(err){showToast('Erro: '+err.message);return}
   
   // Registra histórico de senioridade apenas se havia valor anterior E mudou
-  if(id && senAnterior && novaSen && senAnterior !== novaSen){
+  if(_idAtual && senAnterior && novaSen && senAnterior !== novaSen){
     await supa.from('historico_financeiro').insert({
       alocado_id:id,
       tipo:'senioridade',
