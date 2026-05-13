@@ -2093,14 +2093,12 @@ async function salvarAlocado(){
   
   // Registra histórico de senioridade apenas se havia valor anterior E mudou
   if(_idAtual && senAnterior && novaSen && senAnterior !== novaSen){
-  console.log('GRAVANDO HISTORICO SEN:', {_idAtual, senAnterior, novaSen});
-  const {error:senErr} = await supa.from('historico_senioridade').insert({
+  await supa.from('historico_senioridade').insert({
     alocado_id:_idAtual,
     senioridade_ant:senAnterior,
     senioridade_nova:novaSen,
     data_alt:toISO(TODAY)
   });
-  console.log('RESULTADO:', senErr);
 }
   await loadAll();closeModal('modalAlocado');filterAlocados();showToast('Alocado salvo!');
 }
