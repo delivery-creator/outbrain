@@ -1879,7 +1879,7 @@ async function renderCalculadora(mc){
       </div>
       <div class="form-group">
         <label>Modalidade</label>
-        <select class="form-control" id="calcModalidade" onchange="recalcAll_calc()">
+        <select class="form-control" id="calcModalidade" onchange="recalcAll_calc();atualizarBtnCriar()">
           <option value="PJ">PJ</option>
           <option value="CLT">CLT</option>
         </select>
@@ -1921,10 +1921,13 @@ async function renderCalculadora(mc){
 
   <!-- BOTÃO CRIAR ALOCADO -->
   ${isE?`<div style="display:flex;justify-content:flex-end">
-    <button class="btn btn-ghost" id="btnCriarAlocado" onclick="criarAlocadoFromCalc()" disabled style="color:var(--text-3);cursor:not-allowed">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    <span id="btnCriarAlocadoTxt">Preencha Valor Hora ou Salário para criar alocado</span>
-  </button>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px">
+      <span id="btnCriarMsg" style="font-size:12px;color:var(--text-3);display:none"></span>
+      <button class="btn btn-ghost" id="btnCriarAlocado" onclick="criarAlocadoFromCalc()" disabled style="color:var(--text-3);cursor:not-allowed">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        + Criar Alocado
+      </button>
+    </div>
   </div>`:''}
   `;
 }
@@ -1990,23 +1993,42 @@ function recalcAll_calc(){
   calcCC();
 }
 
-  function atualizarBtnCriar(){
-  const vh  = parseFloat(document.getElementById('calcVH')?.value)||0;
-  const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
-  const btn = document.getElementById('btnCriarAlocado');
-  const txt = document.getElementById('btnCriarAlocadoTxt');
+function atualizarBtnCriar(){
+  const mod         = document.getElementById('calcModalidade')?.value||'PJ';
+  const vh          = parseFloat(document.getElementById('calcVH')?.value)||0;
+  const sal         = parseFloat(document.getElementById('calcSal')?.value)||0;
+  const contratacao = parseFloat(document.getElementById('rVH_contratacao')?.textContent?.replace(/[^0-9,]/g,'').replace(',','.'))||0;
+  const btn         = document.getElementById('btnCriarAlocado');
+  const msg         = document.getElementById('btnCriarMsg');
   if(!btn) return;
-  if(vh || sal){
+
+  let habilita = false;
+  let mensagem = '';
+
+  if(mod === 'CLT'){
+    if(!sal){ mensagem = 'Informe o Salário'; }
+    else { habilita = true; }
+  } else {
+    // PJ
+    if(!vh)            { mensagem = 'Informe o Valor Hora'; }
+    else if(!sal)      { mensagem = 'Informe o Salário'; }
+    else if(!contratacao){ mensagem = 'Calcule o Valor p/ Contratação'; }
+    else if(contratacao < sal){ mensagem = 'Valor p/ Contratação abaixo do Salário'; }
+    else { habilita = true; }
+  }
+
+  if(habilita){
     btn.disabled = false;
     btn.className = 'btn btn-accent';
     btn.style.cursor = '';
-    if(txt) txt.textContent = 'Criar Alocado';
+    btn.style.color = '';
+    if(msg){ msg.textContent = ''; msg.style.display = 'none'; }
   } else {
     btn.disabled = true;
     btn.className = 'btn btn-ghost';
     btn.style.color = 'var(--text-3)';
     btn.style.cursor = 'not-allowed';
-    if(txt) txt.textContent = 'Preencha Valor Hora ou Salário para criar alocado';
+    if(msg){ msg.textContent = mensagem; msg.style.display = 'inline'; }
   }
 }
 
