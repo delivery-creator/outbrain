@@ -432,11 +432,6 @@ input[type=file]{display:none}
           <option value="CLT">CLT</option>
         </select>
       </div>
-      <div class="form-group full hidden" id="cthGroup">
-        <label>Valor Hora CTH (primeiros 6 meses) *</label>
-        <input class="form-control" type="number" id="alocadoVHCTH" placeholder="0">
-      </div>
-
       <div class="section-div">Financeiro</div>
       <div class="form-group">
         <label>Salário (R$)</label>
@@ -447,6 +442,10 @@ input[type=file]{display:none}
         <label>Valor Hora (R$)</label>
         <input class="form-control" type="number" id="alocadoVH" placeholder="0" oninput="calcMedia()">
         <div class="hist-panel" id="histVHPanel" style="display:none"><div class="hist-title">Histórico</div><div id="histVHList"></div></div>
+      </div>
+      <div class="form-group full hidden" id="cthGroup">
+        <label>Valor Hora CTH (primeiros 6 meses) *</label>
+        <input class="form-control" type="number" id="alocadoVHCTH" placeholder="0">
       </div>
       <div class="form-group">
         <label>Média Custo Mês (R$)</label>
