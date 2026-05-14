@@ -424,7 +424,7 @@ input[type=file]{display:none}
       </div>
       <div class="form-group">
         <label>Tipo de Contrato</label>
-        <select class="form-control" id="alocadoContrato"><option>Essencial</option><option>Squad</option><option>Talent Pipeline Pro</option></select>
+        <select class="form-control" id="alocadoContrato" onchange="onContratoChange(this)"><option>Essencial</option><option>Squad</option><option>Talent Pipeline Pro</option></select>
       </div>
       <div class="form-group">
         <label>Modalidade</label>
@@ -724,6 +724,8 @@ const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 let db = { projetos:[], alocados:[], gestores:[], turnover:[], usuarios:[], contatos:[] };
 let currentUser = {email:'',role:'',name:'',cliente:''};
 let chartInstances = {};
+let _calcVHPadrao = null;
+let _calcVHCTH = null;
 
 /* ─── STATUS ──────────────────────────────────────────── */
 function calcStatus(adm, desl) {
@@ -2057,23 +2059,18 @@ function limparCalculadora(){
 }
 
 function criarAlocadoFromCalc(){
+  const mod = document.getElementById('calcModalidade')?.value||'PJ';
   const sal = parseFloat(document.getElementById('calcSal')?.value)||null;
-  const contrato = document.getElementById('alocadoContrato')?.value||'';
   let vh = null;
 
   if(mod === 'CLT'){
-    // CLT → usa V/H da Calc CC
     vh = parseFloat(document.getElementById('rCC_vh')?.textContent?.replace(/[^\d]/g,''))||null;
+    _calcVHPadrao = vh;
+    _calcVHCTH = null;
   } else {
-    // PJ → verifica se é Talent Pipeline Pro
-    const isTalent = contrato === 'Talent Pipeline Pro';
-    if(isTalent){
-      // PJ + Talent Pipeline Pro → usa CTH 6 meses
-      vh = parseFloat(document.getElementById('rVH_cth')?.textContent?.replace(/[^0-9,]/g,'').replace(',','.'))||null;
-    } else {
-      // PJ normal → usa campo Valor Hora
-      vh = parseFloat(document.getElementById('calcVH')?.value)||null;
-    }
+    _calcVHPadrao = parseFloat(document.getElementById('calcVH')?.value)||null;
+    _calcVHCTH = parseFloat(document.getElementById('rVH_cth')?.textContent?.replace(/[^\d]/g,''))||null;
+    vh = _calcVHPadrao;
   }
 
   openModalAlocado();
@@ -2359,6 +2356,17 @@ function filterGestorProjByCliente(){
 function buildStackGrid(){document.getElementById('stackGrid').innerHTML=allStacks.map(s=>`<label class="stack-label"><input type="checkbox" value="${s}" onchange="toggleStack(this)">${s}</label>`).join('');selectedStacks.forEach(s=>{const cb=document.querySelector(`#stackGrid input[value="${s}"]`);if(cb)cb.checked=true})}
 function toggleStack(cb){if(cb.checked){if(!selectedStacks.includes(cb.value))selectedStacks.push(cb.value)}else{selectedStacks=selectedStacks.filter(s=>s!==cb.value)}}
 function adicionarStack(){const v=document.getElementById('novaStack').value.trim();if(!v)return;if(!allStacks.includes(v)){allStacks.push(v);customStacks.push(v)}if(!selectedStacks.includes(v))selectedStacks.push(v);document.getElementById('novaStack').value='';buildStackGrid()}
+function onContratoChange(sel){
+  if(!_calcVHCTH && !_calcVHPadrao) return; // não veio da calculadora, ignora
+  const vhField = document.getElementById('alocadoVH');
+  if(!vhField) return;
+  if(sel.value === 'Talent Pipeline Pro' && _calcVHCTH){
+    vhField.value = _calcVHCTH;
+  } else if(_calcVHPadrao){
+    vhField.value = _calcVHPadrao;
+  }
+  calcMedia();
+}
 function calcMedia(){const vh=parseFloat(document.getElementById('alocadoVH').value)||0;document.getElementById('alocadoMC').value=fBRL(vh*168)}
 function recalcStatus(){
   const adm=document.getElementById('alocadoAdm').value;const desl=document.getElementById('alocadoDesl').value;
