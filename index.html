@@ -2091,27 +2091,6 @@ function criarAlocadoFromCalc(){
   }, 100);
 }
 
-function criarAlocadoFromCalc(){
-  const base = document.querySelector('input[name="calcBase"]:checked')?.value;
-  if(!base) return;
-  let vh = null, sal = null, mod = null;
-  if(base === 'vh'){
-    vh  = parseFloat(document.getElementById('calcVH')?.value)||null;
-    sal = parseFloat(document.getElementById('calcSal')?.value)||null;
-  } else {
-    sal = parseFloat(document.getElementById('calcSal')?.value)||null;
-    mod = document.getElementById('calcModalidade')?.value||null;
-    vh  = parseFloat(document.getElementById('rCC_vh')?.textContent?.replace(/[^\d]/g,''))||null;
-  }
-  openModalAlocado();
-  setTimeout(()=>{
-    if(vh)  document.getElementById('alocadoVH').value = vh;
-    if(sal) document.getElementById('alocadoSalario').value = sal;
-    if(mod) document.getElementById('alocadoModalidade').value = mod;
-    calcMedia();
-  }, 100);
-}
-
 async function salvarParamCalc(){
   if(!paramCalc?.id) return;
   const notebookVal = parseFloat(document.getElementById('paramNotebook')?.value)||395;
