@@ -1856,7 +1856,7 @@ async function renderCalculadora(mc){
   <div class="chart-card" style="margin-bottom:16px">
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:flex-end">
       <div class="form-group">
-        <label>% Lucro</label>
+        <label>Margem %</label>
         <div style="display:flex;align-items:center;gap:5px">
           <input class="form-control" type="number" id="paramLucro" value="${(p.pct_lucro*100).toFixed(0)}" oninput="recalcAll_calc()">
           <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
@@ -1908,12 +1908,6 @@ async function renderCalculadora(mc){
         <span class="d-label" style="color:var(--amber);font-weight:700">Custo CTH 6 meses</span>
         <span class="d-val" id="rVH_cth" style="color:var(--amber);font-weight:700">R$ 0,00</span>
       </div>
-      <div style="margin-top:12px">
-        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--font-min)">
-          <input type="radio" name="calcBase" value="vh" onchange="toggleBtnCriar()" style="accent-color:var(--brand)">
-          Usar esta calculadora para criar alocado
-        </label>
-      </div>
     </div>
 
     <!-- CALC CUSTO COLABORADOR -->
@@ -1922,18 +1916,12 @@ async function renderCalculadora(mc){
       <div class="d-row"><span class="d-label">Custo Colaborador</span><span class="d-val" id="rCC_custoColab">R$ 0,00</span></div>
       <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rCC_custoCliente" style="font-weight:600;color:var(--brand)">R$ 0,00</span></div>
       <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val" id="rCC_vh" style="font-weight:700">R$ 0</span></div>
-      <div style="margin-top:12px">
-        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--font-min)">
-          <input type="radio" name="calcBase" value="cc" onchange="toggleBtnCriar()" style="accent-color:var(--brand)">
-          Usar esta calculadora para criar alocado
-        </label>
-      </div>
     </div>
   </div>
 
   <!-- BOTÃO CRIAR ALOCADO -->
   ${isE?`<div style="display:flex;justify-content:flex-end">
-    <button class="btn btn-accent" id="btnCriarAlocado" disabled onclick="criarAlocadoFromCalc()">
+    <button class="btn btn-accent" id="btnCriarAlocado" onclick="criarAlocadoFromCalc()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Criar Alocado
     </button>
@@ -2025,9 +2013,34 @@ function limparCalculadora(){
   if(btn) btn.disabled=true;
 }
 
-function toggleBtnCriar(){
-  const btn = document.getElementById('btnCriarAlocado');
-  if(btn) btn.disabled = false;
+function criarAlocadoFromCalc(){
+  const mod = document.getElementById('calcModalidade')?.value||'PJ';
+  const sal = parseFloat(document.getElementById('calcSal')?.value)||null;
+  const contrato = document.getElementById('alocadoContrato')?.value||'';
+  let vh = null;
+
+  if(mod === 'CLT'){
+    // CLT → usa V/H da Calc CC
+    vh = parseFloat(document.getElementById('rCC_vh')?.textContent?.replace(/[^\d]/g,''))||null;
+  } else {
+    // PJ → verifica se é Talent Pipeline Pro
+    const isTalent = contrato === 'Talent Pipeline Pro';
+    if(isTalent){
+      // PJ + Talent Pipeline Pro → usa CTH 6 meses
+      vh = parseFloat(document.getElementById('rVH_cth')?.textContent?.replace(/[^0-9,]/g,'').replace(',','.'))||null;
+    } else {
+      // PJ normal → usa campo Valor Hora
+      vh = parseFloat(document.getElementById('calcVH')?.value)||null;
+    }
+  }
+
+  openModalAlocado();
+  setTimeout(()=>{
+    if(vh)  document.getElementById('alocadoVH').value = vh;
+    if(sal) document.getElementById('alocadoSalario').value = sal;
+    document.getElementById('alocadoModalidade').value = mod;
+    calcMedia();
+  }, 100);
 }
 
 function criarAlocadoFromCalc(){
@@ -2418,14 +2431,18 @@ function renderHistPanel(listId,panelId,hist){
 }
 async function salvarAlocado(){
   const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
-  const novaSen=document.getElementById('alocadoSenioridade').value||null;
-  const _idAtual=document.getElementById('alocadoId').value;
-  const alocadoAtual=db.alocados.find(x=>x.id===_idAtual);
-  const senAnterior=alocadoAtual?.senioridade||'';
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
   if(!cargo){showToast('Selecione o cargo');return}
   const ns=parseFloat(String(document.getElementById('alocadoSalario').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
   const nvh=parseFloat(String(document.getElementById('alocadoVH').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
+  const nmod=document.getElementById('alocadoModalidade').value||'';
+  if(!ns){showToast('Informe o salário');return}
+  if(!nvh){showToast('Informe o valor hora');return}
+  if(!nmod){showToast('Selecione a modalidade (PJ ou CLT)');return}
+  const novaSen=document.getElementById('alocadoSenioridade').value||null;
+  const _idAtual=document.getElementById('alocadoId').value;
+  const alocadoAtual=db.alocados.find(x=>x.id===_idAtual);
+  const senAnterior=alocadoAtual?.senioridade||'';
   const adm=document.getElementById('alocadoAdm').value;
   const desl=document.getElementById('alocadoDesl').value||null;
   const payload={
@@ -2435,20 +2452,39 @@ async function salvarAlocado(){
     stack:selectedStacks,
     gestor_id:document.getElementById('alocadoGestor').value||null,
     projeto_id:document.getElementById('alocadoProjeto').value||null,
-    senioridade:document.getElementById('alocadoSenioridade').value||null, salario:ns,valor_hora:nvh,
-    modalidade:document.getElementById('alocadoModalidade').value||null,
+    senioridade:document.getElementById('alocadoSenioridade').value||null,
+    salario:ns,valor_hora:nvh,
+    modalidade:nmod||null,
     contrato:document.getElementById('alocadoContrato').value,
     admissao:adm||null,
     desligamento:desl
   };
   const id=document.getElementById('alocadoId').value;
   let err;
-  if(id){({error:err}=await supa.from('alocados').update(payload).eq('id',id));}
-  else{({error:err}=await supa.from('alocados').insert(payload));}
+  let novoId=id;
+  if(id){
+    ({error:err}=await supa.from('alocados').update(payload).eq('id',id));
+  } else {
+    const {data:inserted,error:insErr}=await supa.from('alocados').insert(payload).select('id').single();
+    err=insErr;
+    if(inserted) novoId=inserted.id;
+  }
   if(err){showToast('Erro: '+err.message);return}
+
+  // Registra histórico inicial no INSERT
+  if(!id && novoId){
+    const hoje=toISO(TODAY);
+    if(nvh) await supa.from('historico_financeiro').insert({alocado_id:novoId,tipo:'valor_hora',valor_ant:String(nvh),valor_novo:String(nvh),data_alt:hoje});
+    if(ns) await supa.from('historico_financeiro').insert({alocado_id:novoId,tipo:'salario',valor_ant:String(ns),valor_novo:String(ns),data_alt:hoje});
+    const margemInicial=calcMargem(nvh,ns,nmod);
+    if(margemInicial!==null){
+      await supa.from('alocados').update({margem:margemInicial}).eq('id',novoId);
+      await supa.from('historico_margem').insert({alocado_id:novoId,margem_ant:margemInicial,margem_nova:margemInicial,data_alt:hoje});
+    }
+  }
   
   // Registra histórico de senioridade apenas se havia valor anterior E mudou
-  if(_idAtual && senAnterior && novaSen && senAnterior !== novaSen){
+  if(novoId && senAnterior && novaSen && senAnterior !== novaSen){
   await supa.from('historico_senioridade').insert({
     alocado_id:_idAtual,
     senioridade_ant:senAnterior,
@@ -2460,17 +2496,17 @@ async function salvarAlocado(){
 const novaModalidade = document.getElementById('alocadoModalidade').value||null;
 const novaMargem = calcMargem(nvh, ns, novaModalidade);
 const margemAnterior = alocadoAtual?.margem||null;
-if(_idAtual && margemAnterior !== null && novaMargem !== null && margemAnterior !== novaMargem){
+if(novoId && margemAnterior !== null && novaMargem !== null && margemAnterior !== novaMargem){
   await supa.from('historico_margem').insert({
-    alocado_id:_idAtual,
+    alocado_id:novoId,
     margem_ant:margemAnterior,
     margem_nova:novaMargem,
     data_alt:toISO(TODAY)
   });
 }
 // Salva margem atual no alocado
-if(_idAtual && novaMargem !== null){
-  await supa.from('alocados').update({margem:novaMargem}).eq('id',_idAtual);
+if(novoId && novaMargem !== null){
+  await supa.from('alocados').update({margem:novaMargem}).eq('id',novoId);
 }
   await loadAll();closeModal('modalAlocado');filterAlocados();showToast('Alocado salvo!');
 }
