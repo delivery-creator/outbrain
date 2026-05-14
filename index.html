@@ -434,6 +434,10 @@ input[type=file]{display:none}
           <option value="CLT">CLT</option>
         </select>
       </div>
+      <div class="form-group hidden" id="cthGroup">
+        <label>Valor Hora CTH (primeiros 6 meses) *</label>
+        <input class="form-control" type="number" id="alocadoVHCTH" placeholder="0">
+      </div>
 
       <div class="section-div">Financeiro</div>
       <div class="form-group">
@@ -800,7 +804,7 @@ function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
 }
 function mapAlocado(r){
-  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
 }
 function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
@@ -1005,6 +1009,13 @@ function getI(n){return(n||'').split(' ').slice(0,2).map(x=>x[0]).join('').toUpp
 function fBRL(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function fCargo(cargo,sen){return cargo+(sen?' '+sen:'');}
+function calcMargemVH(alocado){
+  // Se Talent Pipeline Pro e ainda no período CTH, usa V/H CTH
+  const vh = (alocado.contrato === 'Talent Pipeline Pro' && alocado.valorHoraCTH)
+    ? alocado.valorHoraCTH
+    : alocado.valorHora;
+  return calcMargem(vh, alocado.salario, alocado.modalidade);
+}
 function calcMargem(valorHora, salario, modalidade){
 const custoCliente = valorHora * 168;
 if(!custoCliente) return null;
@@ -2078,6 +2089,10 @@ function criarAlocadoFromCalc(){
     if(vh)  document.getElementById('alocadoVH').value = vh;
     if(sal) document.getElementById('alocadoSalario').value = sal;
     document.getElementById('alocadoModalidade').value = mod;
+    if(_calcVHCTH && document.getElementById('alocadoContrato').value === 'Talent Pipeline Pro'){
+      document.getElementById('alocadoVHCTH').value = _calcVHCTH;
+      document.getElementById('cthGroup').classList.remove('hidden');
+    }
     calcMedia();
   }, 100);
 }
@@ -2357,13 +2372,20 @@ function buildStackGrid(){document.getElementById('stackGrid').innerHTML=allStac
 function toggleStack(cb){if(cb.checked){if(!selectedStacks.includes(cb.value))selectedStacks.push(cb.value)}else{selectedStacks=selectedStacks.filter(s=>s!==cb.value)}}
 function adicionarStack(){const v=document.getElementById('novaStack').value.trim();if(!v)return;if(!allStacks.includes(v)){allStacks.push(v);customStacks.push(v)}if(!selectedStacks.includes(v))selectedStacks.push(v);document.getElementById('novaStack').value='';buildStackGrid()}
 function onContratoChange(sel){
-  if(!_calcVHCTH && !_calcVHPadrao) return; // não veio da calculadora, ignora
+  const isTalent = sel.value === 'Talent Pipeline Pro';
+  const cthGroup = document.getElementById('cthGroup');
+  if(cthGroup) cthGroup.classList.toggle('hidden', !isTalent);
+
+  if(!_calcVHCTH && !_calcVHPadrao) return;
   const vhField = document.getElementById('alocadoVH');
+  const vhCTHField = document.getElementById('alocadoVHCTH');
   if(!vhField) return;
-  if(sel.value === 'Talent Pipeline Pro' && _calcVHCTH){
-    vhField.value = _calcVHCTH;
+  if(isTalent && _calcVHCTH){
+    if(vhCTHField) vhCTHField.value = _calcVHCTH;
+    if(_calcVHPadrao) vhField.value = _calcVHPadrao;
   } else if(_calcVHPadrao){
     vhField.value = _calcVHPadrao;
+    if(vhCTHField) vhCTHField.value = '';
   }
   calcMedia();
 }
@@ -2411,6 +2433,8 @@ function openModalAlocado(id){
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoContrato').value='Essencial';
   document.getElementById('alocadoModalidade').value='';
+  document.getElementById('alocadoVHCTH').value='';
+  document.getElementById('cthGroup').classList.add('hidden');
   document.getElementById('cargoNovoGroup').style.display='none';
   document.getElementById('photoPreviewCircle').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   document.getElementById('photoStatusText').textContent='Nenhuma foto';
@@ -2436,6 +2460,13 @@ function openModalAlocado(id){
     document.getElementById('alocadoCargo').value=a.cargo;
     document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
     document.getElementById('alocadoModalidade').value=a.modalidade||'';
+    if(a.contrato === 'Talent Pipeline Pro'){
+      document.getElementById('cthGroup').classList.remove('hidden');
+      document.getElementById('alocadoVHCTH').value = a.valorHoraCTH||'';
+    } else {
+      document.getElementById('cthGroup').classList.add('hidden');
+      document.getElementById('alocadoVHCTH').value = '';
+    }
     document.getElementById('alocadoGestor').value=a.gestorId;
     document.getElementById('alocadoProjeto').value=a.projetoId||'';
     document.getElementById('alocadoSalario').value=a.salario;
@@ -2468,6 +2499,9 @@ async function salvarAlocado(){
   if(!ns){showToast('Informe o salário');return}
   if(!nvh){showToast('Informe o valor hora');return}
   if(!nmod){showToast('Selecione a modalidade (PJ ou CLT)');return}
+  const contrato = document.getElementById('alocadoContrato').value;
+  const vhCTH = parseFloat(document.getElementById('alocadoVHCTH').value)||null;
+  if(contrato === 'Talent Pipeline Pro' && !vhCTH){showToast('Informe o Valor Hora CTH');return}
   const novaSen=document.getElementById('alocadoSenioridade').value||null;
   const _idAtual=document.getElementById('alocadoId').value;
   const alocadoAtual=db.alocados.find(x=>x.id===_idAtual);
@@ -2482,6 +2516,9 @@ async function salvarAlocado(){
     gestor_id:document.getElementById('alocadoGestor').value||null,
     projeto_id:document.getElementById('alocadoProjeto').value||null,
     senioridade:document.getElementById('alocadoSenioridade').value||null,
+    valor_hora_cth: document.getElementById('alocadoContrato').value === 'Talent Pipeline Pro'
+    ? (parseFloat(document.getElementById('alocadoVHCTH').value)||null)
+    : null,
     salario:ns,valor_hora:nvh,
     modalidade:nmod||null,
     contrato:document.getElementById('alocadoContrato').value,
