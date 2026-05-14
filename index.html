@@ -2057,12 +2057,6 @@ function limparCalculadora(){
 }
 
 function criarAlocadoFromCalc(){
-  console.log('criarAlocadoFromCalc chamado');
-  const mod = document.getElementById('calcModalidade')?.value||'PJ';
-  console.log('mod:', mod);
-  console.log('calcVH:', document.getElementById('calcVH')?.value);
-  console.log('calcSal:', document.getElementById('calcSal')?.value);
-  console.log('rCC_vh:', document.getElementById('rCC_vh')?.textContent);
   const sal = parseFloat(document.getElementById('calcSal')?.value)||null;
   const contrato = document.getElementById('alocadoContrato')?.value||'';
   let vh = null;
