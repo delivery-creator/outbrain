@@ -1580,7 +1580,7 @@ function filterAlocados(){
       <td><span class="badge b-gray">${a.contrato}</span></td>
       <td>${a.meses}m</td>
       <td style="font-weight:600">${fBRL(a.salario)}</td>
-      <td>${fBRL(a.valorHora)}/h</td>
+      <td>${fBRL(getVH(a))}/h${a.valorHoraCTH?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</td>
       <td style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</td>
       <td><span class="badge ${a.badge}">${a.status}</span></td>
       <td onclick="event.stopPropagation()"><div class="row-actions">
@@ -2268,7 +2268,7 @@ async function openDetailById(id){
     ${isE?`<div class="d-section">
       <div class="d-section-title">Financeiro</div>
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--brand);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
-      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(a.valorHora)}/h</span></div>
+      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(getVH(a))}/h${a.valorHoraCTH?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</span></div>
       ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hVH].reverse().map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
       <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
       ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hSal].reverse().map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
@@ -2377,6 +2377,9 @@ function onContratoChange(sel){
   const isTalent = sel.value === 'Talent Pipeline Pro';
   const cthGroup = document.getElementById('cthGroup');
   if(cthGroup) cthGroup.classList.toggle('hidden', !isTalent);
+  const vhF = document.getElementById('alocadoVH');
+  if(vhF) vhF.disabled = isTalent;
+  if(!isTalent && vhF) vhF.disabled = false;
 
   if(!_calcVHCTH && !_calcVHPadrao) return;
   const vhField = document.getElementById('alocadoVH');
@@ -2473,6 +2476,12 @@ function openModalAlocado(id){
     if(a.contrato === 'Talent Pipeline Pro'){
       document.getElementById('cthGroup').classList.remove('hidden');
       document.getElementById('alocadoVHCTH').value = a.valorHoraCTH||'';
+      const vhField = document.getElementById('alocadoVH');
+      if(a.valorHoraCTH){
+        vhField.disabled = true;
+      } else {
+        vhField.disabled = false;
+      }
     } else {
       document.getElementById('cthGroup').classList.add('hidden');
       document.getElementById('alocadoVHCTH').value = '';
@@ -2497,7 +2506,8 @@ function renderHistPanel(listId,panelId,hist){
   const p=document.getElementById(panelId);if(!p)return;
   if(!hist||!hist.length){p.style.display='none';return}
   p.style.display='block';
-  document.getElementById(listId).innerHTML=hist.slice().reverse().map(h=>`<div class="hist-item"><span class="hist-val">${fBRL(h.val)}</span><span class="hist-date">${fDate(h.data)}</span></div>`).join('');
+  const ultima=hist.slice().reverse()[0];
+  document.getElementById(listId).innerHTML=`<div class="hist-item"><span class="hist-val" style="font-size:12px;color:var(--text-3)">Última atualização: ${fDate(ultima.data)}</span><span class="hist-date">${fBRL(ultima.val)}</span></div>`;
 }
 async function salvarAlocado(){
   const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
