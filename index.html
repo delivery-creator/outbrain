@@ -751,7 +751,7 @@ function recalcAll() {
     const s = calcStatus(a.admissao, a.desligamento);
     a.status = s.status; a.badge = s.badge;
     a.meses = calcMeses(a.admissao, a.desligamento, a.status);
-    a.mediaCusto = (a.valorHora||0)*168;
+    a.mediaCusto = getVH(a)*168;
   });
 }
 
@@ -787,7 +787,7 @@ function calcTurnoverMetrics(ano, filtroProjetoIds) {
     .filter(t => tvTemSubstituicao(t))
     .reduce((s, t) => {
       const alocado = db.alocados.find(a => a.id === t.alocadoId);
-      return s + ((alocado?.valorHora || 0) * 168);
+      return s + (getVH(alocado) * 168);
     }, 0);
 
   return { totalDeslig, comSubst, semSubst, taxaBruta, taxaLiquida, saving, ativos };
@@ -1006,6 +1006,9 @@ function getI(n){return(n||'').split(' ').slice(0,2).map(x=>x[0]).join('').toUpp
 function fBRL(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function fCargo(cargo,sen){return cargo+(sen?' '+sen:'');}
+function getVH(a){
+  return (a.contrato==='Talent Pipeline Pro' && a.valorHoraCTH) ? a.valorHoraCTH : a.valorHora;
+}
 function calcMargemVH(alocado){
   // Se Talent Pipeline Pro e ainda no período CTH, usa V/H CTH
   const vh = (alocado.contrato === 'Talent Pipeline Pro' && alocado.valorHoraCTH)
@@ -1162,9 +1165,9 @@ function renderDashboardContent(){
   });
 
   const ativos=visAlocados.filter(a=>a.status==='Ativo');
-  const fatEst=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const fatEst=ativos.reduce((s,a)=>s+(getVH(a)*168),0);
   const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
-  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+(a.valorHora),0)/ativos.length):0;
+  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+getVH(a),0)/ativos.length):0;
   const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
   const projAtivos=[...new Set(ativos.map(a=>a.projetoId))].length;
 
@@ -1185,12 +1188,12 @@ function renderDashboardContent(){
     const desl=a.desligamento?new Date(a.desligamento):null;
     const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);
     return adm<mEnd&&(!desl||desl>=m.date)&&a.status!=='Em Admissão';
-  }).reduce((s,a)=>s+(a.valorHora*168),0)/1000));
+  }).reduce((s,a)=>s+(getVH(a)*168),0)/1000));
 
   const desligPrevistos=visAlocados.filter(a=>a.status==='Desligamento Prev.'||(a.status==='Inativo'&&a.desligamento&&new Date(a.desligamento)>TODAY));
-  const fatDeslig=desligPrevistos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const fatDeslig=desligPrevistos.reduce((s,a)=>s+(getVH(a)*168),0);
   const admissaoList=visAlocados.filter(a=>a.status==='Em Admissão');
-  const fatAdm=admissaoList.reduce((s,a)=>s+(a.valorHora*168),0);
+  const fatAdm=admissaoList.reduce((s,a)=>s+(getVH(a)*168),0);
   const emAdm=admissaoList.length;
 
   // ✅ NOVO: métricas de turnover para o gráfico (com filtro de projeto se aplicável)
@@ -1234,7 +1237,7 @@ function renderDashboardContent(){
         && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
     }).reduce((s,t) => {
       const alocado = db.alocados.find(a=>a.id===t.alocadoId);
-      return s + ((alocado?.valorHora||0)*168);
+      return s + (getVH(alocado)*168);
     }, 0) / 1000);
   });
 
@@ -1441,9 +1444,9 @@ function renderDashboardMasterContent(){
     return !filtP||a.projetoId===filtP;
   });
   const ativos=team.filter(a=>a.status==='Ativo');
-  const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const fat=ativos.reduce((s,a)=>s+(getVH(a)*168),0);
   const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
-  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.valorHora,0)/ativos.length):0;
+  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+getVH(a),0)/ativos.length):0;
   const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
   const el=document.getElementById('masterDashContent');if(!el)return;
   el.innerHTML=`
@@ -1654,7 +1657,7 @@ function showClienteDetail(cli){
   const projs=db.projetos.filter(p=>p.cliente===cli);
   const pal=db.alocados.filter(a=>projs.some(p=>p.id===a.projetoId));
   const ativos=pal.filter(a=>a.status==='Ativo');
-  const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const fat=ativos.reduce((s,a)=>s+(getVH(a)*168),0);
   const cor=projs[0]?.cor||'var(--accent)';
   document.getElementById('detailAvatar').innerHTML=`<span style="font-size:15px;font-weight:800;color:var(--text)">${cli.slice(0,2).toUpperCase()}</span>`;
   document.getElementById('detailAvatar').style.background=cor+'22';
@@ -1731,9 +1734,9 @@ function renderMeuTime(mc){
   if(!g){mc.innerHTML=`<div class="table-card"><div class="empty-state"><div class="empty-text">Nenhum time vinculado</div></div></div>`;return}
   const team=db.alocados.filter(a=>a.gestorId===g.id);
   const ativos=team.filter(a=>a.status==='Ativo');
-  const fat=ativos.reduce((s,a)=>s+(a.valorHora*168),0);
+  const fat=ativos.reduce((s,a)=>s+(getVH(a)*168),0);
   const mediaSal=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.salario,0)/ativos.length):0;
-  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.valorHora,0)/ativos.length):0;
+  const mediaVH=ativos.length?Math.round(ativos.reduce((s,a)=>s+getVH(a),0)/ativos.length):0;
   const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
   mc.innerHTML=`
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
