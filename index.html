@@ -1921,10 +1921,10 @@ async function renderCalculadora(mc){
 
   <!-- BOTÃO CRIAR ALOCADO -->
   ${isE?`<div style="display:flex;justify-content:flex-end">
-    <button class="btn btn-accent" id="btnCriarAlocado" onclick="criarAlocadoFromCalc()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Criar Alocado
-    </button>
+    <button class="btn btn-ghost" id="btnCriarAlocado" onclick="criarAlocadoFromCalc()" disabled style="color:var(--text-3);cursor:not-allowed">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span id="btnCriarAlocadoTxt">Preencha Valor Hora ou Salário para criar alocado</span>
+  </button>
   </div>`:''}
   `;
 }
@@ -1967,6 +1967,7 @@ function calcVH(){
   }
   document.getElementById('rVH_propComercial').textContent = fBRL2(propComercial);
   document.getElementById('rVH_cth').textContent = 'R$ '+Math.ceil(cth6);
+  atualizarBtnCriar();
 }
 
 function calcCC(){
@@ -1981,11 +1982,32 @@ function calcCC(){
   document.getElementById('rCC_custoColab').textContent   = fBRL2(custoColab);
   document.getElementById('rCC_custoCliente').textContent = fBRL2(custoCliente);
   document.getElementById('rCC_vh').textContent           = 'R$ '+valorHora;
+  atualizarBtnCriar();
 }
 
 function recalcAll_calc(){
   calcVH();
   calcCC();
+}
+
+  function atualizarBtnCriar(){
+  const vh  = parseFloat(document.getElementById('calcVH')?.value)||0;
+  const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
+  const btn = document.getElementById('btnCriarAlocado');
+  const txt = document.getElementById('btnCriarAlocadoTxt');
+  if(!btn) return;
+  if(vh || sal){
+    btn.disabled = false;
+    btn.className = 'btn btn-accent';
+    btn.style.cursor = '';
+    if(txt) txt.textContent = 'Criar Alocado';
+  } else {
+    btn.disabled = true;
+    btn.className = 'btn btn-ghost';
+    btn.style.color = 'var(--text-3)';
+    btn.style.cursor = 'not-allowed';
+    if(txt) txt.textContent = 'Preencha Valor Hora ou Salário para criar alocado';
+  }
 }
 
 function toggleEditParam(){
@@ -2009,8 +2031,7 @@ function limparCalculadora(){
   zeros.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='R$ 0,00';});
   document.getElementById('rCC_vh').textContent='R$ 0';
   document.querySelectorAll('input[name="calcBase"]').forEach(r=>r.checked=false);
-  const btn=document.getElementById('btnCriarAlocado');
-  if(btn) btn.disabled=true;
+  atualizarBtnCriar();
 }
 
 function criarAlocadoFromCalc(){
