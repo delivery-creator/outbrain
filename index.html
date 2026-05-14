@@ -353,18 +353,19 @@ input[type=file]{display:none}
   <div class="modal-body">
     <input type="hidden" id="alocadoId">
     <div class="form-grid">
-      <div class="section-div" style="border-top:none;margin-top:0;padding-top:0">Foto & LinkedIn</div>
+      <div class="section-div" style="border-top:none;margin-top:0;padding-top:0">Dados</div>
+      <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="alocadoNome" placeholder="Nome completo"></div>
       <div class="form-group full">
         <label>URL do LinkedIn</label>
         <input class="form-control" type="url" id="alocadoLinkedin" placeholder="https://linkedin.com/in/...">
       </div>
       <div class="form-group full">
-        <label>E-mail no Slack (buscar foto)</label>
+        <label>E-mail Corporativo</label>
         <div style="display:flex;gap:7px">
-          <input class="form-control" type="email" id="alocadoSlackEmail" placeholder="email@onebrain.com.br" style="flex:1">
+          <input class="form-control" type="email" id="alocadoSlackEmail" placeholder="email@empresa.com" style="flex:1">
           <button class="btn btn-ghost btn-sm" onclick="fetchSlackPhoto()" style="background:#4A154B;color:#fff;border-color:#4A154B;flex-shrink:0;gap:6px">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
-            Buscar foto
+            Buscar foto Slack
           </button>
         </div>
       </div>
@@ -373,16 +374,13 @@ input[type=file]{display:none}
           <div class="photo-circle" id="photoPreviewCircle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
           <div style="font-size:var(--font-min);color:var(--text-3)">
             <div style="font-weight:600;color:var(--text-2);margin-bottom:2px" id="photoStatusText">Nenhuma foto</div>
-            Informe o LinkedIn ou faça upload manual.<br>
+            Informe o e-mail corporativo ou faça upload manual.<br>
             <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="document.getElementById('photoInput').click()">+ Upload manual</span>
           </div>
         </div>
         <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(this)">
         <input type="hidden" id="alocadoPhoto">
       </div>
-
-      <div class="section-div">Dados</div>
-      <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="alocadoNome" placeholder="Nome completo"></div>
       <div class="form-group">
         <label>Cargo *</label>
         <select class="form-control" id="alocadoCargo" onchange="checkNewCargo(this)">
@@ -434,7 +432,7 @@ input[type=file]{display:none}
           <option value="CLT">CLT</option>
         </select>
       </div>
-      <div class="form-group hidden" id="cthGroup">
+      <div class="form-group full hidden" id="cthGroup">
         <label>Valor Hora CTH (primeiros 6 meses) *</label>
         <input class="form-control" type="number" id="alocadoVHCTH" placeholder="0">
       </div>
@@ -707,7 +705,7 @@ input[type=file]{display:none}
 <div class="detail-panel" id="detailPanel">
   <div class="detail-head">
     <div class="detail-avatar" id="detailAvatar"></div>
-    <div style="flex:1"><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700" id="detailName"></div><div style="font-size:var(--font-min);color:var(--text-3)" id="detailRole"></div></div>
+    <div style="flex:1"><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700" id="detailName"></div><div style="font-size:var(--font-min);color:var(--text-3)" id="detailRole"></div><div style="font-size:12px;color:var(--text-3)" id="detailEmail"></div></div>
     <button class="icon-btn" onclick="closeDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
   <div class="detail-body" id="detailBody"></div>
@@ -804,7 +802,7 @@ function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
 }
 function mapAlocado(r){
-  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,companyEmail:r.company_email||'',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
 }
 function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
@@ -2236,6 +2234,8 @@ async function openDetailById(id){
   const av=document.getElementById('detailAvatar');av.innerHTML=a.photo?`<img src="${a.photo}">`:(getI(a.nome));
   document.getElementById('detailName').textContent=a.nome;
   document.getElementById('detailRole').textContent=fCargo(a.cargo,a.senioridade)+((a.stack||[]).length?' · '+a.stack.slice(0,3).join(', '):'');
+  const detailEmail=document.getElementById('detailEmail');
+  if(detailEmail) detailEmail.textContent=a.companyEmail||'';
   const isE=isEditor();
   const {data:histFin}=await supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt',{ascending:false});
   const hSal=(histFin||[]).filter(h=>h.tipo==='salario').slice(0,4);
@@ -2389,7 +2389,13 @@ function onContratoChange(sel){
   }
   calcMedia();
 }
-function calcMedia(){const vh=parseFloat(document.getElementById('alocadoVH').value)||0;document.getElementById('alocadoMC').value=fBRL(vh*168)}
+function calcMedia(){
+  const vh=parseFloat(document.getElementById('alocadoVH').value)||0;
+  const vhCTH=parseFloat(document.getElementById('alocadoVHCTH').value)||0;
+  const contrato=document.getElementById('alocadoContrato').value||'';
+  const base = (contrato==='Talent Pipeline Pro' && vhCTH) ? vhCTH : vh;
+  document.getElementById('alocadoMC').value=fBRL(base*168);
+}
 function recalcStatus(){
   const adm=document.getElementById('alocadoAdm').value;const desl=document.getElementById('alocadoDesl').value;
   const s=calcStatus(adm,desl);const m=calcMeses(adm,desl,s.status);
@@ -2435,6 +2441,7 @@ function openModalAlocado(id){
   document.getElementById('alocadoModalidade').value='';
   document.getElementById('alocadoVHCTH').value='';
   document.getElementById('cthGroup').classList.add('hidden');
+  document.getElementById('alocadoSlackEmail').value='';
   document.getElementById('cargoNovoGroup').style.display='none';
   document.getElementById('photoPreviewCircle').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   document.getElementById('photoStatusText').textContent='Nenhuma foto';
@@ -2460,6 +2467,7 @@ function openModalAlocado(id){
     document.getElementById('alocadoCargo').value=a.cargo;
     document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
     document.getElementById('alocadoModalidade').value=a.modalidade||'';
+    document.getElementById('alocadoSlackEmail').value=a.companyEmail||'';
     if(a.contrato === 'Talent Pipeline Pro'){
       document.getElementById('cthGroup').classList.remove('hidden');
       document.getElementById('alocadoVHCTH').value = a.valorHoraCTH||'';
@@ -2511,6 +2519,7 @@ async function salvarAlocado(){
   const payload={
     nome,cargo,
     linkedin:document.getElementById('alocadoLinkedin').value.trim()||null,
+    company_email:document.getElementById('alocadoSlackEmail').value.trim()||null,
     photo_url:document.getElementById('alocadoPhoto').value||null,
     stack:selectedStacks,
     gestor_id:document.getElementById('alocadoGestor').value||null,
