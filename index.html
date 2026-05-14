@@ -1781,9 +1781,10 @@ function renderContato(mc){
   </div>`;
 }
 /* ─── CALCULADORA ─────────────────────────────────────── */
-/* ─── CALCULADORA ─────────────────────────────────────── */
 let paramCalc = null;
 let paramEditMode = false;
+
+function fBRL2(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
 async function loadParamCalc(){
   const {data} = await supa.from('parametros_calculadora').select('*').single();
@@ -1799,61 +1800,96 @@ async function renderCalculadora(mc){
   mc.innerHTML=`
   <!-- PARÂMETROS BASE -->
   <div class="chart-card" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="chart-title" style="margin-bottom:0">Parâmetros Base</div>
       ${isE?`<button class="btn btn-ghost btn-sm" id="btnEditParam" onclick="toggleEditParam()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Editar
       </button>`:''}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
-      <div class="form-group">
-        <label>Imposto</label>
-        <div style="display:flex;align-items:center;gap:5px">
-          <input class="form-control" type="number" id="paramImposto" value="${(p.imposto*100).toFixed(0)}" disabled oninput="recalcAll_calc()">
-          <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
+    <!-- MODO LEITURA -->
+    <div id="paramReadMode" style="display:flex;flex-wrap:wrap;gap:6px">
+      <span class="badge b-gray">Horas/mês ${p.horas_mes}</span>
+      <span class="badge b-gray">Imposto ${(p.imposto*100).toFixed(0)}%</span>
+      <span class="badge b-gray">Infra ${fBRL(p.infra)}</span>
+      <span class="badge b-gray">Custo CLT ${(p.custo_clt*100).toFixed(0)}%</span>
+      <span class="badge b-gray">PIS+COFINS ${(p.pis_cofins*100).toFixed(2)}%</span>
+      <span class="badge b-gray">Notebook ${fBRL(p.custo_equipamento==395?p.custo_equipamento:395)}</span>
+      <span class="badge b-gray">Macbook ${fBRL(p.custo_equipamento==1165?p.custo_equipamento:1165)}</span>
+    </div>
+    <!-- MODO EDIÇÃO -->
+    <div id="paramEditModeDiv" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px">
+        <div class="form-group">
+          <label>Horas/mês</label>
+          <input class="form-control" type="number" id="paramHoras" value="${p.horas_mes}" oninput="recalcAll_calc()">
         </div>
-      </div>
-      <div class="form-group">
-        <label>Infra (R$)</label>
-        <input class="form-control" type="number" id="paramInfra" value="${p.infra}" disabled oninput="recalcAll_calc()">
-      </div>
-      <div class="form-group">
-        <label>Custo CLT</label>
-        <div style="display:flex;align-items:center;gap:5px">
-          <input class="form-control" type="number" id="paramCLT" value="${(p.custo_clt*100).toFixed(0)}" disabled oninput="recalcAll_calc()">
-          <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
+        <div class="form-group">
+          <label>Imposto (%)</label>
+          <input class="form-control" type="number" id="paramImposto" value="${(p.imposto*100).toFixed(0)}" oninput="recalcAll_calc()">
         </div>
-      </div>
-      <div class="form-group">
-        <label>PIS+COFINS+IR+CSLL</label>
-        <div style="display:flex;align-items:center;gap:5px">
-          <input class="form-control" type="number" id="paramPIS" value="${(p.pis_cofins*100).toFixed(2)}" disabled oninput="recalcAll_calc()">
-          <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
+        <div class="form-group">
+          <label>Infra (R$)</label>
+          <input class="form-control" type="number" id="paramInfra" value="${p.infra}" oninput="recalcAll_calc()">
         </div>
-      </div>
-      <div class="form-group">
-        <label>Equipamento</label>
-        <select class="form-control" id="paramEquip" disabled onchange="recalcAll_calc()">
-          <option value="395" ${p.custo_equipamento==395?'selected':''}>Notebook — R$ 395</option>
-          <option value="1165" ${p.custo_equipamento==1165?'selected':''}>Macbook — R$ 1.165</option>
-        </select>
+        <div class="form-group">
+          <label>Custo CLT (%)</label>
+          <input class="form-control" type="number" id="paramCLT" value="${(p.custo_clt*100).toFixed(0)}" oninput="recalcAll_calc()">
+        </div>
+        <div class="form-group">
+          <label>PIS+COFINS (%)</label>
+          <input class="form-control" type="number" id="paramPIS" value="${(p.pis_cofins*100).toFixed(2)}" oninput="recalcAll_calc()">
+        </div>
+        <div class="form-group">
+          <label>Valor Notebook (R$)</label>
+          <input class="form-control" type="number" id="paramNotebook" value="395" oninput="recalcAll_calc()">
+        </div>
+        <div class="form-group">
+          <label>Valor Macbook (R$)</label>
+          <input class="form-control" type="number" id="paramMacbook" value="1165" oninput="recalcAll_calc()">
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- PARÂMETROS LOCAIS -->
-  <div style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-end">
-    <div class="form-group" style="width:160px">
-      <label>% Lucro</label>
-      <div style="display:flex;align-items:center;gap:5px">
-        <input class="form-control" type="number" id="paramLucro" value="${(p.pct_lucro*100).toFixed(0)}" oninput="recalcAll_calc()">
-        <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
+  <!-- CAMPOS LOCAIS -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:flex-end">
+      <div class="form-group">
+        <label>% Lucro</label>
+        <div style="display:flex;align-items:center;gap:5px">
+          <input class="form-control" type="number" id="paramLucro" value="${(p.pct_lucro*100).toFixed(0)}" oninput="recalcAll_calc()">
+          <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Valor Hora (R$)</label>
+        <input class="form-control" type="number" id="calcVH" placeholder="Ex: 131" oninput="recalcAll_calc()">
+      </div>
+      <div class="form-group">
+        <label>Salário (R$)</label>
+        <input class="form-control" type="number" id="calcSal" placeholder="Ex: 7800" oninput="recalcAll_calc()">
+      </div>
+      <div class="form-group">
+        <label>Equipamento</label>
+        <select class="form-control" id="calcEquip" onchange="recalcAll_calc()">
+          <option value="notebook">Notebook</option>
+          <option value="macbook">Macbook</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Modalidade</label>
+        <select class="form-control" id="calcModalidade" onchange="recalcAll_calc()">
+          <option value="PJ">PJ</option>
+          <option value="CLT">CLT</option>
+        </select>
       </div>
     </div>
-    <div class="form-group" style="width:160px">
-      <label>Horas/mês</label>
-      <input class="form-control" type="number" id="paramHoras" value="${p.horas_mes}" oninput="recalcAll_calc()">
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-ghost btn-sm" onclick="limparCalculadora()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+        Limpar calculadora
+      </button>
     </div>
   </div>
 
@@ -1862,27 +1898,15 @@ async function renderCalculadora(mc){
 
     <!-- CALC VALOR HORA -->
     <div class="chart-card">
-      <div class="chart-title">Calculadora — Valor Hora</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div class="form-group">
-          <label>Valor Hora (R$)</label>
-          <input class="form-control" type="number" id="calcVH" placeholder="Ex: 131" oninput="calcVH()">
-        </div>
-        <div class="form-group">
-          <label>Salário (R$)</label>
-          <input class="form-control" type="number" id="calcVHSal" placeholder="Ex: 7800" oninput="calcVH()">
-        </div>
-      </div>
-      <div id="resultVH" style="display:none">
-        <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rVH_custoCliente" style="font-weight:600;color:var(--brand)"></span></div>
-        <div class="d-row"><span class="d-label">Valor Líquido</span><span class="d-val" id="rVH_liquido"></span></div>
-        <div class="d-row"><span class="d-label">$ Lucro</span><span class="d-val" id="rVH_lucro" style="color:var(--green);font-weight:600"></span></div>
-        <div class="d-row"><span class="d-label">Valor p/ Contratação</span><span class="d-val" id="rVH_contratacao"></span></div>
-        <div class="d-row"><span class="d-label">Líquido Prop. Comercial</span><span class="d-val" id="rVH_propComercial"></span></div>
-        <div class="d-row" style="background:var(--amber-soft);border-radius:var(--radius);padding:6px 10px;margin-top:6px">
-          <span class="d-label" style="color:var(--amber);font-weight:700">Custo CTH 6 meses</span>
-          <span class="d-val" id="rVH_cth" style="color:var(--amber);font-weight:700"></span>
-        </div>
+      <div class="chart-title" style="margin-bottom:12px">Calculadora — Valor Hora</div>
+      <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rVH_custoCliente" style="font-weight:600;color:var(--brand)">R$ 0,00</span></div>
+      <div class="d-row"><span class="d-label">Valor Líquido</span><span class="d-val" id="rVH_liquido">R$ 0,00</span></div>
+      <div class="d-row"><span class="d-label">$ Lucro</span><span class="d-val" id="rVH_lucro" style="color:var(--green);font-weight:600">R$ 0,00</span></div>
+      <div class="d-row"><span class="d-label">Valor p/ Contratação</span><span class="d-val" id="rVH_contratacao">R$ 0,00</span></div>
+      <div class="d-row"><span class="d-label">Líquido Prop. Comercial</span><span class="d-val" id="rVH_propComercial">R$ 0,00</span></div>
+      <div class="d-row" style="background:var(--amber-soft);border-radius:var(--radius);padding:6px 10px;margin-top:6px">
+        <span class="d-label" style="color:var(--amber);font-weight:700">Custo CTH 6 meses</span>
+        <span class="d-val" id="rVH_cth" style="color:var(--amber);font-weight:700">R$ 0,00</span>
       </div>
       <div style="margin-top:12px">
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--font-min)">
@@ -1894,26 +1918,10 @@ async function renderCalculadora(mc){
 
     <!-- CALC CUSTO COLABORADOR -->
     <div class="chart-card">
-      <div class="chart-title">Calculadora — Custo Colaborador</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div class="form-group">
-          <label>Modalidade</label>
-          <select class="form-control" id="calcModalidade" onchange="calcCC()">
-            <option value="">—</option>
-            <option value="PJ">PJ</option>
-            <option value="CLT">CLT</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Salário (R$)</label>
-          <input class="form-control" type="number" id="calcSal" placeholder="Ex: 7800" oninput="calcCC()">
-        </div>
-      </div>
-      <div id="resultCC" style="display:none">
-        <div class="d-row"><span class="d-label">Custo Colaborador</span><span class="d-val" id="rCC_custoColab"></span></div>
-        <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rCC_custoCliente" style="font-weight:600;color:var(--brand)"></span></div>
-        <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val" id="rCC_vh" style="font-weight:700"></span></div>
-      </div>
+      <div class="chart-title" style="margin-bottom:12px">Calculadora — Custo Colaborador</div>
+      <div class="d-row"><span class="d-label">Custo Colaborador</span><span class="d-val" id="rCC_custoColab">R$ 0,00</span></div>
+      <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rCC_custoCliente" style="font-weight:600;color:var(--brand)">R$ 0,00</span></div>
+      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val" id="rCC_vh" style="font-weight:700">R$ 0</span></div>
       <div style="margin-top:12px">
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--font-min)">
           <input type="radio" name="calcBase" value="cc" onchange="toggleBtnCriar()" style="accent-color:var(--brand)">
@@ -1934,53 +1942,52 @@ async function renderCalculadora(mc){
 }
 
 function getParamCalc(){
+  const equipSel = document.getElementById('calcEquip')?.value||'notebook';
+  const notebookVal = parseFloat(document.getElementById('paramNotebook')?.value)||395;
+  const macbookVal  = parseFloat(document.getElementById('paramMacbook')?.value)||1165;
   return {
-    imposto: (parseFloat(document.getElementById('paramImposto')?.value)||13) / 100,
-    lucro:   (parseFloat(document.getElementById('paramLucro')?.value)||25) / 100,
-    infra:    parseFloat(document.getElementById('paramInfra')?.value)||2500,
-    equip:    parseFloat(document.getElementById('paramEquip')?.value)||395,
-    horas:    parseFloat(document.getElementById('paramHoras')?.value)||168,
-    custo_clt:(parseFloat(document.getElementById('paramCLT')?.value)||85) / 100,
-    pis:      (parseFloat(document.getElementById('paramPIS')?.value)||6.15) / 100,
+    imposto:   (parseFloat(document.getElementById('paramImposto')?.value)||13) / 100,
+    lucro:     (parseFloat(document.getElementById('paramLucro')?.value)||25) / 100,
+    infra:      parseFloat(document.getElementById('paramInfra')?.value)||2500,
+    equip:      equipSel==='notebook' ? notebookVal : macbookVal,
+    horas:      parseFloat(document.getElementById('paramHoras')?.value)||168,
+    custo_clt: (parseFloat(document.getElementById('paramCLT')?.value)||85) / 100,
+    pis:       (parseFloat(document.getElementById('paramPIS')?.value)||6.15) / 100,
   };
 }
 
 function calcVH(){
   const vh  = parseFloat(document.getElementById('calcVH')?.value)||0;
-  const sal = parseFloat(document.getElementById('calcVHSal')?.value)||0;
-  if(!vh){ document.getElementById('resultVH').style.display='none'; return; }
+  const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
   const {lucro, infra, equip, horas, imposto, pis} = getParamCalc();
 
-  const custoCliente   = vh * horas;
-  const valorLiquido   = custoCliente - (custoCliente * imposto);
-  const dolLucro       = custoCliente * lucro;
-  const contratacao    = (valorLiquido - dolLucro - infra - equip) * (1 - 0.0577);
-  const propComercial  = custoCliente - (custoCliente * pis);
-  const cth6           = sal ? (sal / (horas * 6)) + vh : null;
+  const custoCliente  = vh * horas;
+  const valorLiquido  = custoCliente - (custoCliente * imposto);
+  const dolLucro      = custoCliente * lucro;
+  const contratacao   = (valorLiquido - dolLucro - infra - equip) * (1 - 0.0577);
+  const propComercial = custoCliente - (custoCliente * pis);
+  const cth6          = sal ? (sal / (horas * 6)) + vh : 0;
 
-  document.getElementById('rVH_custoCliente').textContent  = fBRL(custoCliente);
-  document.getElementById('rVH_liquido').textContent       = fBRL(valorLiquido);
-  document.getElementById('rVH_lucro').textContent         = fBRL(dolLucro);
-  document.getElementById('rVH_contratacao').textContent   = fBRL(contratacao);
-  document.getElementById('rVH_propComercial').textContent = fBRL(propComercial);
-  document.getElementById('rVH_cth').textContent           = cth6 ? fBRL(cth6) : '— informe o salário';
-  document.getElementById('resultVH').style.display        = 'block';
+  document.getElementById('rVH_custoCliente').textContent  = fBRL2(custoCliente);
+  document.getElementById('rVH_liquido').textContent       = fBRL2(valorLiquido);
+  document.getElementById('rVH_lucro').textContent         = fBRL2(dolLucro);
+  document.getElementById('rVH_contratacao').textContent   = fBRL2(contratacao);
+  document.getElementById('rVH_propComercial').textContent = fBRL2(propComercial);
+  document.getElementById('rVH_cth').textContent           = fBRL2(cth6);
 }
 
 function calcCC(){
   const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
-  const mod = document.getElementById('calcModalidade')?.value||'';
-  if(!sal||!mod){ document.getElementById('resultCC').style.display='none'; return; }
-  const {lucro, infra, equip, horas, imposto, custo_clt, pis} = getParamCalc();
+  const mod = document.getElementById('calcModalidade')?.value||'PJ';
+  const {lucro, infra, equip, horas, imposto, custo_clt} = getParamCalc();
 
   const custoColab   = mod==='CLT' ? sal + (sal * custo_clt) : sal * (1 + 0.0577);
   const custoCliente = (custoColab + infra + equip) / (1 - imposto - lucro);
   const valorHora    = Math.ceil(custoCliente / horas);
 
-  document.getElementById('rCC_custoColab').textContent   = fBRL(custoColab);
-  document.getElementById('rCC_custoCliente').textContent = fBRL(custoCliente);
-  document.getElementById('rCC_vh').textContent           = fBRL(valorHora)+'/h';
-  document.getElementById('resultCC').style.display       = 'block';
+  document.getElementById('rCC_custoColab').textContent   = fBRL2(custoColab);
+  document.getElementById('rCC_custoCliente').textContent = fBRL2(custoCliente);
+  document.getElementById('rCC_vh').textContent           = 'R$ '+valorHora;
 }
 
 function recalcAll_calc(){
@@ -1990,14 +1997,27 @@ function recalcAll_calc(){
 
 function toggleEditParam(){
   paramEditMode = !paramEditMode;
-  const campos = ['paramImposto','paramInfra','paramCLT','paramPIS','paramEquip'];
-  campos.forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.disabled = !paramEditMode;
-  });
+  document.getElementById('paramReadMode').style.display    = paramEditMode ? 'none'  : 'flex';
+  document.getElementById('paramEditModeDiv').style.display = paramEditMode ? 'block' : 'none';
   const btn = document.getElementById('btnEditParam');
   if(btn) btn.textContent = paramEditMode ? 'Salvar' : 'Editar';
   if(!paramEditMode) salvarParamCalc();
+}
+
+function limparCalculadora(){
+  ['calcVH','calcSal'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  document.getElementById('calcEquip').value='notebook';
+  document.getElementById('calcModalidade').value='PJ';
+  document.getElementById('paramLucro').value=(paramCalc?.pct_lucro*100||25).toFixed(0);
+  const zeros=['rVH_custoCliente','rVH_liquido','rVH_lucro','rVH_contratacao','rVH_propComercial','rVH_cth','rCC_custoColab','rCC_custoCliente'];
+  zeros.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='R$ 0,00';});
+  document.getElementById('rCC_vh').textContent='R$ 0';
+  document.querySelectorAll('input[name="calcBase"]').forEach(r=>r.checked=false);
+  const btn=document.getElementById('btnCriarAlocado');
+  if(btn) btn.disabled=true;
 }
 
 function toggleBtnCriar(){
@@ -2011,12 +2031,11 @@ function criarAlocadoFromCalc(){
   let vh = null, sal = null, mod = null;
   if(base === 'vh'){
     vh  = parseFloat(document.getElementById('calcVH')?.value)||null;
-    sal = parseFloat(document.getElementById('calcVHSal')?.value)||null;
+    sal = parseFloat(document.getElementById('calcSal')?.value)||null;
   } else {
     sal = parseFloat(document.getElementById('calcSal')?.value)||null;
     mod = document.getElementById('calcModalidade')?.value||null;
-    const vhText = document.getElementById('rCC_vh')?.textContent||'';
-    vh = parseFloat(vhText.replace(/[^\d,]/g,'').replace(',','.'))||null;
+    vh  = parseFloat(document.getElementById('rCC_vh')?.textContent?.replace(/[^\d]/g,''))||null;
   }
   openModalAlocado();
   setTimeout(()=>{
@@ -2028,18 +2047,31 @@ function criarAlocadoFromCalc(){
 }
 
 async function salvarParamCalc(){
-  const {imposto, lucro, infra, equip, horas, custo_clt, pis} = getParamCalc();
+  if(!paramCalc?.id) return;
+  const notebookVal = parseFloat(document.getElementById('paramNotebook')?.value)||395;
+  const macbookVal  = parseFloat(document.getElementById('paramMacbook')?.value)||1165;
+  const {imposto, lucro, infra, horas, custo_clt, pis} = getParamCalc();
   const {error} = await supa.from('parametros_calculadora').update({
     imposto,
-    pct_lucro:   lucro,
+    pct_lucro:        lucro,
     infra,
     custo_clt,
-    pis_cofins:  pis,
-    custo_equipamento: equip,
-    tipo_equipamento:  equip == 395 ? 'Notebook' : 'Macbook',
-    updated_at: new Date().toISOString()
+    pis_cofins:       pis,
+    horas_mes:        horas,
+    custo_equipamento: notebookVal,
+    updated_at:       new Date().toISOString()
   }).eq('id', paramCalc.id);
   if(error){ showToast('Erro ao salvar: '+error.message); return; }
+  // atualiza badges de leitura
+  document.getElementById('paramReadMode').innerHTML=`
+    <span class="badge b-gray">Horas/mês ${horas}</span>
+    <span class="badge b-gray">Imposto ${(imposto*100).toFixed(0)}%</span>
+    <span class="badge b-gray">Infra ${fBRL(infra)}</span>
+    <span class="badge b-gray">Custo CLT ${(custo_clt*100).toFixed(0)}%</span>
+    <span class="badge b-gray">PIS+COFINS ${(pis*100).toFixed(2)}%</span>
+    <span class="badge b-gray">Notebook ${fBRL(notebookVal)}</span>
+    <span class="badge b-gray">Macbook ${fBRL(macbookVal)}</span>
+  `;
   await loadParamCalc();
   showToast('Parâmetros salvos!');
 }
