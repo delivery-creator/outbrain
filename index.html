@@ -1971,7 +1971,12 @@ function calcVH(){
   document.getElementById('rVH_custoCliente').textContent  = fBRL2(custoCliente);
   document.getElementById('rVH_liquido').textContent       = fBRL2(valorLiquido);
   document.getElementById('rVH_lucro').textContent         = fBRL2(dolLucro);
-  document.getElementById('rVH_contratacao').textContent   = fBRL2(contratacao);
+  document.getElementById('rVH_contratacao').textContent = fBRL2(contratacao);
+  const rowContratacao = document.getElementById('rVH_contratacao').closest('.d-row');
+  if(rowContratacao){
+    rowContratacao.style.background = (sal && contratacao < sal) ? 'var(--red-soft)' : '';
+    rowContratacao.style.borderRadius = (sal && contratacao < sal) ? 'var(--radius)' : '';
+  }
   document.getElementById('rVH_propComercial').textContent = fBRL2(propComercial);
   document.getElementById('rVH_cth').textContent = 'R$ '+Math.ceil(cth6);
 }
