@@ -432,6 +432,13 @@ input[type=file]{display:none}
           <option value="CLT">CLT</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Equipamento</label>
+        <select class="form-control" id="alocadoEquipamento">
+          <option value="Notebook">Notebook</option>
+          <option value="Macbook">Macbook</option>
+        </select>
+      </div>
       <div class="section-div">Financeiro</div>
       <div class="form-group">
         <label>Salário (R$)</label>
@@ -801,7 +808,7 @@ function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
 }
 function mapAlocado(r){
-  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,companyEmail:r.company_email||'',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,companyEmail:r.company_email||'',equipamento:r.equipamento||'Notebook',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
 }
 function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
@@ -1016,11 +1023,18 @@ function calcMargemVH(alocado){
     : alocado.valorHora;
   return calcMargem(vh, alocado.salario, alocado.modalidade);
 }
-function calcMargem(valorHora, salario, modalidade){
-const custoCliente = valorHora * 168;
-if(!custoCliente) return null;
-const custoColab = modalidade === 'CLT' ? salario * 1.85 : salario;
-return Math.round(((custoCliente - custoColab) / custoCliente) * 100 * 100) / 100;
+function calcMargem(valorHora, salario, modalidade, equipamento){
+  const custoCliente = valorHora * 168;
+  if(!custoCliente) return null;
+  const custoColab = modalidade === 'CLT' ? salario * 1.85 : salario;
+  const p = paramCalc;
+  const infra = p?.infra || 2500;
+  const imposto = p?.imposto || 0.13;
+  const equipVal = equipamento === 'Macbook'
+    ? (p?.custo_equipamento === 1165 ? p.custo_equipamento : 1165)
+    : (p?.custo_equipamento === 395 ? p.custo_equipamento : 395);
+  const custoTotal = custoColab + infra + equipVal + (custoCliente * imposto);
+  return Math.round(((custoCliente - custoTotal) / custoCliente) * 100 * 100) / 100;
 }
 function calcSenDist(lista){
   const ordem=['JR','PL','SR','ESP'];
@@ -2261,6 +2275,7 @@ async function openDetailById(id){
       <div class="d-row"><span class="d-label">Cargo</span><span class="d-val">${fCargo(a.cargo,a.senioridade)}</span></div>
       <div class="d-row"><span class="d-label">Stack</span><span class="d-val" style="font-size:12px">${(a.stack||[]).join(', ')||'—'}</span></div>
       <div class="d-row"><span class="d-label">Contrato</span><span class="d-val">${a.contrato}</span></div>
+      <div class="d-row"><span class="d-label">Equipamento</span><span class="d-val">${a.equipamento||'Notebook'}</span></div>
       <div class="d-row"><span class="d-label">Projeto</span><span class="d-val">${pr?pr.nome:'—'}</span></div>
       <div class="d-row"><span class="d-label">Gestor</span><span class="d-val">${g?g.nome:'—'}</span></div>
       ${a.linkedin?`<div class="d-row"><span class="d-label">LinkedIn</span><span class="d-val"><a href="${a.linkedin}" target="_blank" style="color:var(--blue)">Ver perfil ↗</a></span></div>`:''}
@@ -2444,6 +2459,7 @@ function openModalAlocado(id){
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoContrato').value='Essencial';
   document.getElementById('alocadoModalidade').value='';
+  document.getElementById('alocadoEquipamento').value='Notebook';
   document.getElementById('alocadoVHCTH').value='';
   document.getElementById('cthGroup').classList.add('hidden');
   document.getElementById('alocadoSlackEmail').value='';
@@ -2472,6 +2488,7 @@ function openModalAlocado(id){
     document.getElementById('alocadoCargo').value=a.cargo;
     document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
     document.getElementById('alocadoModalidade').value=a.modalidade||'';
+    document.getElementById('alocadoEquipamento').value=a.equipamento||'Notebook';
     document.getElementById('alocadoSlackEmail').value=a.companyEmail||'';
     if(a.contrato === 'Talent Pipeline Pro'){
       document.getElementById('cthGroup').classList.remove('hidden');
@@ -2542,6 +2559,7 @@ async function salvarAlocado(){
     : null,
     salario:ns,valor_hora:nvh,
     modalidade:nmod||null,
+    equipamento:document.getElementById('alocadoEquipamento').value||'Notebook',
     contrato:document.getElementById('alocadoContrato').value,
     admissao:adm||null,
     desligamento:desl
@@ -2563,7 +2581,7 @@ async function salvarAlocado(){
     const hoje=toISO(TODAY);
     if(nvh) await supa.from('historico_financeiro').insert({alocado_id:novoId,tipo:'valor_hora',valor_ant:String(nvh),valor_novo:String(nvh),data_alt:hoje});
     if(ns) await supa.from('historico_financeiro').insert({alocado_id:novoId,tipo:'salario',valor_ant:String(ns),valor_novo:String(ns),data_alt:hoje});
-    const margemInicial=calcMargem(nvh,ns,nmod);
+    const margemInicial=calcMargem(nvh,ns,nmod,document.getElementById('alocadoEquipamento').value||'Notebook');
     if(margemInicial!==null){
       await supa.from('alocados').update({margem:margemInicial}).eq('id',novoId);
       await supa.from('historico_margem').insert({alocado_id:novoId,margem_ant:margemInicial,margem_nova:margemInicial,data_alt:hoje});
@@ -2581,7 +2599,7 @@ async function salvarAlocado(){
 }
   // Histórico de margem
 const novaModalidade = document.getElementById('alocadoModalidade').value||null;
-const novaMargem = calcMargem(nvh, ns, novaModalidade);
+const novaMargem = calcMargem(nvh, ns, novaModalidade, document.getElementById('alocadoEquipamento').value||'Notebook');
 const margemAnterior = alocadoAtual?.margem||null;
 if(novoId && margemAnterior !== null && novaMargem !== null && margemAnterior !== novaMargem){
   await supa.from('historico_margem').insert({
