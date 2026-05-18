@@ -1112,7 +1112,7 @@ function buildNav(){
 /* ─── PAGE ROUTER ─────────────────────────────────────── */
 function showPage(p){
   window.location.hash = p;
-  const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso'];
+  const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora'];
   pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
   document.getElementById('nav-'+p)?.classList.add('active');
   const titles={dashboard:'Dashboard',alocados:'Alocados',clientes:'Clientes',projetos:'Clientes',gestores:'Gestores',meutime:'Meu Time',contato:'Contato OneBrain',turnover:'Turnover',internos:'Internos',acesso:'Internos',calculadora:'Calculadora'};
