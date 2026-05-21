@@ -1173,6 +1173,7 @@ function renderDashboard(mc){
 }
 
 function dashFilterChange(){
+  const unidade=document.getElementById('dashFilUnidade')?.value||'';
   const cli=document.getElementById('dashFilCliente')?.value||'';
   const proj=document.getElementById('dashFilProjeto')?.value||'';
   const projSel=document.getElementById('dashFilProjeto');
@@ -1188,6 +1189,14 @@ function renderDashboardContent(){
   const cli=document.getElementById('dashFilCliente')?.value||'';
   const proj=document.getElementById('dashFilProjeto')?.value||'';
   let visAlocados=db.alocados.filter(a=>{
+    if(proj) return a.projetoId===proj;
+    if(cli){const p=db.projetos.find(x=>x.id===a.projetoId);return p&&p.cliente===cli;}
+    return true;
+  });
+
+  const unidade=document.getElementById('dashFilUnidade')?.value||'';
+  let visAlocados=db.alocados.filter(a=>{
+    if(unidade&&a.unidadeNegocio!==unidade)return false;
     if(proj) return a.projetoId===proj;
     if(cli){const p=db.projetos.find(x=>x.id===a.projetoId);return p&&p.cliente===cli;}
     return true;
