@@ -1229,7 +1229,7 @@ const unidade=document.getElementById('dashFilUnidade')?.value||'';
   const emAdm=admissaoList.length;
 
   // ✅ NOVO: métricas de turnover para o gráfico (com filtro de projeto se aplicável)
-  const filtroProjetoIds = proj ? [proj] : (cli ? db.projetos.filter(p=>p.cliente===cli).map(p=>p.id) : null);
+  const filtroProjetoIds = proj ? [proj] : (cli ? db.projetos.filter(p=>p.cliente===cli).map(p=>p.id) : (unidade ? db.alocados.filter(a=>a.unidadeNegocio===unidade).map(a=>a.projetoId).filter(Boolean) : null));
 
   const desPorMesSemSubst = meses.map(m => {
     return db.turnover.filter(t => {
