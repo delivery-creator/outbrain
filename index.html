@@ -854,62 +854,8 @@ function mapContato(r){
   return {id:r.id,tipo:r.tipo,nome:r.nome,telefone:r.telefone||'',email:r.email||'',photo:r.photo_url||''};
 }
 
-/* ─── LOAD ────────────────────────────────────────────── */
-async function loadAll(){
-  showLoading(true);
-  try {
-    const [pRes,gRes,aRes,tvRes,uRes,cRes] = await Promise.all([
-      supa.from('projetos').select('*').order('cliente'),
-      supa.from('gestores').select('*').order('nome'),
-      supa.from('alocados').select('*').order('nome'),
-      supa.from('turnover').select('*').order('data_desl',{ascending:false}),
-      supa.from('usuarios').select('*').order('nome'),
-      supa.from('contatos_onebrain').select('*').order('ordem'),
-    ]);
-    if(pRes.error) throw pRes.error;
-    if(gRes.error) throw gRes.error;
-    if(aRes.error) throw aRes.error;
-
-    db.projetos  = (pRes.data||[]).map(mapProjeto);
-    db.gestores  = (gRes.data||[]).map(mapGestor);
-    db.alocados  = (aRes.data||[]).map(mapAlocado);
-    db.turnover  = (tvRes.data||[]).map(mapTurnover);
-    db.usuarios  = (uRes.data||[]).map(mapUsuario);
-    db.contatos  = (cRes.data||[]).map(mapContato);
-
-    const hRes = await supa.from('historico_financeiro').select('*').order('data_alt');
-    if(!hRes.error && hRes.data){
-      hRes.data.forEach(h=>{
-        const a=db.alocados.find(x=>x.id===h.alocado_id);
-        if(!a)return;
-        const entry={val:Number(h.valor_novo),data:h.data_alt};
-        if(h.tipo==='salario'){if(!a.salarioHist)a.salarioHist=[];a.salarioHist.push(entry);}
-        else{if(!a.valorHoraHist)a.valorHoraHist=[];a.valorHoraHist.push(entry);}
-      });
-    }
-    recalcAll();
-  } catch(e) {
-    console.error('Erro ao carregar dados:', e);
-    showToast('Erro ao carregar dados: '+e.message);
-  } finally {
-    showLoading(false);
-  }
-}
-
-function showLoading(show){
-  let el=document.getElementById('globalLoading');
-  if(!el){
-    el=document.createElement('div');
-    el.id='globalLoading';
-    el.style.cssText='position:fixed;inset:0;background:rgba(15,25,35,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
-    el.innerHTML='<div style="background:#fff;border-radius:14px;padding:24px 32px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.5" style="animation:spin 0.8s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Carregando...</div>';
-    document.body.appendChild(el);
-    const style=document.createElement('style');
-    style.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
-    document.head.appendChild(style);
-  }
-  el.style.display=show?'flex':'none';
-}
+el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center';
+el.innerHTML='<div style="background:#111111;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:24px 32px;font-family:\'Poppins\',sans-serif;font-size:15px;font-weight:600;color:#ffffff;display:flex;align-items:center;gap:10px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.5" style="animation:spin 0.8s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Carregando...</div>';
 
 /* ─── AUTH ────────────────────────────────────────────── */
 async function doLogin(){
