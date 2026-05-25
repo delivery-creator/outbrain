@@ -854,7 +854,48 @@ function mapContato(r){
   return {id:r.id,tipo:r.tipo,nome:r.nome,telefone:r.telefone||'',email:r.email||'',photo:r.photo_url||''};
 }
 
-/* ─── Loading ────────────────────────────────────────────── */
+/* ─── LOAD ────────────────────────────────────────────── */
+async function loadAll(){
+  showLoading(true);
+  try {
+    const [pRes,gRes,aRes,tvRes,uRes,cRes] = await Promise.all([
+      supa.from('projetos').select('*').order('cliente'),
+      supa.from('gestores').select('*').order('nome'),
+      supa.from('alocados').select('*').order('nome'),
+      supa.from('turnover').select('*').order('data_desl',{ascending:false}),
+      supa.from('usuarios').select('*').order('nome'),
+      supa.from('contatos_onebrain').select('*').order('ordem'),
+    ]);
+    if(pRes.error) throw pRes.error;
+    if(gRes.error) throw gRes.error;
+    if(aRes.error) throw aRes.error;
+
+    db.projetos  = (pRes.data||[]).map(mapProjeto);
+    db.gestores  = (gRes.data||[]).map(mapGestor);
+    db.alocados  = (aRes.data||[]).map(mapAlocado);
+    db.turnover  = (tvRes.data||[]).map(mapTurnover);
+    db.usuarios  = (uRes.data||[]).map(mapUsuario);
+    db.contatos  = (cRes.data||[]).map(mapContato);
+
+    const hRes = await supa.from('historico_financeiro').select('*').order('data_alt');
+    if(!hRes.error && hRes.data){
+      hRes.data.forEach(h=>{
+        const a=db.alocados.find(x=>x.id===h.alocado_id);
+        if(!a)return;
+        const entry={val:Number(h.valor_novo),data:h.data_alt};
+        if(h.tipo==='salario'){if(!a.salarioHist)a.salarioHist=[];a.salarioHist.push(entry);}
+        else{if(!a.valorHoraHist)a.valorHoraHist=[];a.valorHoraHist.push(entry);}
+      });
+    }
+    recalcAll();
+  } catch(e) {
+    console.error('Erro ao carregar dados:', e);
+    showToast('Erro ao carregar dados: '+e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
 function showLoading(show){
   let el=document.getElementById('globalLoading');
   if(!el){
