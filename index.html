@@ -2571,7 +2571,9 @@ function renderHistPanel(listId,panelId,hist){
   document.getElementById(listId).innerHTML=`<div class="hist-item"><span class="hist-val" style="font-size:12px;color:var(--text-3)">Última atualização: ${fDate(ultima.data)}</span><span class="hist-date">${fBRL(ultima.val)}</span></div>`;
 }
 async function salvarAlocado(){
-  const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');return}
+  const btnSalvar=document.querySelector('#modalAlocado .btn-accent');
+  if(btnSalvar){btnSalvar.disabled=true;btnSalvar.textContent='Salvando...';}
+  const nome=document.getElementById('alocadoNome').value.trim();if(!nome){if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent='Salvar';}return}
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
   if(!cargo){showToast('Selecione o cargo');return}
   const ns=parseFloat(String(document.getElementById('alocadoSalario').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
@@ -2658,7 +2660,9 @@ if(novoId && margemAnterior !== null && novaMargem !== null && margemAnterior !=
 if(novoId && novaMargem !== null){
   await supa.from('alocados').update({margem:novaMargem}).eq('id',novoId);
 }
-  await loadAll();closeModal('modalAlocado');filterAlocados();showToast('Alocado salvo!');
+  await loadAll();closeModal('modalAlocado');filterAlocados();
+if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent='Salvar';}
+showToast('Alocado salvo!');
 }
 
 /* ─── MODALS GESTOR ───────────────────────────────────── */
@@ -2703,7 +2707,7 @@ async function salvarGestor(){
       });
     }
   }
-  if(err){showToast('Erro: '+err.message);return}
+  if(err){showToast('Erro: '+err.message);if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent='Salvar';}return}
   await loadAll();closeModal('modalGestor');filterGestores();showToast(id?'Gestor salvo!':'Link mágico enviado para '+email);
 }
 
