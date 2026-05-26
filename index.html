@@ -111,6 +111,8 @@ body{font-family:'Poppins',sans-serif;background:#000000;color:var(--text);font-
 .search-box input::placeholder{color:var(--text-3)}
 select.filter-sel{padding:7px 11px;border:1px solid var(--glass-border);border-radius:7px;font-size:var(--font-min);color:var(--text);background:#111111;outline:none;font-family:'Poppins',sans-serif;cursor:pointer;color-scheme:dark}
 select.filter-sel option{background:#111111;color:#ffffff}
+select.form-control{background:#111111;color:var(--text);color-scheme:dark}
+select.form-control option{background:#111111;color:#ffffff}
 select.filter-sel:focus{border-color:var(--text)}
 
 table{width:100%;border-collapse:collapse}
@@ -413,7 +415,7 @@ input[type=file]{display:none}
           <option value="ESP">ESP</option>
         </select>
       </div>
-      <div class="form-group hidden" id="cargoNovoGroup" style="display:none"><label>Nome do cargo</label><input class="form-control" type="text" id="cargoNovo" placeholder="Ex: DevOps"></div>
+      <div class="form-group" id="cargoNovoGroup" style="display:none"><label>Nome do cargo</label><input class="form-control" type="text" id="cargoNovo" placeholder="Ex: DevOps"></div>
       <div class="form-group full">
         <label>Stack(s)</label>
         <div class="stack-grid" id="stackGrid"></div>
