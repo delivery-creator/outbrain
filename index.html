@@ -2206,13 +2206,137 @@ async function salvarParamCalc(){
 /* ─── TURNOVER ────────────────────────────────────────── */
 function renderTurnover(mc){
   const anoAtual = TODAY.getFullYear();
-  // ✅ NOVO: calcula métricas usando a função centralizada
-  const metrics = calcTurnoverMetrics(anoAtual, null);
 
-  // Taxa bruta para exibição na tabela (mantém contexto)
-  const taxaBrutaLabel = metrics.ativos > 0
-    ? Math.round((metrics.totalDeslig / metrics.ativos) * 100)
-    : 0;
+    mc.innerHTML=`
+    <!-- FILTROS -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Mês</div>
+        <select class="filter-sel" id="tvFilMes" onchange="filterTurnover()" style="width:150px">
+          <option value="">Todos os meses</option>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
+        <select class="filter-sel" id="tvFilUnidade" onchange="filterTurnover()" style="width:150px">
+          <option value="">Todas as unidades</option>
+          <option value="OneBrain">OneBrain</option>
+          <option value="Outforce">Outforce</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- MÉTRICAS -->
+    <div class="tv-metrics">
+      <div class="tv-metric-card card-taxa">
+        <div class="tv-metric-label">Taxa Líquida de Turnover</div>
+        <div class="tv-metric-value" id="tvMetricTaxa" style="color:var(--green)">0%</div>
+        <div class="tv-metric-sub" id="tvMetricTaxaSub">Vagas perdidas em ${anoAtual}</div>
+      </div>
+      <div class="tv-metric-card card-evitados">
+        <div class="tv-metric-label">Desligamentos Evitados</div>
+        <div class="tv-metric-value" id="tvMetricEvitados" style="color:var(--blue)">0</div>
+        <div class="tv-metric-sub">substituições confirmadas ou em processo</div>
+      </div>
+      <div class="tv-metric-card card-saving">
+        <div class="tv-metric-label">Saving Estimado</div>
+        <div class="tv-metric-value" id="tvMetricSaving" style="color:var(--green)">R$ 0</div>
+        <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
+      </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-card">
+      <div class="table-header"><div class="table-title" id="tvTableTitle">Registro de Turnover</div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Alocado</th><th>Data Desligamento</th><th>Motivo</th><th>Substituto</th><th>Obs.</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
+        <tbody id="tvTbody"></tbody>
+      </table></div>
+    </div>`;
+
+    filterTurnover();
+  }
+
+  function filterTurnover(){
+  const mes = parseInt(document.getElementById('tvFilMes')?.value||'0');
+  const unidade = document.getElementById('tvFilUnidade')?.value||'';
+  const anoAtual = TODAY.getFullYear();
+
+  const lista = db.turnover.filter(t => {
+    if(t.status==='Cancelado') return false;
+    if(!t.data) return false;
+    if(t.motivo==='Internalização') return false;
+    const d = new Date(t.data);
+    if(d.getFullYear() !== anoAtual) return false;
+    if(mes && d.getMonth()+1 !== mes) return false;
+    if(unidade){
+      const alocado = db.alocados.find(a=>a.id===t.alocadoId);
+      if(!alocado || alocado.unidadeNegocio !== unidade) return false;
+    }
+    return true;
+  });
+
+  // Atualiza métricas
+  const ativos = db.alocados.filter(a => a.status==='Ativo').length;
+  const comSubst = lista.filter(t=>tvTemSubstituicao(t)).length;
+  const semSubst = lista.length - comSubst;
+  const taxaLiquida = ativos > 0 ? Math.round((semSubst/ativos)*100) : 0;
+  const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;
+  const saving = lista.filter(t=>tvTemSubstituicao(t)).reduce((s,t)=>{
+    const a = db.alocados.find(x=>x.id===t.alocadoId);
+    return s + (getVH(a)*168);
+  }, 0);
+
+  document.getElementById('tvMetricTaxa').textContent = taxaLiquida+'%';
+  document.getElementById('tvMetricTaxa').style.color = taxaLiquida>20?'var(--red)':taxaLiquida>10?'var(--amber)':'var(--green)';
+  document.getElementById('tvMetricTaxaSub').textContent = `Vagas perdidas · Taxa bruta: ${taxaBruta}%`;
+  document.getElementById('tvMetricEvitados').textContent = comSubst;
+  document.getElementById('tvMetricSaving').textContent = fBRL(saving);
+  document.getElementById('tvTableTitle').textContent = `Registro de Turnover (${lista.length})`;
+
+  // Renderiza tabela
+  const tbody = document.getElementById('tvTbody');
+  if(!tbody) return;
+  if(!lista.length){
+    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-text">Nenhum registro encontrado</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(t=>{
+    const subst = db.alocados.find(x=>x.id===t.substituicaoId);
+    let substLabel = '—';
+    let substBadge = '';
+    if(subst){
+      substLabel = subst.nome;
+      substBadge = `<span class="badge b-green" style="font-size:10px;margin-left:4px">Confirmado</span>`;
+    } else if(t.substituicao==='__em_processo__'||t.substituicao==='Em processo seletivo'){
+      substLabel = 'Em processo seletivo';
+      substBadge = `<span class="badge b-amber" style="font-size:10px;margin-left:4px">Em processo</span>`;
+    } else {
+      substBadge = `<span class="badge b-red" style="font-size:10px;margin-left:4px">Vaga perdida</span>`;
+    }
+    return`<tr>
+      <td><strong>${t.alocadoNome}</strong></td>
+      <td>${fDate(t.data)}</td>
+      <td>${t.motivo}</td>
+      <td style="white-space:nowrap">${substLabel}${substBadge}</td>
+      <td style="color:var(--text-3)">${t.obs||''}</td>
+      <td><span class="badge ${t.status==='Cancelado'?'b-gray':'b-red'}">${t.status||'Confirmado'}</span></td>
+      ${isEditor()?`<td><div class="row-actions"><button class="icon-btn" onclick="openEditTurnover('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>`:''}
+    </tr>`;
+  }).join('');
+}
 
   mc.innerHTML=`
   <!-- ✅ NOVO: 3 cards de métricas de turnover -->
