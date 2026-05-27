@@ -2209,7 +2209,7 @@ function renderTurnover(mc){
 
     mc.innerHTML=`
   <!-- MÉTRICAS -->
-  <div class="tv-metrics">
+  <div class="tv-metrics" style="grid-template-columns:repeat(4,1fr)">
     <div class="tv-metric-card" style="border-top:3px solid var(--amber)">
       <div class="tv-metric-label">Total de Saídas</div>
       <div class="tv-metric-value" id="tvMetricTotal" style="color:var(--amber)">0</div>
@@ -2217,7 +2217,7 @@ function renderTurnover(mc){
     </div>
     <div class="tv-metric-card card-taxa">
       <div class="tv-metric-label">Taxa Líquida de Turnover</div>
-      <div class="tv-metric-value" id="tvMetricTaxa" style="color:var(--green)">0%</div>
+      <div class="tv-metric-value" id="tvMetricTaxa" style="color:var(--red)">0%</div>
       <div class="tv-metric-sub" id="tvMetricTaxaSub">Vagas perdidas em ${anoAtual}</div>
     </div>
     <div class="tv-metric-card card-evitados">
@@ -2301,7 +2301,7 @@ function renderTurnover(mc){
 
   document.getElementById('tvMetricTotal').textContent = lista.length;
   document.getElementById('tvMetricTaxa').textContent = taxaLiquida+'%';
-  document.getElementById('tvMetricTaxa').style.color = taxaLiquida>20?'var(--red)':taxaLiquida>10?'var(--amber)':'var(--green)';
+  document.getElementById('tvMetricTaxa').style.color = 'var(--red)';
   document.getElementById('tvMetricTaxaSub').textContent = `Vagas perdidas · Taxa bruta: ${taxaBruta}%`;
   document.getElementById('tvMetricEvitados').textContent = comSubst;
   document.getElementById('tvMetricSaving').textContent = fBRL(saving);
