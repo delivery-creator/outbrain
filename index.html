@@ -1423,15 +1423,19 @@ chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'line',da
       plugins:{
         legend:{display:false},
         tooltip:{
+          mode:'index',
           callbacks:{
             label:(item)=>{
-              const labels=['Vaga perdida','Com substituição','Taxa líquida (%)'];
+              if(item.datasetIndex===2) return `Taxa líquida: ${item.parsed.y}%`;
+              const labels=['Vaga perdida','Com substituição'];
               return `${labels[item.datasetIndex]}: ${item.parsed.y}`;
             },
             afterBody:(items)=>{
-              const barItems=items.filter(i=>i.datasetIndex<2);
-              if(!barItems.length) return '';
-              const total=barItems.reduce((s,i)=>s+i.parsed.y,0);
+              const idx=items[0]?.dataIndex;
+              if(idx===undefined) return '';
+              const perdidas=desPorMesSemSubst[idx]||0;
+              const subst=desPorMesComSubst[idx]||0;
+              const total=perdidas+subst;
               return `─────────\nTotal: ${total}`;
             }
           }
