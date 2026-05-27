@@ -1272,9 +1272,24 @@ const desPorMesComSubst = meses.map(m => {
 });
 
   // Taxa líquida: apenas desligamentos sem substituição / ativos no mês
-  const txLiquidaPorMes = meses.map((m,i) =>
-    atPorMes[i]>0 ? Math.round((desPorMesSemSubst[i]/atPorMes[i])*100) : 0
-  );
+  const txLiquidaPorMes = meses.map((m,i) => {
+  const inicioMes = new Date(m.date.getFullYear(), m.date.getMonth(), 1);
+  const fimMes = new Date(m.date.getFullYear(), m.date.getMonth() + 1, 1);
+  const hcInicio = visAlocados.filter(a => {
+    if(!a.admissao) return false;
+    const adm = new Date(a.admissao);
+    const desl = a.desligamento ? new Date(a.desligamento) : null;
+    return adm < inicioMes && (!desl || desl >= inicioMes);
+  }).length;
+  const hcFim = visAlocados.filter(a => {
+    if(!a.admissao) return false;
+    const adm = new Date(a.admissao);
+    const desl = a.desligamento ? new Date(a.desligamento) : null;
+    return adm < fimMes && (!desl || desl >= fimMes);
+  }).length;
+  const hcMedio = Math.round((hcInicio + hcFim) / 2);
+  return hcMedio > 0 ? Math.round((desPorMesSemSubst[i] / hcMedio) * 100) : 0;
+});
 
   // Saving estimado por mês: V/H × 168 dos desligados com substituição
   const savingPorMes = meses.map(m => {
