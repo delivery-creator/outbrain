@@ -1420,7 +1420,23 @@ chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'line',da
     options:{
       responsive:true,
       maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:(item)=>{
+              const labels=['Vaga perdida','Com substituição','Taxa líquida (%)'];
+              return `${labels[item.datasetIndex]}: ${item.parsed.y}`;
+            },
+            afterBody:(items)=>{
+              const barItems=items.filter(i=>i.datasetIndex<2);
+              if(!barItems.length) return '';
+              const total=barItems.reduce((s,i)=>s+i.parsed.y,0);
+              return `─────────\nTotal: ${total}`;
+            }
+          }
+        }
+      },
       scales:{
         x:{grid:{display:false},ticks:{font:{size:12}}},
         y:{position:'left',grid:{color:'rgba(15,25,35,0.05)'},title:{display:true,text:'Desligamentos',font:{size:11}},ticks:{font:{size:11},stepSize:1},stacked:true},
