@@ -2210,6 +2210,11 @@ function renderTurnover(mc){
     mc.innerHTML=`
   <!-- MÉTRICAS -->
   <div class="tv-metrics">
+    <div class="tv-metric-card" style="border-top:3px solid var(--amber)">
+      <div class="tv-metric-label">Total de Saídas</div>
+      <div class="tv-metric-value" id="tvMetricTotal" style="color:var(--amber)">0</div>
+      <div class="tv-metric-sub">todos os motivos em ${anoAtual}</div>
+    </div>
     <div class="tv-metric-card card-taxa">
       <div class="tv-metric-label">Taxa Líquida de Turnover</div>
       <div class="tv-metric-value" id="tvMetricTaxa" style="color:var(--green)">0%</div>
@@ -2294,12 +2299,28 @@ function renderTurnover(mc){
     return s + (getVH(a)*168);
   }, 0);
 
+  document.getElementById('tvMetricTotal').textContent = lista.length;
   document.getElementById('tvMetricTaxa').textContent = taxaLiquida+'%';
   document.getElementById('tvMetricTaxa').style.color = taxaLiquida>20?'var(--red)':taxaLiquida>10?'var(--amber)':'var(--green)';
   document.getElementById('tvMetricTaxaSub').textContent = `Vagas perdidas · Taxa bruta: ${taxaBruta}%`;
   document.getElementById('tvMetricEvitados').textContent = comSubst;
   document.getElementById('tvMetricSaving').textContent = fBRL(saving);
   document.getElementById('tvTableTitle').textContent = `Registro de Turnover (${lista.length})`;
+
+  const totalComInternalizacao = db.turnover.filter(t => {
+    if(t.status==='Cancelado') return false;
+    if(!t.data) return false;
+    const d = new Date(t.data);
+    if(d.getFullYear() !== anoAtual) return false;
+    if(mes && d.getMonth()+1 !== mes) return false;
+    if(unidade){
+      const alocado = db.alocados.find(a=>a.id===t.alocadoId);
+      if(!alocado || alocado.unidadeNegocio !== unidade) return false;
+    }
+    return true;
+  }).length;
+
+document.getElementById('tvMetricTotal').textContent = totalComInternalizacao;
 
   // Renderiza tabela
   const tbody = document.getElementById('tvTbody');
