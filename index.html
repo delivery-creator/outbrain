@@ -2372,6 +2372,7 @@ const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
   const totalComInternalizacao = db.turnover.filter(t => {
     if(t.status==='Cancelado') return false;
     if(!t.data) return false;
+    if(motivo && t.motivo !== motivo) return false;
     const d = new Date(t.data);
     if(d.getFullYear() !== anoAtual) return false;
     if(mes && d.getMonth()+1 !== mes) return false;
