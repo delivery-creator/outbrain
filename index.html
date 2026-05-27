@@ -2296,7 +2296,10 @@ function renderTurnover(mc){
   const taxaLiquida = ativos > 0 ? Math.round((semSubst/ativos)*100) : 0;
   const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;
   const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '').reduce((s,t)=>{
-  const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
+    const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
+    if(!substituto) return s;
+    return s + (getVH(substituto)*168);
+  }, 0);
 
   document.getElementById('tvMetricTotal').textContent = lista.length;
   document.getElementById('tvMetricTaxa').textContent = taxaLiquida+'%';
