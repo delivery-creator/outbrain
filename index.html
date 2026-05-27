@@ -2209,7 +2209,7 @@ function renderTurnover(mc){
 
     mc.innerHTML=`
   <!-- MÉTRICAS -->
-  <div class="tv-metrics" style="grid-template-columns:repeat(4,1fr)">
+  <div class="tv-metrics" style="grid-template-columns:repeat(5,1fr)">
     <div class="tv-metric-card" style="border-top:3px solid var(--amber)">
       <div class="tv-metric-label">Total de Saídas</div>
       <div class="tv-metric-value" id="tvMetricTotal" style="color:var(--amber)">0</div>
@@ -2371,6 +2371,58 @@ const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
   }).length;
 
 document.getElementById('tvMetricTotal').textContent = totalComInternalizacao;
+
+const internalizacoes = db.turnover.filter(t => {
+  if(t.status === 'Cancelado') return false;
+  if(!t.data) return false;
+  if(!(t.motivo && t.motivo.toLowerCase().includes('internaliza'))) return false;
+  const d = new Date(t.data);
+  if(d.getFullYear() !== anoAtual) return false;
+  if(mes && d.getMonth()+1 !== mes) return false;
+  if(unidade){
+    const alocado = db.alocados.find(a=>a.id===t.alocadoId);
+    if(!alocado || alocado.unidadeNegocio !== unidade) return false;
+  }
+  return true;
+}).length;
+
+const taxasInternalizacaoPorMes = mesesAno.map(m => {
+  const inicioMes = new Date(m.getFullYear(), m.getMonth(), 1);
+  const fimMes = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+  const hcInicio = db.alocados.filter(a => {
+    if(!a.admissao) return false;
+    if(unidade && a.unidadeNegocio !== unidade) return false;
+    const adm = new Date(a.admissao);
+    const desl = a.desligamento ? new Date(a.desligamento) : null;
+    return adm < inicioMes && (!desl || desl >= inicioMes);
+  }).length;
+  const hcFim = db.alocados.filter(a => {
+    if(!a.admissao) return false;
+    if(unidade && a.unidadeNegocio !== unidade) return false;
+    const adm = new Date(a.admissao);
+    const desl = a.desligamento ? new Date(a.desligamento) : null;
+    return adm < fimMes && (!desl || desl >= fimMes);
+  }).length;
+  const hcMedio = Math.round((hcInicio + hcFim) / 2);
+  const intern = db.turnover.filter(t => {
+    if(t.status === 'Cancelado') return false;
+    if(!t.data) return false;
+    if(!(t.motivo && t.motivo.toLowerCase().includes('internaliza'))) return false;
+    const d = new Date(t.data);
+    if(d.getMonth() !== m.getMonth() || d.getFullYear() !== m.getFullYear()) return false;
+    if(unidade){
+      const alocado = db.alocados.find(a=>a.id===t.alocadoId);
+      if(!alocado || alocado.unidadeNegocio !== unidade) return false;
+    }
+    return true;
+  }).length;
+  return hcMedio > 0 ? (intern / hcMedio) * 100 : 0;
+});
+
+const taxaInternalizacao = Math.round((taxasInternalizacaoPorMes.reduce((s,t) => s+t, 0) / mesesAno.length) * 100) / 100;
+
+document.getElementById('tvMetricInternalizacao').textContent = taxaInternalizacao+'%';
+document.getElementById('tvMetricInternalizacaoSub').textContent = `${internalizacoes} internalizações no período`;
 
   // Renderiza tabela
   const tbody = document.getElementById('tvTbody');
