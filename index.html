@@ -2354,7 +2354,7 @@ const vagasPerdidasTotal = db.turnover.filter(t => {
 
 const taxaLiquida = hcMedioPeriodo > 0 ? Math.round((vagasPerdidasTotal / hcMedioPeriodo) * 100 * 100) / 100 : 0;
 const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
-  const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '').reduce((s,t)=>{
+  const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '' && !(t.motivo && t.motivo.toLowerCase().includes('internaliza'))).reduce((s,t)=>{
   const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
   if(!substituto) return s;
   if(substituto.status === 'Inativo') return s; // ← ignora substitutos que já saíram
