@@ -2208,7 +2208,26 @@ function renderTurnover(mc){
   const anoAtual = TODAY.getFullYear();
 
     mc.innerHTML=`
-    <!-- FILTROS -->
+    <!-- MÉTRICAS -->
+    <div class="tv-metrics">
+      <div class="tv-metric-card card-taxa">
+        <div class="tv-metric-label">Taxa Líquida de Turnover</div>
+        <div class="tv-metric-value" id="tvMetricTaxa" style="color:var(--green)">0%</div>
+        <div class="tv-metric-sub" id="tvMetricTaxaSub">Vagas perdidas em ${anoAtual}</div>
+      </div>
+      <div class="tv-metric-card card-evitados">
+        <div class="tv-metric-label">Desligamentos Evitados</div>
+        <div class="tv-metric-value" id="tvMetricEvitados" style="color:var(--blue)">0</div>
+        <div class="tv-metric-sub">substituições confirmadas ou em processo</div>
+      </div>
+      <div class="tv-metric-card card-saving">
+        <div class="tv-metric-label">Saving Estimado</div>
+        <div class="tv-metric-value" id="tvMetricSaving" style="color:var(--green)">R$ 0</div>
+        <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
+      </div>
+    </div>
+
+    <!-- TABELA -->
     <div class="table-card">
       <div class="table-header">
         <div class="table-title" id="tvTableTitle">Registro de Turnover</div>
@@ -2233,28 +2252,6 @@ function renderTurnover(mc){
           <option value="Outforce">Outforce</option>
         </select>
       </div>
-    <!-- MÉTRICAS -->
-    <div class="tv-metrics">
-      <div class="tv-metric-card card-taxa">
-        <div class="tv-metric-label">Taxa Líquida de Turnover</div>
-        <div class="tv-metric-value" id="tvMetricTaxa" style="color:var(--green)">0%</div>
-        <div class="tv-metric-sub" id="tvMetricTaxaSub">Vagas perdidas em ${anoAtual}</div>
-      </div>
-      <div class="tv-metric-card card-evitados">
-        <div class="tv-metric-label">Desligamentos Evitados</div>
-        <div class="tv-metric-value" id="tvMetricEvitados" style="color:var(--blue)">0</div>
-        <div class="tv-metric-sub">substituições confirmadas ou em processo</div>
-      </div>
-      <div class="tv-metric-card card-saving">
-        <div class="tv-metric-label">Saving Estimado</div>
-        <div class="tv-metric-value" id="tvMetricSaving" style="color:var(--green)">R$ 0</div>
-        <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
-      </div>
-    </div>
-
-    <!-- TABELA -->
-    <div class="table-card">
-      <div class="table-header"><div class="table-title" id="tvTableTitle">Registro de Turnover</div></div>
       <div class="table-wrap"><table>
         <thead><tr><th>Alocado</th><th>Data Desligamento</th><th>Motivo</th><th>Substituto</th><th>Obs.</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
         <tbody id="tvTbody"></tbody>
