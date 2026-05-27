@@ -2233,7 +2233,7 @@ function renderTurnover(mc){
   </div>
 
   <!-- TABELA -->
-  <div class="table-card">
+  <div class="table-card">F
     <div class="table-header">
       <div class="table-title" id="tvTableTitle">Registro de Turnover</div>
       <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srTurnover" oninput="filterTurnover()"></div>
@@ -2291,10 +2291,44 @@ function renderTurnover(mc){
 
   // Atualiza métricas
   const ativos = db.alocados.filter(a => a.status==='Ativo').length;
-  const comSubst = lista.filter(t=>tvTemSubstituicao(t)).length;
-  const semSubst = lista.length - comSubst;
-  const taxaLiquida = ativos > 0 ? Math.round((semSubst/ativos)*100) : 0;
-  const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;
+const comSubst = lista.filter(t=>tvTemSubstituicao(t)).length;
+const semSubst = lista.length - comSubst;
+
+const mesesAno = [];
+const now = new Date(TODAY);
+for(let i = 0; i < 12; i++){
+  const d = new Date(now.getFullYear(), i, 1);
+  if(d > now) break;
+  mesesAno.push(d);
+}
+const taxasPorMes = mesesAno.map(m => {
+  const inicioMes = new Date(m.getFullYear(), m.getMonth(), 1);
+  const fimMes = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+  const hcInicio = db.alocados.filter(a => {
+    if(!a.admissao) return false;
+    const adm = new Date(a.admissao);
+    const desl = a.desligamento ? new Date(a.desligamento) : null;
+    return adm < inicioMes && (!desl || desl >= inicioMes);
+  }).length;
+  const hcFim = db.alocados.filter(a => {
+    if(!a.admissao) return false;
+    const adm = new Date(a.admissao);
+    const desl = a.desligamento ? new Date(a.desligamento) : null;
+    return adm < fimMes && (!desl || desl >= fimMes);
+  }).length;
+  const hcMedio = Math.round((hcInicio + hcFim) / 2);
+  const vagasPerdidas = db.turnover.filter(t => {
+    if(t.status === 'Cancelado') return false;
+    if(!t.data) return false;
+    if(t.motivo && t.motivo.toLowerCase().includes('internaliza')) return false;
+    if(t.substituicaoId || t.substituicao === '__em_processo__') return false;
+    const d = new Date(t.data);
+    return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear();
+  }).length;
+  return hcMedio > 0 ? (vagasPerdidas / hcMedio) * 100 : 0;
+});
+const taxaLiquida = Math.round((taxasPorMes.reduce((s,t) => s+t, 0) / mesesAno.length) * 100) / 100;
+const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
   const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '').reduce((s,t)=>{
     const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
     if(!substituto) return s;
