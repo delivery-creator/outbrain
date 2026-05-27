@@ -2258,6 +2258,18 @@ function renderTurnover(mc){
         <option value="11">Novembro</option>
         <option value="12">Dezembro</option>
       </select>
+      <select class="filter-sel" id="tvFilMotivo" onchange="filterTurnover()" style="width:170px">
+        <option value="">Todos os motivos</option>
+        <option value="Pedido de demissão">Pedido de demissão</option>
+        <option value="Baixa performance">Baixa performance</option>
+        <option value="Outro oportunidade">Outra oportunidade</option>
+        <option value="Término de projeto">Término de projeto</option>
+        <option value="Comportamento">Comportamento</option>
+        <option value="Insatisfação colaborador">Insatisfação colaborador</option>
+        <option value="Internalização">Internalização</option>
+        <option value="Motivos pessoais">Motivos pessoais</option>
+        <option value="Outro">Outro</option>
+      </select>
       <select class="filter-sel" id="tvFilUnidade" onchange="filterTurnover()" style="width:160px">
         <option value="">Todas as unidades</option>
         <option value="OneBrain">OneBrain</option>
@@ -2276,6 +2288,7 @@ function renderTurnover(mc){
   function filterTurnover(){
   const mes = parseInt(document.getElementById('tvFilMes')?.value||'0');
   const unidade = document.getElementById('tvFilUnidade')?.value||'';
+  const motivo = document.getElementById('tvFilMotivo')?.value||'';
   const anoAtual = TODAY.getFullYear();
 
   const q = (document.getElementById('srTurnover')?.value||'').toLowerCase();
@@ -2284,6 +2297,7 @@ function renderTurnover(mc){
     if(t.status==='Cancelado') return false;
     if(!t.data) return false;
     if(q && !t.alocadoNome.toLowerCase().includes(q)) return false;
+    if(motivo && t.motivo !== motivo) return false;
     const d = new Date(t.data);
     if(d.getFullYear() !== anoAtual) return false;
     if(mes && d.getMonth()+1 !== mes) return false;
@@ -2417,7 +2431,10 @@ const taxasInternalizacaoPorMes = mesesAno.map(m => {
   return hcMedio > 0 ? (intern / hcMedio) * 100 : 0;
 });
 
-const taxaInternalizacao = Math.round((taxasInternalizacaoPorMes.reduce((s,t) => s+t, 0) / mesesAno.length) * 100) / 100;
+const mesesCalculo = mes ? mesesAno.filter(m => m.getMonth()+1 === mes) : mesesAno;
+const taxaInternalizacao = mesesCalculo.length > 0
+  ? Math.round((taxasInternalizacaoPorMes.filter((_,i) => !mes || mesesAno[i].getMonth()+1 === mes).reduce((s,t) => s+t, 0) / mesesCalculo.length) * 100) / 100
+  : 0;
 
 document.getElementById('tvMetricInternalizacao').textContent = taxaInternalizacao+'%';
 document.getElementById('tvMetricInternalizacaoSub').textContent = `${internalizacoes} internalizações no período`;
