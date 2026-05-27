@@ -2209,9 +2209,9 @@ function renderTurnover(mc){
 
     mc.innerHTML=`
     <!-- FILTROS -->
-    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Mês</div>
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title" id="tvTableTitle">Registro de Turnover</div>
         <select class="filter-sel" id="tvFilMes" onchange="filterTurnover()" style="width:150px">
           <option value="">Todos os meses</option>
           <option value="1">Janeiro</option>
@@ -2227,17 +2227,12 @@ function renderTurnover(mc){
           <option value="11">Novembro</option>
           <option value="12">Dezembro</option>
         </select>
-      </div>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
-        <select class="filter-sel" id="tvFilUnidade" onchange="filterTurnover()" style="width:150px">
+        <select class="filter-sel" id="tvFilUnidade" onchange="filterTurnover()" style="width:160px">
           <option value="">Todas as unidades</option>
           <option value="OneBrain">OneBrain</option>
           <option value="Outforce">Outforce</option>
         </select>
       </div>
-    </div>
-
     <!-- MÉTRICAS -->
     <div class="tv-metrics">
       <div class="tv-metric-card card-taxa">
