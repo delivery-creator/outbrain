@@ -2336,59 +2336,8 @@ function renderTurnover(mc){
       ${isEditor()?`<td><div class="row-actions"><button class="icon-btn" onclick="openEditTurnover('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>`:''}
     </tr>`;
   }).join('');
-}
+  }
 
-  mc.innerHTML=`
-  <!-- ✅ NOVO: 3 cards de métricas de turnover -->
-  <div class="tv-metrics">
-    <div class="tv-metric-card card-taxa">
-      <div class="tv-metric-label">Taxa Líquida de Turnover</div>
-      <div class="tv-metric-value" style="color:${metrics.taxaLiquida>20?'var(--red)':metrics.taxaLiquida>10?'var(--amber)':'var(--green)'}">${metrics.taxaLiquida}%</div>
-      <div class="tv-metric-sub">Vagas perdidas em ${anoAtual} · Taxa bruta: ${taxaBrutaLabel}%</div>
-    </div>
-    <div class="tv-metric-card card-evitados">
-      <div class="tv-metric-label">Desligamentos Evitados em ${anoAtual}</div>
-      <div class="tv-metric-value" style="color:var(--blue)">${metrics.comSubst}</div>
-      <div class="tv-metric-sub">${metrics.comSubst === 1 ? 'substituição confirmada ou em processo' : 'substituições confirmadas ou em processo'}</div>
-    </div>
-    <div class="tv-metric-card card-saving">
-      <div class="tv-metric-label">Saving Estimado em ${anoAtual}</div>
-      <div class="tv-metric-value" style="color:var(--green)">${fBRL(metrics.saving)}</div>
-      <div class="tv-metric-sub">V/H dos desligados com substituição × 168h</div>
-    </div>
-  </div>
-
-  <div class="table-card">
-    <div class="table-header"><div class="table-title">Registro de Turnover (${db.turnover.length})</div></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Alocado</th><th>Data Desligamento</th><th>Motivo</th><th>Substituto</th><th>Obs.</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
-      <tbody>${db.turnover.length?db.turnover.map(t=>{
-        // ✅ NOVO: exibe "Em processo seletivo" corretamente na coluna
-        const subst = db.alocados.find(x=>x.id===t.substituicaoId);
-        let substLabel = '—';
-        let substBadge = '';
-        if (subst) {
-          substLabel = subst.nome;
-          substBadge = `<span class="badge b-green" style="font-size:10px;margin-left:4px">Confirmado</span>`;
-        } else if (t.substituicao === '__em_processo__' || t.substituicao === 'Em processo seletivo') {
-          substLabel = 'Em processo seletivo';
-          substBadge = `<span class="badge b-amber" style="font-size:10px;margin-left:4px">Em processo</span>`;
-        } else {
-          substBadge = `<span class="badge b-red" style="font-size:10px;margin-left:4px">Vaga perdida</span>`;
-        }
-        return`<tr>
-          <td><strong>${t.alocadoNome}</strong></td>
-          <td>${fDate(t.data)}</td>
-          <td>${t.motivo}</td>
-          <td style="white-space:nowrap">${substLabel}${substBadge}</td>
-          <td style="color:var(--text-3)">${t.obs||''}</td>
-          <td><span class="badge ${t.status==='Cancelado'?'b-gray':'b-red'}">${t.status||'Confirmado'}</span></td>
-          ${isEditor()?`<td><div class="row-actions"><button class="icon-btn" onclick="openEditTurnover('${t.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>`:''}
-        </tr>`;
-      }).join(''):`<tr><td colspan="7"><div class="empty-state"><div class="empty-text">Nenhum registro</div></div></td></tr>`}</tbody>
-    </table></div>
-  </div>`;
-}
 
 /* ─── INTERNOS ────────────────────────────────────────── */
 function renderInternos(mc){
