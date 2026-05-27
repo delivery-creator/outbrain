@@ -2272,14 +2272,6 @@ function renderTurnover(mc){
   const unidade = document.getElementById('tvFilUnidade')?.value||'';
   const anoAtual = TODAY.getFullYear();
 
-  const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '').reduce((s,t)=>{
-  const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
-  console.log(t.alocadoNome, '→', substituto?.nome, 'VH:', getVH(substituto), 'saving:', getVH(substituto)*168);
-  if(!substituto) return s;
-  return s + (getVH(substituto)*168);
-}, 0);
-console.log('TOTAL SAVING:', saving);
-
   const q = (document.getElementById('srTurnover')?.value||'').toLowerCase();
 
   const lista = db.turnover.filter(t => {
@@ -2303,10 +2295,12 @@ console.log('TOTAL SAVING:', saving);
   const taxaLiquida = ativos > 0 ? Math.round((semSubst/ativos)*100) : 0;
   const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;
   const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '').reduce((s,t)=>{
-    const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
-    if(!substituto) return s;
-    return s + (getVH(substituto)*168);
-  }, 0);
+  const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
+  console.log(t.alocadoNome, '→', substituto?.nome, 'VH:', getVH(substituto), 'saving:', getVH(substituto)*168);
+  if(!substituto) return s;
+  return s + (getVH(substituto)*168);
+}, 0);
+console.log('TOTAL SAVING:', saving);
 
   document.getElementById('tvMetricTotal').textContent = lista.length;
   document.getElementById('tvMetricTaxa').textContent = taxaLiquida+'%';
