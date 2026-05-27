@@ -1392,8 +1392,7 @@ const desPorMesComSubst = meses.map(m => {
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};
 
 chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'line',data:{labels,datasets:[{data:fatPorMes,borderColor:'#34D399',backgroundColor:'rgba(52,211,153,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#34D399',pointRadius:4}]},options:cg});
-  chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(96,165,250,0.15)',borderColor:'#60A5FA',borderWidth:2,borderRadius:5}]},options:cg});
-
+chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(96,165,250,0.15)',borderColor:'#60A5FA',borderWidth:2,borderRadius:5}]},options:{...cg,scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}},beginAtZero:true}}}});
   // ✅ NOVO gráfico de turnover: barras empilhadas + linha taxa líquida
   chartInstances.tv=new Chart(document.getElementById('chartTV'),{
     type:'bar',
