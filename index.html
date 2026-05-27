@@ -2323,7 +2323,12 @@ const taxasPorMes = mesesAno.map(m => {
     if(t.motivo && t.motivo.toLowerCase().includes('internaliza')) return false;
     if(t.substituicaoId || t.substituicao === '__em_processo__') return false;
     const d = new Date(t.data);
-    return d.getMonth() === m.getMonth() && d.getFullYear() === m.getFullYear();
+    if(d.getMonth() !== m.getMonth() || d.getFullYear() !== m.getFullYear()) return false;
+    if(unidade){
+      const alocado = db.alocados.find(a=>a.id===t.alocadoId);
+      if(!alocado || alocado.unidadeNegocio !== unidade) return false;
+    }
+    return true;
   }).length;
   return hcMedio > 0 ? (vagasPerdidas / hcMedio) * 100 : 0;
 });
