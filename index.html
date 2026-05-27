@@ -2231,6 +2231,7 @@ function renderTurnover(mc){
   <div class="table-card">
     <div class="table-header">
       <div class="table-title" id="tvTableTitle">Registro de Turnover</div>
+      <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srTurnover" oninput="filterTurnover()"></div>
       <select class="filter-sel" id="tvFilMes" onchange="filterTurnover()" style="width:150px">
         <option value="">Todos os meses</option>
         <option value="1">Janeiro</option>
@@ -2266,10 +2267,13 @@ function renderTurnover(mc){
   const unidade = document.getElementById('tvFilUnidade')?.value||'';
   const anoAtual = TODAY.getFullYear();
 
+  const q = (document.getElementById('srTurnover')?.value||'').toLowerCase();
+
   const lista = db.turnover.filter(t => {
     if(t.status==='Cancelado') return false;
     if(!t.data) return false;
     if(t.motivo==='Internalização') return false;
+    if(q && !t.alocadoNome.toLowerCase().includes(q)) return false;
     const d = new Date(t.data);
     if(d.getFullYear() !== anoAtual) return false;
     if(mes && d.getMonth()+1 !== mes) return false;
