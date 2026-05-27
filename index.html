@@ -2342,6 +2342,7 @@ const vagasPerdidasTotal = db.turnover.filter(t => {
   if(!t.data) return false;
   if(t.motivo && t.motivo.toLowerCase().includes('internaliza')) return false;
   if(t.substituicaoId || t.substituicao === '__em_processo__') return false;
+  if(motivo && t.motivo !== motivo) return false;
   const d = new Date(t.data);
   if(d.getFullYear() !== anoAtual) return false;
   if(mes && d.getMonth()+1 !== mes) return false;
