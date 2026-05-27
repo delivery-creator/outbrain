@@ -2306,12 +2306,14 @@ const taxasPorMes = mesesAno.map(m => {
   const fimMes = new Date(m.getFullYear(), m.getMonth() + 1, 1);
   const hcInicio = db.alocados.filter(a => {
     if(!a.admissao) return false;
+    if(unidade && a.unidadeNegocio !== unidade) return false;
     const adm = new Date(a.admissao);
     const desl = a.desligamento ? new Date(a.desligamento) : null;
     return adm < inicioMes && (!desl || desl >= inicioMes);
   }).length;
   const hcFim = db.alocados.filter(a => {
     if(!a.admissao) return false;
+    if(unidade && a.unidadeNegocio !== unidade) return false;
     const adm = new Date(a.admissao);
     const desl = a.desligamento ? new Date(a.desligamento) : null;
     return adm < fimMes && (!desl || desl >= fimMes);
