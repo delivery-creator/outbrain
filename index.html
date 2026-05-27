@@ -2330,10 +2330,11 @@ const taxasPorMes = mesesAno.map(m => {
 const taxaLiquida = Math.round((taxasPorMes.reduce((s,t) => s+t, 0) / mesesAno.length) * 100) / 100;
 const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
   const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '').reduce((s,t)=>{
-    const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
-    if(!substituto) return s;
-    return s + (getVH(substituto)*168);
-  }, 0);
+  const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
+  if(!substituto) return s;
+  if(substituto.status === 'Inativo') return s; // ← ignora substitutos que já saíram
+  return s + (getVH(substituto)*168);
+}, 0);
 
   document.getElementById('tvMetricTotal').textContent = lista.length;
   document.getElementById('tvMetricTaxa').textContent = taxaLiquida+'%';
