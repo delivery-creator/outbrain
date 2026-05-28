@@ -1924,7 +1924,7 @@ function renderAlocados(mc){
   mc.innerHTML=`
   <div class="table-card">
     <div class="table-header">
-      <div class="table-title">Alocados</div>
+      <div class="table-title" id="alocadosTableTitle">Alocados</div>
       <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" placeholder="Buscar..." id="srAlocado" oninput="filterAlocados()"></div>
       <select class="filter-sel" id="filCliente" onchange="filterAlocadosByCliente()" style="width:140px">
         <option value="">Todos os clientes</option>
@@ -2011,6 +2011,8 @@ function filterAlocados(){
     return true;
   });
   const tbody=document.getElementById('alocTbody');if(!tbody)return;
+  const titleEl=document.getElementById('alocadosTableTitle');
+  if(titleEl) titleEl.textContent=`Alocados (${list.length})`;
   if(!list.length){tbody.innerHTML=`<tr><td colspan="12"><div class="empty-state"><div class="empty-text">Nenhum alocado encontrado</div></div></td></tr>`;return}
   const isE=isEditor();
   tbody.innerHTML=list.map(a=>{
