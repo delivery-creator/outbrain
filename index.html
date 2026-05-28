@@ -1991,8 +1991,11 @@ function toggleStackDropdown(e){
   if(dd.style.display!=='none'){dd.style.display='none';return;}
   const r=document.getElementById('stackFilterBtn').getBoundingClientRect();
   dd.style.top=(r.bottom+4)+'px';
-  dd.style.left=r.left+'px';
+  dd.style.left='';dd.style.right='';
   dd.style.display='block';
+  const ddW=dd.offsetWidth;
+  if(r.left+ddW>window.innerWidth-8) dd.style.right=(window.innerWidth-r.right)+'px';
+  else dd.style.left=r.left+'px';
 }
 function toggleStackFilter(cb){
   if(cb.checked)filStackSel.add(cb.value); else filStackSel.delete(cb.value);
@@ -2015,8 +2018,11 @@ function toggleStatusDropdown(e){
   if(dd.style.display!=='none'){dd.style.display='none';return;}
   const r=document.getElementById('statusFilterBtn').getBoundingClientRect();
   dd.style.top=(r.bottom+4)+'px';
-  dd.style.left=r.left+'px';
+  dd.style.left='';dd.style.right='';
   dd.style.display='block';
+  const ddW=dd.offsetWidth;
+  if(r.left+ddW>window.innerWidth-8) dd.style.right=(window.innerWidth-r.right)+'px';
+  else dd.style.left=r.left+'px';
 }
 function toggleStatusFilter(cb){
   if(cb.checked)filStatusSel.add(cb.value); else filStatusSel.delete(cb.value);
