@@ -1936,15 +1936,15 @@ function renderAlocados(mc){
         <option value="">Todos os projetos</option>
         ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
       </select>
-      <div style="position:relative">
+      <div>
         <button class="btn btn-ghost btn-sm" id="stackFilterBtn" onclick="toggleStackDropdown(event)" style="gap:5px">
           Stack<span id="stackFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div id="stackDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:8px;z-index:200;min-width:200px;box-shadow:0 4px 16px rgba(15,25,35,0.12);max-height:220px;overflow-y:auto">
+        <div id="stackDropdown" style="display:none;position:fixed;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-lg);padding:8px;z-index:1000;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.6);max-height:220px;overflow-y:auto">
           <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">FILTRAR POR STACK</div>
-          ${allStacks_.map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
-            <input type="checkbox" value="${s}" onchange="toggleStackFilter(this)" style="accent-color:var(--text);width:13px;height:13px">${s}
+          ${allStacks_.map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+            <input type="checkbox" value="${s}" onchange="toggleStackFilter(this)" style="accent-color:var(--accent);width:13px;height:13px">${s}
           </label>`).join('')}
           <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
             <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="clearStackFilter()">Limpar filtro</button>
@@ -1956,15 +1956,15 @@ function renderAlocados(mc){
         <option value="OneBrain">OneBrain</option>
         <option value="Outforce">Outforce</option>
       </select>
-      <div style="position:relative">
+      <div>
         <button class="btn btn-ghost btn-sm" id="statusFilterBtn" onclick="toggleStatusDropdown(event)" style="gap:5px">
           Status<span id="statusFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div id="statusDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:8px;z-index:200;min-width:180px;box-shadow:0 4px 16px rgba(15,25,35,0.12)">
+        <div id="statusDropdown" style="display:none;position:fixed;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-lg);padding:8px;z-index:1000;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.6)">
           <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">FILTRAR POR STATUS</div>
-          ${['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
-            <input type="checkbox" value="${s}" onchange="toggleStatusFilter(this)" style="accent-color:var(--text);width:13px;height:13px">${s}
+          ${['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+            <input type="checkbox" value="${s}" onchange="toggleStatusFilter(this)" style="accent-color:var(--accent);width:13px;height:13px">${s}
           </label>`).join('')}
           <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
             <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="clearStatusFilter()">Limpar filtro</button>
@@ -1982,8 +1982,14 @@ function renderAlocados(mc){
 
 function toggleStackDropdown(e){
   e.stopPropagation();
-  const d=document.getElementById('stackDropdown');
-  d.style.display=d.style.display==='none'?'block':'none';
+  const ds=document.getElementById('statusDropdown');
+  if(ds)ds.style.display='none';
+  const dd=document.getElementById('stackDropdown');
+  if(dd.style.display!=='none'){dd.style.display='none';return;}
+  const r=document.getElementById('stackFilterBtn').getBoundingClientRect();
+  dd.style.top=(r.bottom+4)+'px';
+  dd.style.left=r.left+'px';
+  dd.style.display='block';
 }
 function toggleStackFilter(cb){
   if(cb.checked)filStackSel.add(cb.value); else filStackSel.delete(cb.value);
@@ -2000,8 +2006,14 @@ function clearStackFilter(){
 }
 function toggleStatusDropdown(e){
   e.stopPropagation();
-  const d=document.getElementById('statusDropdown');
-  d.style.display=d.style.display==='none'?'block':'none';
+  const ds=document.getElementById('stackDropdown');
+  if(ds)ds.style.display='none';
+  const dd=document.getElementById('statusDropdown');
+  if(dd.style.display!=='none'){dd.style.display='none';return;}
+  const r=document.getElementById('statusFilterBtn').getBoundingClientRect();
+  dd.style.top=(r.bottom+4)+'px';
+  dd.style.left=r.left+'px';
+  dd.style.display='block';
 }
 function toggleStatusFilter(cb){
   if(cb.checked)filStatusSel.add(cb.value); else filStatusSel.delete(cb.value);
