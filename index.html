@@ -1941,15 +1941,6 @@ function renderAlocados(mc){
           Stack<span id="stackFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div id="stackDropdown" style="display:none;position:fixed;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-lg);padding:8px;z-index:1000;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.6);max-height:220px;overflow-y:auto">
-          <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">FILTRAR POR STACK</div>
-          ${allStacks_.map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
-            <input type="checkbox" value="${s}" onchange="toggleStackFilter(this)" style="accent-color:var(--accent);width:13px;height:13px">${s}
-          </label>`).join('')}
-          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
-            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="clearStackFilter()">Limpar filtro</button>
-          </div>
-        </div>
       </div>
       <select class="filter-sel" id="filUnidade" onchange="filterAlocados()">
         <option value="">Todas as unidades</option>
@@ -1961,15 +1952,6 @@ function renderAlocados(mc){
           Status<span id="statusFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div id="statusDropdown" style="display:none;position:fixed;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-lg);padding:8px;z-index:1000;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.6)">
-          <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">FILTRAR POR STATUS</div>
-          ${['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
-            <input type="checkbox" value="${s}" onchange="toggleStatusFilter(this)" style="accent-color:var(--accent);width:13px;height:13px">${s}
-          </label>`).join('')}
-          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
-            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="clearStatusFilter()">Limpar filtro</button>
-          </div>
-        </div>
       </div>
     </div>
     <div class="table-wrap"><table>
@@ -1977,6 +1959,27 @@ function renderAlocados(mc){
       <tbody id="alocTbody"></tbody>
     </table></div>
   </div>`;
+
+  // injeta dropdowns diretamente no body para escapar do backdrop-filter do .table-card
+  ['stackDropdown','statusDropdown'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove();});
+  const _ddStyle='display:none;position:fixed;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-lg);padding:8px;z-index:9000;box-shadow:0 8px 24px rgba(0,0,0,0.6)';
+  const _labelStyle='display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:14px';
+  const _hdr=t=>`<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">${t}</div>`;
+  const _foot=fn=>`<div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:6px;padding-top:6px"><button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="${fn}()">Limpar filtro</button></div>`;
+  const _chk=(val,fn)=>`<label style="${_labelStyle}" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''"><input type="checkbox" value="${val}" onchange="${fn}(this)" style="accent-color:#34D399;width:13px;height:13px">${val}</label>`;
+
+  const sdEl=document.createElement('div');
+  sdEl.id='stackDropdown';
+  sdEl.style.cssText=_ddStyle+';min-width:200px;max-height:220px;overflow-y:auto';
+  sdEl.innerHTML=_hdr('FILTRAR POR STACK')+allStacks_.map(s=>_chk(s,'toggleStackFilter')).join('')+_foot('clearStackFilter');
+  document.body.appendChild(sdEl);
+
+  const stEl=document.createElement('div');
+  stEl.id='statusDropdown';
+  stEl.style.cssText=_ddStyle+';min-width:180px';
+  stEl.innerHTML=_hdr('FILTRAR POR STATUS')+['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>_chk(s,'toggleStatusFilter')).join('')+_foot('clearStatusFilter');
+  document.body.appendChild(stEl);
+
   filterAlocados();
 }
 
