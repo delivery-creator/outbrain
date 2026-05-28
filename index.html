@@ -1164,6 +1164,28 @@ let _fatData = null;          // { porCliente:{cliente:[12]}, metas:{...} }
 let _fatClienteSel = '__all__';
 const FAT_ANO = 2026;
 const _mesesLbl = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+let _fatUnidadeSel = '';   // '' = todas as unidades
+let _fatTabelaAberta = false;
+ 
+// Descobre a unidade de cada cliente olhando os alocados dele.
+// Como cada cliente é de uma unidade só, basta o primeiro alocado encontrado.
+function _fatUnidadeDoCliente(cliente){
+  for(const a of db.alocados){
+    const p = db.projetos.find(x=>x.id===a.projetoId);
+    if(p && p.cliente === cliente && a.unidadeNegocio){
+      return a.unidadeNegocio;
+    }
+  }
+  return null; // cliente sem alocado vinculado → unidade desconhecida
+}
+ 
+// Lista de clientes do faturamento que pertencem à unidade selecionada
+function _fatClientesVisiveis(){
+  const todos = Object.keys(_fatData.porCliente);
+  if(!_fatUnidadeSel) return todos;
+  return todos.filter(c => _fatUnidadeDoCliente(c) === _fatUnidadeSel);
+}
  
 function _fatMesRealizado(mes){
   const mAtual = TODAY.getMonth()+1, aAtual = TODAY.getFullYear();
@@ -1192,7 +1214,9 @@ async function loadFaturamento(){
 function _fatSerie(){
   const pc = _fatData.porCliente;
   if(_fatClienteSel === '__all__'){
-    return _mesesLbl.map((_,i)=>Object.values(pc).reduce((s,arr)=>s+(arr[i]||0),0));
+    const visiveis = _fatClientesVisiveis();
+    return _mesesLbl.map((_,i)=>
+      visiveis.reduce((s,c)=>s+((pc[c]&&pc[c][i])||0),0));
   }
   return (pc[_fatClienteSel]||new Array(12).fill(0)).slice();
 }
@@ -1226,16 +1250,27 @@ function renderFatPanel(){
   const ehGlobal = _fatClienteSel==='__all__';
   const fmtM = v => 'R$ '+(v/1e6).toFixed(2)+'M';
  
-  // seletor de cliente (popula 1x)
-  const sel = document.getElementById('fatCliente');
-  if(sel && !sel.dataset.ready){
-    const nomes = Object.keys(_fatData.porCliente).sort((a,b)=>a.localeCompare(b));
-    sel.innerHTML = '<option value="__all__">Todos os clientes</option>'+
-      nomes.map(n=>`<option value="${n}">${n}</option>`).join('');
-    sel.dataset.ready='1';
-    sel.value = _fatClienteSel;
-    sel.onchange = ()=>{ _fatClienteSel = sel.value; renderFatPanel(); };
+  // seletor de UNIDADE (liga 1x)
+  const selU = document.getElementById('fatUnidade');
+  if(selU && !selU.dataset.ready){
+    selU.dataset.ready='1';
+    selU.value = _fatUnidadeSel;
+    selU.onchange = ()=>{
+      _fatUnidadeSel = selU.value;
+      // se o cliente selecionado não pertence à nova unidade, volta pra "todos"
+      if(_fatClienteSel!=='__all__' && _fatUnidadeSel &&
+         _fatUnidadeDoCliente(_fatClienteSel)!==_fatUnidadeSel){
+        _fatClienteSel='__all__';
+      }
+      _fatRepopulaCliente();
+      renderFatPanel();
+      _fatRepopulaCliente();
+      renderFatPanel();
+    };
   }
+
+  // seletor de CLIENTE (popula respeitando a unidade)
+  _fatRepopulaCliente();
  
   document.getElementById('fatTitulo').textContent =
     ehGlobal ? `Faturamento ${FAT_ANO} vs. metas` : `Faturamento ${FAT_ANO} — ${_fatClienteSel}`;
@@ -1278,45 +1313,64 @@ function renderFatPanel(){
   }
  
   _fatChart(mensal, ehGlobal, {sub,meta,sup});
+  _fatTabela();   // monta/atualiza a tabela accordion
 }
  
-function _fatCard(label, valor, sub){
-  return `<div class="stat-card">
-    <div class="stat-label" style="margin-bottom:4px">${label}</div>
-    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700">${valor}</div>
-    <div class="stat-delta delta-gray" style="margin-top:4px">${sub}</div>
-  </div>`;
+function _fatToggleTabela(){
+  _fatTabelaAberta = !_fatTabelaAberta;
+  const corpo = document.getElementById('fatTabelaCorpo');
+  const seta  = document.getElementById('fatTabelaSeta');
+  if(corpo) corpo.style.display = _fatTabelaAberta ? 'block':'none';
+  if(seta)  seta.textContent = _fatTabelaAberta ? '▾' : '▸';
 }
- 
-function _fatChart(mensal, ehGlobal, m){
+
+function _fatTabela(){
+  const wrap = document.getElementById('fatTabelaCorpo');
+  if(!wrap) return;
   const fechados = _fatQtdRealizados();
-  let acc=0; const acum = mensal.map(v=>{acc+=v; return acc/1e6;});
-  const cores = mensal.map((_,i)=> i<fechados ? '#34D399' : 'rgba(52,211,153,0.35)');
-  const linhasMeta = {
-    id:'linhasMeta',
-    afterDraw(c){
-      if(!ehGlobal) return;
-      const ya=c.scales.y, ctx=c.ctx;
-      [['#FBBF24',m.sub/1e6],['#34D399',m.meta/1e6],['#A78BFA',m.sup/1e6]].forEach(L=>{
-        const y=ya.getPixelForValue(L[1]);
-        ctx.save(); ctx.strokeStyle=L[0]; ctx.setLineDash([4,3]); ctx.lineWidth=1;
-        ctx.beginPath(); ctx.moveTo(c.chartArea.left,y); ctx.lineTo(c.chartArea.right,y); ctx.stroke(); ctx.restore();
-      });
-    }
-  };
-  chartInstances.fatPanel = new Chart(document.getElementById('chartFatPanel'),{
-    type:'bar',
-    data:{labels:_mesesLbl, datasets:[{data:acum, backgroundColor:cores, borderColor:'#34D399', borderWidth:1, borderRadius:5}]},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>'R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0})}}},
-      scales:{
-        x:{grid:{display:false},ticks:{font:{size:12}}},
-        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{font:{size:12},callback:v=>v+'M'},suggestedMax: ehGlobal?(m.sup/1e6)*1.05:undefined}
-      }
-    },
-    plugins:[linhasMeta]
-  });
+  const pc = _fatData.porCliente;
+  const visiveis = _fatClientesVisiveis();
+  const totalProj = visiveis.reduce((s,c)=>s+pc[c].reduce((a,b)=>a+b,0),0) || 1;
+  const fmtM = v => 'R$ '+(v/1e6).toFixed(2)+'M';
+
+  const linhas = visiveis.map(c=>{
+    const arr = pc[c];
+    const real = arr.slice(0,fechados).reduce((a,b)=>a+b,0);
+    const projC = arr.reduce((a,b)=>a+b,0);
+    return {c, real, projC};
+  }).sort((a,b)=>b.projC-a.projC);
+
+  wrap.innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Cliente</th><th style="text-align:right">Realizado</th>
+        <th style="text-align:right">Projeção</th><th style="text-align:right">% do total</th>
+      </tr></thead>
+      <tbody>
+        ${linhas.map(l=>`<tr>
+          <td>${l.c}</td>
+          <td style="text-align:right">${fmtM(l.real)}</td>
+          <td style="text-align:right">${fmtM(l.projC)}</td>
+          <td style="text-align:right;color:var(--text-3)">${Math.round(l.projC/totalProj*100)}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+// (re)popula o seletor de cliente conforme a unidade selecionada
+function _fatRepopulaCliente(){
+  const sel = document.getElementById('fatCliente');
+  if(!sel) return;
+  const nomes = _fatClientesVisiveis().sort((a,b)=>a.localeCompare(b));
+  const atual = _fatClienteSel;
+  sel.innerHTML = '<option value="__all__">Todos os clientes</option>'+
+    nomes.map(n=>`<option value="${n}">${n}</option>`).join('');
+  sel.value = nomes.includes(atual) ? atual : '__all__';
+  _fatClienteSel = sel.value;
+  if(!sel.dataset.ready){
+    sel.dataset.ready='1';
+    sel.onchange = ()=>{ _fatClienteSel = sel.value; renderFatPanel(); };
+  }
 }
  
 /* botão sincronizar (dispara a Edge Function) */
@@ -1362,6 +1416,14 @@ async function renderDashboard(mc){
         <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Cliente</div>
         <select class="filter-sel" id="fatCliente" style="width:200px"></select>
       </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
+        <select class="filter-sel" id="fatUnidade" style="width:150px">
+          <option value="">Todas</option>
+          <option value="OneBrain">OneBrain</option>
+          <option value="Outforce">Outforce</option>
+        </select>
+      </div>
       <div style="margin-left:auto">
         <button class="btn btn-ghost btn-sm" id="btnSyncFat" onclick="sincronizarFaturamento()">↻ Sincronizar</button>
       </div>
@@ -1393,6 +1455,13 @@ async function renderDashboard(mc){
     <div class="chart-card">
       <div class="chart-title">Acumulado mês a mês<span>realizado + projetado da planilha</span></div>
       <div style="position:relative;height:240px"><canvas id="chartFatPanel"></canvas></div>
+    </div>
+    <div class="chart-card" style="margin-top:12px">
+      <div onclick="_fatToggleTabela()" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+        <span id="fatTabelaSeta" style="color:var(--accent);font-size:13px">▸</span>
+        <span class="chart-title" style="margin-bottom:0">Contribuição por cliente</span>
+      </div>
+      <div id="fatTabelaCorpo" style="display:none;margin-top:12px"></div>
     </div>
   </div>`:''}
  
