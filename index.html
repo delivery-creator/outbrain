@@ -1401,6 +1401,7 @@ function _fatChart(mensal, ehGlobal, m){
     );
   }
 
+  if(chartInstances.fatPanel){ try{ chartInstances.fatPanel.destroy(); }catch(e){} }
   chartInstances.fatPanel = new Chart(document.getElementById('chartFatPanel'),{
     data:{labels:_mesesLbl, datasets},
     options:{
@@ -1433,7 +1434,7 @@ async function sincronizarFaturamento(){
       showToast('Faturamento sincronizado!');
     }
     await loadFaturamento();
-    renderFatPanel();
+    dashTab('fat');
   }catch(e){ showToast('Falha: '+e.message); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; } }
 }
