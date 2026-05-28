@@ -235,6 +235,11 @@ input[type=file]{display:none}
 .turnover-note-title{font-size:var(--font-min);font-weight:700;color:var(--red);margin-bottom:2px}
 .turnover-note-text{font-size:var(--font-min);color:var(--text-2)}
 
+/* DASH TABS */
+.dash-tab{background:none;border:none;border-bottom:2px solid transparent;padding:11px 4px;margin-right:24px;font-family:'Poppins',sans-serif;font-size:var(--font-min);font-weight:600;color:var(--text-3);cursor:pointer;transition:all 0.15s;letter-spacing:0.1px}
+.dash-tab:hover{color:var(--text-2)}
+.dash-tab.active{color:var(--text);border-bottom-color:var(--accent)}
+
 /* VIEWER CARDS */
 .viewer-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 
@@ -1345,9 +1350,9 @@ async function renderDashboard(mc){
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   mc.innerHTML=`
   <!-- BARRA DE ABAS (só interno vê Faturamento) -->
-  <div style="display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--border)">
-    ${isInterno()?`<button class="nav-item" id="tabFat" onclick="dashTab('fat')" style="padding:10px 16px;border-radius:0;border-bottom:2px solid transparent">Faturamento &amp; Metas</button>`:''}
-    <button class="nav-item active" id="tabOp" onclick="dashTab('op')" style="padding:10px 16px;border-radius:0;border-bottom:2px solid transparent">Operacional</button>
+  <div style="display:flex;margin-bottom:18px;border-bottom:1px solid var(--border)">
+    ${isInterno()?`<button class="dash-tab" id="tabFat" onclick="dashTab('fat')">Faturamento &amp; Metas</button>`:''}
+    <button class="dash-tab active" id="tabOp" onclick="dashTab('op')">Operacional</button>
   </div>
  
   <!-- ABA FATURAMENTO -->
