@@ -1917,8 +1917,10 @@ function renderDashboardMasterContent(){
 
 /* ─── ALOCADOS ────────────────────────────────────────── */
 let filStackSel = new Set();
+let filStatusSel = new Set();
 function renderAlocados(mc){
   filStackSel = new Set();
+  filStatusSel = new Set();
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   const allStacks_=[...new Set(db.alocados.flatMap(a=>a.stack||[]))].sort();
   mc.innerHTML=`
@@ -1954,7 +1956,21 @@ function renderAlocados(mc){
         <option value="OneBrain">OneBrain</option>
         <option value="Outforce">Outforce</option>
       </select>
-      <select class="filter-sel" id="filStatus" onchange="filterAlocados()"><option value="">Todos os status</option><option>Em Admissão</option><option>Ativo</option><option>Desligamento Prev.</option><option>Inativo</option></select>
+      <div style="position:relative">
+        <button class="btn btn-ghost btn-sm" id="statusFilterBtn" onclick="toggleStatusDropdown(event)" style="gap:5px">
+          Status<span id="statusFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="statusDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:8px;z-index:200;min-width:180px;box-shadow:0 4px 16px rgba(15,25,35,0.12)">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">FILTRAR POR STATUS</div>
+          ${['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>`<label style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:var(--font-min)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+            <input type="checkbox" value="${s}" onchange="toggleStatusFilter(this)" style="accent-color:var(--text);width:13px;height:13px">${s}
+          </label>`).join('')}
+          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="clearStatusFilter()">Limpar filtro</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Projeto</th><th>Gestor</th><th>Contrato</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th><th style="width:70px"></th></tr></thead>
@@ -1982,9 +1998,29 @@ function clearStackFilter(){
   const cnt=document.getElementById('stackFilterCount');if(cnt)cnt.style.display='none';
   filterAlocados();
 }
+function toggleStatusDropdown(e){
+  e.stopPropagation();
+  const d=document.getElementById('statusDropdown');
+  d.style.display=d.style.display==='none'?'block':'none';
+}
+function toggleStatusFilter(cb){
+  if(cb.checked)filStatusSel.add(cb.value); else filStatusSel.delete(cb.value);
+  const cnt=document.getElementById('statusFilterCount');
+  if(filStatusSel.size>0){cnt.style.display='inline';cnt.textContent=filStatusSel.size;}
+  else cnt.style.display='none';
+  filterAlocados();
+}
+function clearStatusFilter(){
+  filStatusSel.clear();
+  document.querySelectorAll('#statusDropdown input[type=checkbox]').forEach(cb=>cb.checked=false);
+  const cnt=document.getElementById('statusFilterCount');if(cnt)cnt.style.display='none';
+  filterAlocados();
+}
 document.addEventListener('click',()=>{
   const d=document.getElementById('stackDropdown');
   if(d)d.style.display='none';
+  const ds=document.getElementById('statusDropdown');
+  if(ds)ds.style.display='none';
 });
 function filterAlocadosByCliente(){
   const cli=document.getElementById('filCliente')?.value||'';
@@ -1999,13 +2035,12 @@ function filterAlocados(){
   const q=(document.getElementById('srAlocado')?.value||'').toLowerCase();
   const fp=document.getElementById('filProjeto')?.value||'';
   const fc=document.getElementById('filCliente')?.value||'';
-  const fs=document.getElementById('filStatus')?.value||'';
   const fu=document.getElementById('filUnidade')?.value||'';
   const list=db.alocados.filter(a=>{
     if(q&&!a.nome.toLowerCase().includes(q)&&!a.cargo.toLowerCase().includes(q))return false;
     if(fp&&a.projetoId!==fp)return false;
     if(fc){const p=db.projetos.find(x=>x.id===a.projetoId);if(!p||p.cliente!==fc)return false;}
-    if(fs&&a.status!==fs)return false;
+    if(filStatusSel.size>0&&!filStatusSel.has(a.status))return false;
     if(fu&&a.unidadeNegocio!==fu)return false;
     if(filStackSel.size>0&&![...(a.stack||[])].some(s=>filStackSel.has(s)))return false;
     return true;
