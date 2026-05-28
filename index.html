@@ -1385,30 +1385,35 @@ function _fatChart(mensal, ehGlobal, m){
   const fechados = _fatQtdRealizados();
   let acc=0; const acum = mensal.map(v=>{acc+=v; return acc/1e6;});
   const cores = mensal.map((_,i)=> i<fechados ? '#34D399' : 'rgba(52,211,153,0.35)');
-  const linhasMeta = {
-    id:'linhasMeta',
-    afterDraw(c){
-      if(!ehGlobal) return;
-      const ya=c.scales.y, ctx=c.ctx;
-      [['#FBBF24',m.sub/1e6],['#34D399',m.meta/1e6],['#A78BFA',m.sup/1e6]].forEach(L=>{
-        const y=ya.getPixelForValue(L[1]);
-        ctx.save(); ctx.strokeStyle=L[0]; ctx.setLineDash([4,3]); ctx.lineWidth=1;
-        ctx.beginPath(); ctx.moveTo(c.chartArea.left,y); ctx.lineTo(c.chartArea.right,y); ctx.stroke(); ctx.restore();
-      });
-    }
-  };
+
+  // metas lineares acumuladas: mês i (1..12) = meta * i/12
+  const linhaMeta = (valor) => _mesesLbl.map((_,i)=> (valor*(i+1)/12)/1e6);
+
+  const datasets = [
+    {type:'bar', label:'Acumulado', data:acum, backgroundColor:cores, borderColor:'#34D399', borderWidth:1, borderRadius:5, order:2}
+  ];
+
+  if(ehGlobal){
+    datasets.push(
+      {type:'line', label:'Sub-meta', data:linhaMeta(m.sub), borderColor:'#FBBF24', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1},
+      {type:'line', label:'Meta', data:linhaMeta(m.meta), borderColor:'#34D399', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1},
+      {type:'line', label:'Super-meta', data:linhaMeta(m.sup), borderColor:'#A78BFA', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1}
+    );
+  }
+
   chartInstances.fatPanel = new Chart(document.getElementById('chartFatPanel'),{
-    type:'bar',
-    data:{labels:_mesesLbl, datasets:[{data:acum, backgroundColor:cores, borderColor:'#34D399', borderWidth:1, borderRadius:5}]},
+    data:{labels:_mesesLbl, datasets},
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>'R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0})}}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0})}}
+      },
       scales:{
         x:{grid:{display:false},ticks:{font:{size:12}}},
         y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{font:{size:12},callback:v=>v+'M'},suggestedMax: ehGlobal?(m.sup/1e6)*1.05:undefined}
       }
-    },
-    plugins:[linhasMeta]
+    }
   });
 }
 
