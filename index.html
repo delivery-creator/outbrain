@@ -1155,37 +1155,273 @@ function showPage(p){
   if(renders[p]) renders[p](mc);
 }
 
+let _fatData = null;          // { porCliente:{cliente:[12]}, metas:{...} }
+let _fatClienteSel = '__all__';
+const FAT_ANO = 2026;
+const _mesesLbl = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+ 
+function _fatMesRealizado(mes){
+  const mAtual = TODAY.getMonth()+1, aAtual = TODAY.getFullYear();
+  return FAT_ANO < aAtual || (FAT_ANO === aAtual && mes < mAtual);
+}
+function _fatQtdRealizados(){
+  let n=0; for(let m=1;m<=12;m++) if(_fatMesRealizado(m)) n++; return n;
+}
+ 
+async function loadFaturamento(){
+  const [fatRes, metaRes] = await Promise.all([
+    supa.from('faturamento_real').select('cliente, mes, valor').eq('ano', FAT_ANO),
+    supa.from('metas_faturamento').select('*').eq('ano', FAT_ANO).single()
+  ]);
+  const porCliente = {};
+  (fatRes.data||[]).forEach(r=>{
+    if(!porCliente[r.cliente]) porCliente[r.cliente] = new Array(12).fill(0);
+    porCliente[r.cliente][r.mes-1] = Number(r.valor)||0;
+  });
+  _fatData = {
+    porCliente,
+    metas: metaRes.data || {sub_meta:32e6, meta:36e6, super_meta:40e6}
+  };
+}
+ 
+function _fatSerie(){
+  const pc = _fatData.porCliente;
+  if(_fatClienteSel === '__all__'){
+    return _mesesLbl.map((_,i)=>Object.values(pc).reduce((s,arr)=>s+(arr[i]||0),0));
+  }
+  return (pc[_fatClienteSel]||new Array(12).fill(0)).slice();
+}
+function _fatTotalGlobal(){
+  return Object.values(_fatData.porCliente).reduce((s,arr)=>s+arr.reduce((a,b)=>a+b,0),0);
+}
+ 
+/* abas: troca entre Faturamento e Operacional */
+function dashTab(qual){
+  document.getElementById('tabFat')?.classList.toggle('active', qual==='fat');
+  document.getElementById('tabOp')?.classList.toggle('active', qual==='op');
+  const fat = document.getElementById('abaFat');
+  const op  = document.getElementById('abaOp');
+  if(fat) fat.style.display = qual==='fat' ? 'block':'none';
+  if(op)  op.style.display  = qual==='op'  ? 'block':'none';
+  Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}}); chartInstances={};
+  if(qual==='fat'){ renderFatPanel(); }
+  else { renderDashboardContent(); }
+}
+ 
+/* render do painel de faturamento dentro de #abaFat */
+function renderFatPanel(){
+  if(!_fatData){ return; }
+  const m = _fatData.metas;
+  const sub=Number(m.sub_meta), meta=Number(m.meta), sup=Number(m.super_meta);
+  const escalaMax = sup*1.05;
+  const mensal = _fatSerie();
+  const fechados = _fatQtdRealizados();
+  const ytd = mensal.slice(0,fechados).reduce((a,b)=>a+b,0);
+  const proj = mensal.reduce((a,b)=>a+b,0);
+  const ehGlobal = _fatClienteSel==='__all__';
+  const fmtM = v => 'R$ '+(v/1e6).toFixed(2)+'M';
+ 
+  // seletor de cliente (popula 1x)
+  const sel = document.getElementById('fatCliente');
+  if(sel && !sel.dataset.ready){
+    const nomes = Object.keys(_fatData.porCliente).sort((a,b)=>a.localeCompare(b));
+    sel.innerHTML = '<option value="__all__">Todos os clientes</option>'+
+      nomes.map(n=>`<option value="${n}">${n}</option>`).join('');
+    sel.dataset.ready='1';
+    sel.value = _fatClienteSel;
+    sel.onchange = ()=>{ _fatClienteSel = sel.value; renderFatPanel(); };
+  }
+ 
+  document.getElementById('fatTitulo').textContent =
+    ehGlobal ? `Faturamento ${FAT_ANO} vs. metas` : `Faturamento ${FAT_ANO} — ${_fatClienteSel}`;
+ 
+  // cards
+  let cardsHtml;
+  if(ehGlobal){
+    const ritmo = Math.max(0,(meta-ytd)/Math.max(1,12-fechados));
+    cardsHtml =
+      _fatCard('Realizado YTD', fmtM(ytd), 'meses fechados') +
+      _fatCard('Projeção fechamento', fmtM(proj), '12 meses') +
+      _fatCard('% da meta', Math.round(proj/meta*100)+'%', '÷ '+fmtM(meta)) +
+      _fatCard('Ritmo necessário', fmtM(ritmo), '/mês p/ meta');
+  } else {
+    cardsHtml =
+      _fatCard('Realizado YTD', fmtM(ytd), 'meses fechados') +
+      _fatCard('Projeção fechamento', fmtM(proj), '12 meses') +
+      _fatCard('% do total', Math.round(proj/_fatTotalGlobal()*100)+'%', 'do faturamento');
+  }
+  document.getElementById('fatCards').innerHTML = cardsHtml;
+ 
+  // barra de metas (global) ou faixa de contribuição (cliente)
+  const blocoMeta = document.getElementById('fatBlocoMeta');
+  const blocoFatia = document.getElementById('fatBlocoFatia');
+  blocoMeta.style.display = ehGlobal ? 'block':'none';
+  blocoFatia.style.display = ehGlobal ? 'none':'block';
+ 
+  if(ehGlobal){
+    document.getElementById('fatBarProj').style.width = Math.min(proj/escalaMax*100,100)+'%';
+    document.getElementById('fatBarYtd').style.width  = Math.min(ytd/escalaMax*100,100)+'%';
+    const mk = document.getElementById('fatMarkers'); mk.innerHTML='';
+    [['Sub',sub,'var(--amber)'],['Meta',meta,'var(--green)'],['Super',sup,'var(--purple)']].forEach(mark=>{
+      const pct = mark[1]/escalaMax*100;
+      mk.insertAdjacentHTML('beforeend',
+        `<div style="position:absolute;top:0;height:42px;width:2px;background:${mark[2]};left:${pct}%"></div>`+
+        `<div style="position:absolute;top:44px;left:${pct}%;transform:translateX(-50%);font-size:11px;color:${mark[2]};white-space:nowrap;font-weight:600">${mark[0]} ${(mark[1]/1e6)}M</div>`);
+    });
+  } else {
+    document.getElementById('fatFatiaPct').textContent = (proj/meta*100).toFixed(1)+'%';
+  }
+ 
+  _fatChart(mensal, ehGlobal, {sub,meta,sup});
+}
+ 
+function _fatCard(label, valor, sub){
+  return `<div class="stat-card">
+    <div class="stat-label" style="margin-bottom:4px">${label}</div>
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700">${valor}</div>
+    <div class="stat-delta delta-gray" style="margin-top:4px">${sub}</div>
+  </div>`;
+}
+ 
+function _fatChart(mensal, ehGlobal, m){
+  const fechados = _fatQtdRealizados();
+  let acc=0; const acum = mensal.map(v=>{acc+=v; return acc/1e6;});
+  const cores = mensal.map((_,i)=> i<fechados ? '#34D399' : 'rgba(52,211,153,0.35)');
+  const linhasMeta = {
+    id:'linhasMeta',
+    afterDraw(c){
+      if(!ehGlobal) return;
+      const ya=c.scales.y, ctx=c.ctx;
+      [['#FBBF24',m.sub/1e6],['#34D399',m.meta/1e6],['#A78BFA',m.sup/1e6]].forEach(L=>{
+        const y=ya.getPixelForValue(L[1]);
+        ctx.save(); ctx.strokeStyle=L[0]; ctx.setLineDash([4,3]); ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(c.chartArea.left,y); ctx.lineTo(c.chartArea.right,y); ctx.stroke(); ctx.restore();
+      });
+    }
+  };
+  chartInstances.fatPanel = new Chart(document.getElementById('chartFatPanel'),{
+    type:'bar',
+    data:{labels:_mesesLbl, datasets:[{data:acum, backgroundColor:cores, borderColor:'#34D399', borderWidth:1, borderRadius:5}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>'R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0})}}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:12}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{font:{size:12},callback:v=>v+'M'},suggestedMax: ehGlobal?(m.sup/1e6)*1.05:undefined}
+      }
+    },
+    plugins:[linhasMeta]
+  });
+}
+ 
+/* botão sincronizar (dispara a Edge Function) */
+async function sincronizarFaturamento(){
+  const btn = document.getElementById('btnSyncFat');
+  if(btn){ btn.disabled=true; btn.textContent='Sincronizando...'; }
+  try{
+    const {data:{session}} = await supa.auth.getSession();
+    const resp = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-faturamento',
+      {method:'POST', headers:{Authorization:'Bearer '+session.access_token}});
+    const r = await resp.json();
+    if(!r.ok){ showToast('Erro na sync: '+r.erro); return; }
+    if(r.nao_mapeados && r.nao_mapeados.length){
+      showToast('Sync ok, mas sem match: '+r.nao_mapeados.join(', '));
+    } else {
+      showToast('Faturamento sincronizado!');
+    }
+    await loadFaturamento();
+    renderFatPanel();
+  }catch(e){ showToast('Falha: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; } }
+}
+
 /* ─── DASHBOARD ───────────────────────────────────────── */
-function renderDashboard(mc){
+async function renderDashboard(mc){
   if(isCliMaster()){renderDashboardMaster(mc);return;}
+ 
+  // carrega faturamento (só interno) antes de montar
+  if(isInterno() && !_fatData){ await loadFaturamento(); }
+ 
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   mc.innerHTML=`
-  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
-    <div>
-      <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Cliente</div>
-      <select class="filter-sel" id="dashFilCliente" onchange="dashFilterChange()" style="width:180px">
-        <option value="">Todos os clientes</option>
-        ${clientes.map(c=>`<option value="${c}">${c}</option>`).join('')}
-      </select>
-    </div>
-    <div>
-      <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
-      <select class="filter-sel" id="dashFilUnidade" onchange="dashFilterChange()" style="width:150px">
-        <option value="">Todas</option>
-        <option value="OneBrain">OneBrain</option>
-        <option value="Outforce">Outforce</option>
-      </select>
-    </div>
-    <div>
-      <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Projeto</div>
-      <select class="filter-sel" id="dashFilProjeto" onchange="dashFilterChange()" style="width:180px">
-        <option value="">Todos os projetos</option>
-        ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
-      </select>
-    </div>
+  <!-- BARRA DE ABAS (só interno vê Faturamento) -->
+  <div style="display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--border)">
+    ${isInterno()?`<button class="nav-item" id="tabFat" onclick="dashTab('fat')" style="padding:10px 16px;border-radius:0;border-bottom:2px solid transparent">Faturamento &amp; Metas</button>`:''}
+    <button class="nav-item active" id="tabOp" onclick="dashTab('op')" style="padding:10px 16px;border-radius:0;border-bottom:2px solid transparent">Operacional</button>
   </div>
-  <div id="dashContent"></div>`;
-  renderDashboardContent();
+ 
+  <!-- ABA FATURAMENTO -->
+  ${isInterno()?`<div id="abaFat" style="display:none">
+    <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Cliente</div>
+        <select class="filter-sel" id="fatCliente" style="width:200px"></select>
+      </div>
+      <div style="margin-left:auto">
+        <button class="btn btn-ghost btn-sm" id="btnSyncFat" onclick="sincronizarFaturamento()">↻ Sincronizar</button>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="chart-title" id="fatTitulo" style="margin-bottom:0">Faturamento ${FAT_ANO} vs. metas</div>
+      </div>
+      <div class="stats-grid" id="fatCards" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px"></div>
+      <div id="fatBlocoMeta">
+        <div style="position:relative;height:64px;margin-bottom:6px">
+          <div style="position:absolute;inset:0;top:0;height:28px;background:var(--surface-3);border-radius:var(--radius)"></div>
+          <div id="fatBarProj" style="position:absolute;top:0;height:28px;left:0;width:0;background:rgba(52,211,153,0.35);border-radius:var(--radius) 0 0 var(--radius)"></div>
+          <div id="fatBarYtd" style="position:absolute;top:0;height:28px;left:0;width:0;background:#34D399;border-radius:var(--radius) 0 0 var(--radius)"></div>
+          <div id="fatMarkers"></div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;color:var(--text-3);margin-top:22px">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#34D399"></span> Realizado</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(52,211,153,0.35)"></span> Projetado</span>
+        </div>
+      </div>
+      <div id="fatBlocoFatia" style="display:none">
+        <div style="background:var(--accent-soft);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:baseline;gap:10px">
+          <span id="fatFatiaPct" style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:var(--accent)">—</span>
+          <span style="font-size:13px;color:var(--accent-dim)">da meta global de R$ 36M vem deste cliente</span>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Acumulado mês a mês<span>realizado + projetado da planilha</span></div>
+      <div style="position:relative;height:240px"><canvas id="chartFatPanel"></canvas></div>
+    </div>
+  </div>`:''}
+ 
+  <!-- ABA OPERACIONAL (filtros + conteúdo originais) -->
+  <div id="abaOp" style="display:block">
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Cliente</div>
+        <select class="filter-sel" id="dashFilCliente" onchange="dashFilterChange()" style="width:180px">
+          <option value="">Todos os clientes</option>
+          ${clientes.map(c=>`<option value="${c}">${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
+        <select class="filter-sel" id="dashFilUnidade" onchange="dashFilterChange()" style="width:150px">
+          <option value="">Todas</option>
+          <option value="OneBrain">OneBrain</option>
+          <option value="Outforce">Outforce</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Projeto</div>
+        <select class="filter-sel" id="dashFilProjeto" onchange="dashFilterChange()" style="width:180px">
+          <option value="">Todos os projetos</option>
+          ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div id="dashContent"></div>
+  </div>`;
+ 
+  renderDashboardContent();          // popula a aba Operacional
+  dashTab(isInterno() ? 'fat' : 'op'); // abre na Faturamento se interno
 }
 
 function dashFilterChange(){
@@ -1365,7 +1601,6 @@ const desPorMesComSubst = meses.map(m => {
     <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Clientes Ativos</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700">${[...new Set(ativos.map(a=>{const p=db.projetos.find(x=>x.id===a.projetoId);return p?.cliente}).filter(Boolean))].length}</div><div class="stat-delta delta-green" style="margin-top:4px">em andamento</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <div class="chart-card"><div class="chart-title">Faturamento Mensal<span>últimos 6 meses (R$ mil)</span></div><div style="position:relative;height:200px"><canvas id="chartFat"></canvas></div></div>
     <div class="chart-card"><div class="chart-title">Ativos por Mês<span>quantidade</span></div><div style="position:relative;height:200px"><canvas id="chartAtv"></canvas></div></div>
   </div>
   <div class="chart-card" style="margin-bottom:12px">
