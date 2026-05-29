@@ -1728,6 +1728,7 @@ const desPorMesComSubst = meses.map(m => {
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(248,113,113,0.7);display:inline-block"></span>Vaga perdida</span>
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(139,139,139,0.4);display:inline-block"></span>Com substituição</span>
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#F87171;display:inline-block;border-radius:2px"></span>Taxa líquida %</span>
+          <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;border-top:2px dashed #facc15;display:inline-block"></span>Meta 5%</span>
         </span>
       </div>
       <div style="position:relative;height:200px"><canvas id="chartTV"></canvas></div>
@@ -1782,6 +1783,21 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
           pointRadius:4,
           borderWidth:2,
           yAxisID:'y2'
+        },
+        {
+          label:'Meta (5%)',
+          data:labels.map(()=>5),
+          type:'line',
+          borderColor:'#facc15',
+          backgroundColor:'transparent',
+          borderWidth:1.5,
+          borderDash:[6,4],
+          pointRadius:0,
+          pointHoverRadius:0,
+          fill:false,
+          tension:0,
+          yAxisID:'y2',
+          order:0
         }
       ]
     },
@@ -1795,6 +1811,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
           callbacks:{
             label:(item)=>{
               if(item.datasetIndex===2) return `Taxa líquida: ${item.parsed.y}%`;
+              if(item.datasetIndex===3) return `Meta: ${item.parsed.y}%`;
               const labels=['Vaga perdida','Com substituição'];
               return `${labels[item.datasetIndex]}: ${item.parsed.y}`;
             },
