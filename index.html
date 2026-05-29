@@ -1314,6 +1314,8 @@ function renderFatPanel(){
  
   _fatChart(mensal, ehGlobal, {sub,meta,sup});
   _fatTabela();   // monta/atualiza a tabela accordion
+  _fatTabela();   // monta/atualiza a tabela accordion
+  renderLucPanel();   // monta/atualiza o painel de lucratividade
 }
  
 function _fatToggleTabela(){
@@ -1439,12 +1441,220 @@ async function sincronizarFaturamento(){
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; } }
 }
 
+let _lucData = null;   // { porCliente: { cliente: [{mes, ...}] } }
+
+async function loadLucratividade(){
+  const {data, error} = await supa
+    .from('lucratividade_real')
+    .select('*')
+    .eq('ano', FAT_ANO)
+    .order('mes');
+  if(error){ console.error(error); return; }
+  const porCliente = {};
+  (data||[]).forEach(r=>{
+    if(!porCliente[r.cliente]) porCliente[r.cliente] = [];
+    porCliente[r.cliente].push(r);
+  });
+  _lucData = { porCliente };
+}
+
+function _parseCSV(texto){
+  const linhas = texto.trim().split(/\r?\n/);
+  if(linhas.length < 2) throw new Error('CSV vazio ou sem dados');
+  const header = linhas[0].split(',').map(s=>s.trim().toLowerCase());
+  const cols = ['cliente','ano','mes','receita_bruta','beneficios','custo_infra','custo_maquina','imposto','total_custos','lucro','pct_lucro','pct_lucro_acumulado'];
+  const idx = {};
+  cols.forEach(c => { idx[c] = header.indexOf(c); });
+  const faltam = cols.filter(c => idx[c] === -1);
+  if(faltam.length) throw new Error('Faltam colunas: ' + faltam.join(', '));
+
+  const num = (v) => {
+    if(v == null || v === '') return 0;
+    const s = String(v).trim().replace(/\./g,'').replace(',','.');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const registros = [];
+  for(let i = 1; i < linhas.length; i++){
+    const linha = linhas[i].trim();
+    if(!linha) continue;
+    const partes = linha.split(',');
+    if(!partes[idx.cliente] || !partes[idx.cliente].trim()) continue;
+    registros.push({
+      cliente: partes[idx.cliente].trim(),
+      ano: parseInt(partes[idx.ano],10) || FAT_ANO,
+      mes: parseInt(partes[idx.mes],10),
+      receita_bruta: num(partes[idx.receita_bruta]),
+      beneficios: num(partes[idx.beneficios]),
+      custo_infra: num(partes[idx.custo_infra]),
+      custo_maquina: num(partes[idx.custo_maquina]),
+      imposto: num(partes[idx.imposto]),
+      total_custos: num(partes[idx.total_custos]),
+      lucro: num(partes[idx.lucro]),
+      pct_lucro: num(partes[idx.pct_lucro]),
+      pct_lucro_acumulado: num(partes[idx.pct_lucro_acumulado]),
+      atualizado_em: new Date().toISOString()
+    });
+  }
+  return registros;
+}
+
+async function importarLucratividadeCSV(file){
+  if(!file) return;
+  const btn = document.getElementById('btnImportLuc');
+  if(btn){ btn.disabled = true; btn.textContent = 'Processando...'; }
+  try{
+    const texto = await file.text();
+    const registros = _parseCSV(texto);
+    if(!registros.length){ showToast('CSV sem registros válidos'); return; }
+    const {error} = await supa.from('lucratividade_real')
+      .upsert(registros, { onConflict: 'cliente,ano,mes' });
+    if(error){ showToast('Erro: '+error.message); return; }
+    await loadLucratividade();
+    renderLucPanel();
+    showToast(`${registros.length} registros importados`);
+  }catch(e){
+    showToast('Falha ao importar: '+e.message);
+  }finally{
+    if(btn){ btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importar CSV'; }
+  }
+}
+
+function _lucClientesVisiveis(){
+  if(!_lucData) return [];
+  const todos = Object.keys(_lucData.porCliente);
+  if(!_fatUnidadeSel) return todos;
+  return todos.filter(c => _fatUnidadeDoCliente(c) === _fatUnidadeSel);
+}
+
+function _lucUltimoMes(arr){
+  if(!arr || !arr.length) return null;
+  return arr.reduce((a,b)=> b.mes > a.mes ? b : a);
+}
+
+function renderLucPanel(){
+  if(!_lucData){ return; }
+  const visiveis = _lucClientesVisiveis();
+  if(!visiveis.length){
+    document.getElementById('lucCards').innerHTML =
+      '<div class="empty-state" style="grid-column:1/-1"><div class="empty-text">Sem dados de lucratividade</div><div class="empty-sub">Importe o CSV pelo botão acima</div></div>';
+    document.getElementById('lucTabelaCorpo').innerHTML = '';
+    if(chartInstances.lucPanel){ try{ chartInstances.lucPanel.destroy(); }catch(e){} }
+    return;
+  }
+
+  const linhas = visiveis.map(c=>{
+    const arr = _lucData.porCliente[c];
+    const ultimo = _lucUltimoMes(arr);
+    const lucroAno = arr.reduce((s,r)=>s+Number(r.lucro||0),0);
+    const receitaAno = arr.reduce((s,r)=>s+Number(r.receita_bruta||0),0);
+    const custosAno = arr.reduce((s,r)=>s+Number(r.total_custos||0),0);
+    return { cliente:c, ultimo, lucroAno, receitaAno, custosAno };
+  });
+
+  const lucroTotal = linhas.reduce((s,l)=>s+l.lucroAno,0);
+  const receitaTotal = linhas.reduce((s,l)=>s+l.receitaAno,0);
+  const pctMedio = receitaTotal>0 ? (lucroTotal/receitaTotal*100) : 0;
+  const ordenadosPorLucro = [...linhas].sort((a,b)=>b.lucroAno-a.lucroAno);
+  const maior = ordenadosPorLucro[0];
+  const menor = ordenadosPorLucro[ordenadosPorLucro.length-1];
+
+  const fmtPct = v => (Number(v)||0).toFixed(1)+'%';
+
+  document.getElementById('lucCards').innerHTML =
+    _fatCard('% Lucro Médio YTD', fmtPct(pctMedio), 'todos os clientes') +
+    _fatCard('Lucro Total YTD', fBRL(lucroTotal), `de ${fBRL(receitaTotal)} de receita`) +
+    _fatCard('Maior lucro', maior?maior.cliente:'—', maior?fBRL(maior.lucroAno):'') +
+    _fatCard('Menor lucro', menor?menor.cliente:'—', menor?fBRL(menor.lucroAno):'');
+
+  const tb = document.getElementById('lucTabelaCorpo');
+  const linhasOrd = [...linhas].sort((a,b)=>(b.ultimo?.pct_lucro_acumulado||0)-(a.ultimo?.pct_lucro_acumulado||0));
+  tb.innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Cliente</th>
+        <th style="text-align:right">Receita YTD</th>
+        <th style="text-align:right">Custos YTD</th>
+        <th style="text-align:right">Lucro YTD</th>
+        <th style="text-align:right">% Lucro Acum.</th>
+      </tr></thead>
+      <tbody>
+        ${linhasOrd.map(l=>{
+          const pctAcum = l.ultimo?.pct_lucro_acumulado || 0;
+          const cor = pctAcum >= 25 ? 'var(--green)' : pctAcum >= 10 ? 'var(--amber)' : 'var(--red)';
+          return `<tr>
+            <td>${l.cliente}</td>
+            <td style="text-align:right">${fBRL(l.receitaAno)}</td>
+            <td style="text-align:right;color:var(--text-3)">${fBRL(l.custosAno)}</td>
+            <td style="text-align:right;font-weight:600">${fBRL(l.lucroAno)}</td>
+            <td style="text-align:right;font-weight:700;color:${cor}">${fmtPct(pctAcum)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`;
+
+  _lucChart(visiveis);
+}
+
+function _lucChart(visiveis){
+  let dataLinha, labelLinha;
+  if(_fatClienteSel !== '__all__' && _lucData.porCliente[_fatClienteSel]){
+    const arr = _lucData.porCliente[_fatClienteSel];
+    dataLinha = _mesesLbl.map((_,i)=>{
+      const r = arr.find(x => x.mes === i+1);
+      return r ? Number(r.pct_lucro)||0 : null;
+    });
+    labelLinha = '% Lucro — ' + _fatClienteSel;
+  } else {
+    dataLinha = _mesesLbl.map((_,i)=>{
+      const valores = visiveis.map(c=>{
+        const r = _lucData.porCliente[c].find(x => x.mes === i+1);
+        return r ? Number(r.pct_lucro)||0 : null;
+      }).filter(v => v !== null);
+      if(!valores.length) return null;
+      return valores.reduce((s,v)=>s+v,0)/valores.length;
+    });
+    labelLinha = _fatUnidadeSel ? `% Lucro médio — ${_fatUnidadeSel}` : '% Lucro médio — todos';
+  }
+
+  if(chartInstances.lucPanel){ try{ chartInstances.lucPanel.destroy(); }catch(e){} }
+  chartInstances.lucPanel = new Chart(document.getElementById('chartLucPanel'),{
+    type:'line',
+    data:{
+      labels:_mesesLbl,
+      datasets:[{
+        label: labelLinha,
+        data: dataLinha,
+        borderColor:'#34D399',
+        backgroundColor:'rgba(52,211,153,0.08)',
+        fill:true, tension:0.3,
+        pointBackgroundColor:'#34D399', pointRadius:4,
+        spanGaps:true
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{color:'#fff',font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'%':'—')}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:12}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{font:{size:12},callback:v=>v+'%'},beginAtZero:true}
+      }
+    }
+  });
+}
+
 /* ─── DASHBOARD ───────────────────────────────────────── */
 async function renderDashboard(mc){
   if(isCliMaster()){renderDashboardMaster(mc);return;}
  
   // carrega faturamento (só interno) antes de montar
-  if(isInterno() && !_fatData){ await loadFaturamento(); }
+  if(isInterno() && !_fatData){
+    await Promise.all([loadFaturamento(), loadLucratividade()]);
+  }
  
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   mc.innerHTML=`
@@ -1508,8 +1718,34 @@ async function renderDashboard(mc){
       </div>
       <div id="fatTabelaCorpo" style="display:none;margin-top:12px"></div>
     </div>
+
+    <!-- LUCRATIVIDADE -->
+    <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="chart-title" style="margin-bottom:0">Lucratividade por cliente</div>
+        <div>
+          <input type="file" id="inpImportLuc" accept=".csv,text/csv" style="display:none" onchange="importarLucratividadeCSV(this.files[0])">
+          <button class="btn btn-ghost btn-sm" id="btnImportLuc" onclick="document.getElementById('inpImportLuc').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Importar CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="lucCards" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px"></div>
+
+      <div class="chart-card" style="margin-bottom:12px">
+        <div class="chart-title">% Lucro mensal<span>linha do recorte selecionado (cliente ou média)</span></div>
+        <div style="position:relative;height:240px"><canvas id="chartLucPanel"></canvas></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:12px">Detalhamento por cliente</div>
+        <div id="lucTabelaCorpo"></div>
+      </div>
+    </div>
   </div>`:''}
- 
+
   <!-- ABA OPERACIONAL (filtros + conteúdo originais) -->
   <div id="abaOp" style="display:block">
     <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
