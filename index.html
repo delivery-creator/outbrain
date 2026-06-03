@@ -1653,58 +1653,6 @@ function renderLucPanel(){
   _lucChart(visiveis);
 }
 
-  const linhas = visiveis.map(c=>{
-    const arr = _lucData.porCliente[c];
-    const ultimo = _lucUltimoMes(arr);
-    const lucroAno = arr.reduce((s,r)=>s+Number(r.lucro||0),0);
-    const receitaAno = arr.reduce((s,r)=>s+Number(r.receita_bruta||0),0);
-    const custosAno = arr.reduce((s,r)=>s+Number(r.total_custos||0),0);
-    return { cliente:c, ultimo, lucroAno, receitaAno, custosAno };
-  });
-
-  const lucroTotal = linhas.reduce((s,l)=>s+l.lucroAno,0);
-  const receitaTotal = linhas.reduce((s,l)=>s+l.receitaAno,0);
-  const pctMedio = receitaTotal>0 ? (lucroTotal/receitaTotal*100) : 0;
-  const ordenadosPorLucro = [...linhas].sort((a,b)=>b.lucroAno-a.lucroAno);
-  const maior = ordenadosPorLucro[0];
-  const menor = ordenadosPorLucro[ordenadosPorLucro.length-1];
-
-  const fmtPct = v => (Number(v)||0).toFixed(1)+'%';
-
-  document.getElementById('lucCards').innerHTML =
-    _fatCard('% Lucro Médio YTD', fmtPct(pctMedio), 'todos os clientes') +
-    _fatCard('Lucro Total YTD', fBRL(lucroTotal), `de ${fBRL(receitaTotal)} de receita`) +
-    _fatCard('Maior lucro', maior?maior.cliente:'—', maior?fBRL(maior.lucroAno):'') +
-    _fatCard('Menor lucro', menor?menor.cliente:'—', menor?fBRL(menor.lucroAno):'');
-
-  const tb = document.getElementById('lucTabelaCorpo');
-  const linhasOrd = [...linhas].sort((a,b)=>(b.ultimo?.pct_lucro_acumulado||0)-(a.ultimo?.pct_lucro_acumulado||0));
-  tb.innerHTML = `
-    <div class="table-wrap"><table>
-      <thead><tr>
-        <th>Cliente</th>
-        <th style="text-align:right">Receita YTD</th>
-        <th style="text-align:right">Custos YTD</th>
-        <th style="text-align:right">Lucro YTD</th>
-        <th style="text-align:right">% Lucro Acum.</th>
-      </tr></thead>
-      <tbody>
-        ${linhasOrd.map(l=>{
-          const pctAcum = l.ultimo?.pct_lucro_acumulado || 0;
-          const cor = pctAcum >= 25 ? 'var(--green)' : pctAcum >= 10 ? 'var(--amber)' : 'var(--red)';
-          return `<tr>
-            <td>${l.cliente}</td>
-            <td style="text-align:right">${fBRL(l.receitaAno)}</td>
-            <td style="text-align:right;color:var(--text-3)">${fBRL(l.custosAno)}</td>
-            <td style="text-align:right;font-weight:600">${fBRL(l.lucroAno)}</td>
-            <td style="text-align:right;font-weight:700;color:${cor}">${fmtPct(pctAcum)}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div>`;
-
-  _lucChart(visiveis);
-
 function _lucChart(visiveis){
   let dataLinha, labelLinha;
   if(_fatClienteSel !== '__all__' && _lucData.porCliente[_fatClienteSel]){
