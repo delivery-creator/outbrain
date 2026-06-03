@@ -1739,15 +1739,8 @@ async function renderDashboard(mc){
 
     <!-- LUCRATIVIDADE -->
     <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="margin-bottom:14px">
         <div class="chart-title" style="margin-bottom:0">Lucratividade por cliente</div>
-        <div>
-          <input type="file" id="inpImportLuc" accept=".csv,text/csv" style="display:none" onchange="importarLucratividadeCSV(this.files[0])">
-          <button class="btn btn-ghost btn-sm" id="btnImportLuc" onclick="document.getElementById('inpImportLuc').click()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Importar CSV
-          </button>
-        </div>
       </div>
 
       <div class="stats-grid" id="lucCards" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px"></div>
