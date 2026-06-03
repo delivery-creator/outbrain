@@ -1633,11 +1633,7 @@ function renderLucPanel(){
           return `<tr>
             <td>${l.cliente}</td>
             <td style="text-align:right">${fBRL(l.receitaAno)}</td>
-<td style="text-align:right;color:var(--text-3);cursor:help"
-                onmouseenter="const p=this.querySelector('.luc-pop'),r=this.getBoundingClientRect();p.style.top=(r.top-p.offsetHeight-8)+'px';p.style.left=(r.right-240)+'px';p.style.display='block';p.style.top=(r.top-p.offsetHeight-8)+'px'"
-                onmouseleave="this.querySelector('.luc-pop').style.display='none'">
-                onmouseenter="const p=this.querySelector('.luc-pop'),r=this.getBoundingClientRect();p.style.top=(r.top-p.offsetHeight-8)+'px';p.style.left=(r.right-240)+'px';p.style.display='block';p.style.top=(r.top-p.offsetHeight-8)+'px'"
-                onmouseleave="this.querySelector('.luc-pop').style.display='none'">
+            <td class="luc-cell" style="text-align:right;color:var(--text-3);cursor:help">
               ${fBRL(l.custosAno)}
               ${popoverLinha(l)}
             </td>
@@ -1647,6 +1643,20 @@ function renderLucPanel(){
         }).join('')}
       </tbody>
     </table></div>`;
+
+  document.querySelectorAll('#lucTabelaCorpo .luc-cell').forEach(td=>{
+    const pop = td.querySelector('.luc-pop');
+    if(!pop) return;
+    td.addEventListener('mouseenter', ()=>{
+      pop.style.display = 'block';
+      const r = td.getBoundingClientRect();
+      pop.style.top = (r.top - pop.offsetHeight - 8) + 'px';
+      pop.style.left = (r.right - pop.offsetWidth) + 'px';
+    });
+    td.addEventListener('mouseleave', ()=>{
+      pop.style.display = 'none';
+    });
+  });
 
   _lucChart(visiveis);
 }
