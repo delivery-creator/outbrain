@@ -1594,8 +1594,7 @@ function renderLucPanel(){
   const popoverLinha = (l)=>{
     const pct = (v) => l.custosAno>0 ? ' ('+(v/l.custosAno*100).toFixed(1)+'%)' : '';
     return `
-      <div style="position:absolute;bottom:100%;right:0;margin-bottom:8px;background:#111;border:1px solid var(--border-2);border-radius:var(--radius);padding:10px 12px;width:240px;box-shadow:0 4px 16px rgba(0,0,0,0.6);z-index:50;display:none;pointer-events:none" class="luc-pop">
-        <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px">Composição YTD</div>
+<div style="position:fixed;background:#111;border:1px solid var(--border-2);border-radius:var(--radius);padding:10px 12px;width:240px;box-shadow:0 4px 16px rgba(0,0,0,0.6);z-index:9999;display:none;pointer-events:none" class="luc-pop">        <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px">Composição YTD</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--text-2)">
           <span>Benefícios</span><span style="color:var(--text)">${fBRL(l.benefAno)}${pct(l.benefAno)}</span>
         </div>
@@ -1634,8 +1633,10 @@ function renderLucPanel(){
           return `<tr>
             <td>${l.cliente}</td>
             <td style="text-align:right">${fBRL(l.receitaAno)}</td>
-            <td style="text-align:right;color:var(--text-3);position:relative;cursor:help"
-                onmouseenter="this.querySelector('.luc-pop').style.display='block'"
+<td style="text-align:right;color:var(--text-3);cursor:help"
+                onmouseenter="const p=this.querySelector('.luc-pop'),r=this.getBoundingClientRect();p.style.top=(r.top-p.offsetHeight-8)+'px';p.style.left=(r.right-240)+'px';p.style.display='block';p.style.top=(r.top-p.offsetHeight-8)+'px'"
+                onmouseleave="this.querySelector('.luc-pop').style.display='none'">
+                onmouseenter="const p=this.querySelector('.luc-pop'),r=this.getBoundingClientRect();p.style.top=(r.top-p.offsetHeight-8)+'px';p.style.left=(r.right-240)+'px';p.style.display='block';p.style.top=(r.top-p.offsetHeight-8)+'px'"
                 onmouseleave="this.querySelector('.luc-pop').style.display='none'">
               ${fBRL(l.custosAno)}
               ${popoverLinha(l)}
