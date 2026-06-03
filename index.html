@@ -1426,19 +1426,37 @@ async function sincronizarFaturamento(){
   if(btn){ btn.disabled=true; btn.textContent='Sincronizando...'; }
   try{
     const {data:{session}} = await supa.auth.getSession();
-    const resp = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-faturamento',
-      {method:'POST', headers:{Authorization:'Bearer '+session.access_token}});
-    const r = await resp.json();
-    if(!r.ok){ showToast('Erro na sync: '+r.erro); return; }
-    if(r.nao_mapeados && r.nao_mapeados.length){
-      showToast('Sync ok, mas sem match: '+r.nao_mapeados.join(', '));
-    } else {
-      showToast('Faturamento sincronizado!');
+    const opts = {method:'POST', headers:{Authorization:'Bearer '+session.access_token}};
+
+    // dispara as duas em paralelo
+    const [respFat, respLuc] = await Promise.all([
+      fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-faturamento', opts),
+      fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-lucratividade', opts)
+    ]);
+    const [rFat, rLuc] = await Promise.all([respFat.json(), respLuc.json()]);
+
+    const erros = [];
+    if(!rFat.ok) erros.push('Faturamento: '+(rFat.erro||'erro desconhecido'));
+    if(!rLuc.ok) erros.push('Lucratividade: '+(rLuc.erro||'erro desconhecido'));
+    if(erros.length){ showToast(erros.join(' | ')); }
+
+    const naoMap = [
+      ...(rFat.nao_mapeados||[]),
+      ...(rLuc.nao_mapeados||[])
+    ];
+    if(naoMap.length){
+      showToast('Sync ok, mas sem match: '+[...new Set(naoMap)].join(', '));
+    } else if(!erros.length){
+      showToast('Faturamento e lucratividade sincronizados!');
     }
-    await loadFaturamento();
-    dashTab('fat');
-  }catch(e){ showToast('Falha: '+e.message); }
-  finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; } }
+
+    await Promise.all([loadFaturamento(), loadLucratividade()]);
+    renderFatPanel();
+  }catch(e){
+    showToast('Falha: '+e.message);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; }
+  }
 }
 
 let _lucData = null;   // { porCliente: { cliente: [{mes, ...}] } }
