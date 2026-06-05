@@ -734,6 +734,56 @@ input[type=file]{display:none}
 </div>
 </div>
 
+<!-- MODAL CLASSIFICAÇÃO -->
+<div class="modal-overlay" id="modalClassif">
+<div class="modal" style="max-width:520px">
+  <div class="modal-head">
+    <div class="modal-title">Editar Classificação</div>
+    <button class="icon-btn" onclick="closeModal('modalClassif')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="classifEditId">
+    <div class="info-box">
+      <strong>Lembrete:</strong> O Tier (A/B/C) é calculado automaticamente com base em receita e status — você não edita aqui.
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Cliente</label>
+        <input class="form-control" type="text" id="classifEditCliente" disabled>
+      </div>
+      <div class="form-group">
+        <label>Status *</label>
+        <select class="form-control" id="classifEditStatus">
+          <option value="expansao-forte">Expansão Forte</option>
+          <option value="estavel">Estável</option>
+          <option value="ramp-up">Ramp-up</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="internalizacao">Internalização</option>
+          <option value="encerramento">Encerramento</option>
+        </select>
+        <span class="calc-note">Define o Tier automaticamente</span>
+      </div>
+      <div class="form-group">
+        <label>Potencial de Expansão *</label>
+        <select class="form-control" id="classifEditPotencial">
+          <option value="alto">Alto</option>
+          <option value="medio">Médio</option>
+          <option value="baixo">Baixo</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Observações</label>
+        <textarea class="form-control" id="classifEditObs" placeholder="Contexto estratégico, ressalvas, próximos passos..." style="min-height:90px"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalClassif')">Cancelar</button>
+    <button class="btn btn-accent" onclick="salvarClassif()">Salvar</button>
+  </div>
+</div>
+</div>
+
 <!-- DETAIL PANEL -->
 <div class="detail-panel" id="detailPanel">
   <div class="detail-head">
@@ -1825,8 +1875,11 @@ function _classifCardHTML(c){
   const bu      = _classifBU(c.cliente);
   const stLabel = CLASSIF_STATUS_LABEL[c.status] || c.status;
   const stClass = CLASSIF_STATUS_CLASS[c.status] || 'b-gray';
+  const editavel = isEditor();
+  const clickHandler = editavel ? `onclick="openModalClassif('${c.id}')"` : '';
+  const cursorStyle = editavel ? 'cursor:pointer' : 'cursor:default';
   return `
-    <div style="background:${bgVar};border:1px solid ${borderVar};border-radius:var(--radius-lg);padding:14px 16px">
+    <div style="background:${bgVar};border:1px solid ${borderVar};border-radius:var(--radius-lg);padding:14px 16px;${cursorStyle};transition:transform 0.15s ease,border-color 0.15s ease" ${clickHandler} ${editavel?`onmouseover="this.style.transform='translateY(-1px)';this.style.borderColor='${borderVar.replace('0.20','0.45')}'" onmouseout="this.style.transform='';this.style.borderColor='${borderVar}'"`:''}>
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:6px">
         <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text)">${c.cliente}</div>
         <span style="font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.5px">${bu}</span>
@@ -2006,6 +2059,42 @@ function renderClassifPanel(){
   _classifRenderResumo();
   if(_classifView==='dashboard') _classifRenderDash();
   else _classifRenderLista();
+}
+
+function openModalClassif(id){
+  const c = db.classificacao.find(x => x.id === id);
+  if(!c) return;
+  document.getElementById('classifEditId').value = c.id;
+  document.getElementById('classifEditCliente').value = c.cliente;
+  document.getElementById('classifEditStatus').value = c.status;
+  document.getElementById('classifEditPotencial').value = c.potencial;
+  document.getElementById('classifEditObs').value = c.observacoes || '';
+  openModal('modalClassif');
+}
+
+async function salvarClassif(){
+  const id = document.getElementById('classifEditId').value;
+  if(!id) return;
+  const btn = document.querySelector('#modalClassif .btn-accent');
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando...'; }
+  const payload = {
+    status: document.getElementById('classifEditStatus').value,
+    potencial: document.getElementById('classifEditPotencial').value,
+    observacoes: document.getElementById('classifEditObs').value || null,
+    updated_at: new Date().toISOString()
+  };
+  const {error} = await supa.from('classificacao_contas').update(payload).eq('id', id);
+  if(error){
+    if(btn){ btn.disabled = false; btn.textContent = 'Salvar'; }
+    showToast('Erro: '+error.message);
+    return;
+  }
+  const c = db.classificacao.find(x => x.id === id);
+  if(c){ Object.assign(c, payload); }
+  closeModal('modalClassif');
+  renderClassifPanel();
+  showToast('Classificação atualizada!');
+  if(btn){ btn.disabled = false; btn.textContent = 'Salvar'; }
 }
 
 /* ─── DASHBOARD ───────────────────────────────────────── */
@@ -4337,7 +4426,7 @@ async function excluirAcesso(id,page){
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 let tt;function showToast(m){document.getElementById('toast-msg').textContent=m;document.getElementById('toast').classList.add('show');clearTimeout(tt);tt=setTimeout(()=>document.getElementById('toast').classList.remove('show'),2800)}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();['modalAlocado','modalGestor','modalProjeto','modalTurnover','modalAcesso','modalEncerrar'].forEach(id=>{closeModal(id);if(id==='modalTurnover')resetTurnoverFooter();})}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();['modalAlocado','modalGestor','modalProjeto','modalTurnover','modalAcesso','modalEncerrar','modalClassif'].forEach(id=>{closeModal(id);if(id==='modalTurnover')resetTurnoverFooter();})}});
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
 </script>
 </body>
