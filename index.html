@@ -756,7 +756,7 @@ const SUPA_KEY = 'sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 /* ─── DB ──────────────────────────────────────────────── */
-let db = { projetos:[], alocados:[], gestores:[], turnover:[], usuarios:[], contatos:[] };
+let db = { projetos:[], alocados:[], gestores:[], turnover:[], usuarios:[], contatos:[], classificacao:[] };
 let currentUser = {email:'',role:'',name:'',cliente:''};
 let chartInstances = {};
 let _calcVHPadrao = null;
@@ -847,18 +847,31 @@ function mapUsuario(r){
 function mapContato(r){
   return {id:r.id,tipo:r.tipo,nome:r.nome,telefone:r.telefone||'',email:r.email||'',photo:r.photo_url||''};
 }
+function mapClassif(r){
+  return {
+    id: r.id,
+    cliente: r.cliente,
+    tier: r.tier,
+    sub: r.sub || null,
+    status: r.status,
+    potencial: r.potencial,
+    observacoes: r.observacoes || '',
+    ordem: r.ordem || 0
+  };
+}
 
 /* ─── LOAD ────────────────────────────────────────────── */
 async function loadAll(){
   showLoading(true);
   try {
-    const [pRes,gRes,aRes,tvRes,uRes,cRes] = await Promise.all([
+    const [pRes,gRes,aRes,tvRes,uRes,cRes,clRes] = await Promise.all([
       supa.from('projetos').select('*').order('cliente'),
       supa.from('gestores').select('*').order('nome'),
       supa.from('alocados').select('*').order('nome'),
       supa.from('turnover').select('*').order('data_desl',{ascending:false}),
       supa.from('usuarios').select('*').order('nome'),
       supa.from('contatos_onebrain').select('*').order('ordem'),
+      supa.from('classificacao_contas').select('*').order('ordem'),
     ]);
     if(pRes.error) throw pRes.error;
     if(gRes.error) throw gRes.error;
@@ -870,6 +883,7 @@ async function loadAll(){
     db.turnover  = (tvRes.data||[]).map(mapTurnover);
     db.usuarios  = (uRes.data||[]).map(mapUsuario);
     db.contatos  = (cRes.data||[]).map(mapContato);
+    db.classificacao = (clRes.data||[]).map(mapClassif);
 
     const hRes = await supa.from('historico_financeiro').select('*').order('data_alt');
     if(!hRes.error && hRes.data){
@@ -937,7 +951,7 @@ async function logout(){
   document.getElementById('appShell').classList.remove('active-session');
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
-  db={projetos:[],alocados:[],gestores:[],turnover:[],usuarios:[],contatos:[]};
+  db={projetos:[],alocados:[],gestores:[],turnover:[],usuarios:[],contatos:[],classificacao:[]};
   currentUser={email:'',role:'',name:'',cliente:''};
   window.location.hash='';
 }
@@ -1224,17 +1238,21 @@ function _fatTotalGlobal(){
   return Object.values(_fatData.porCliente).reduce((s,arr)=>s+arr.reduce((a,b)=>a+b,0),0);
 }
  
-/* abas: troca entre Faturamento e Operacional */
+/* abas: troca entre Faturamento, Operacional e Classificação */
 function dashTab(qual){
   document.getElementById('tabFat')?.classList.toggle('active', qual==='fat');
   document.getElementById('tabOp')?.classList.toggle('active', qual==='op');
+  document.getElementById('tabClassif')?.classList.toggle('active', qual==='classif');
   const fat = document.getElementById('abaFat');
   const op  = document.getElementById('abaOp');
-  if(fat) fat.style.display = qual==='fat' ? 'block':'none';
-  if(op)  op.style.display  = qual==='op'  ? 'block':'none';
+  const cf  = document.getElementById('abaClassif');
+  if(fat) fat.style.display = qual==='fat'    ? 'block':'none';
+  if(op)  op.style.display  = qual==='op'     ? 'block':'none';
+  if(cf)  cf.style.display  = qual==='classif'? 'block':'none';
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}}); chartInstances={};
-  if(qual==='fat'){ renderFatPanel(); }
-  else { renderDashboardContent(); }
+  if(qual==='fat')          { renderFatPanel(); }
+  else if(qual==='classif') { renderClassifPanel(); }
+  else                      { renderDashboardContent(); }
 }
  
 /* render do painel de faturamento dentro de #abaFat */
@@ -1711,6 +1729,273 @@ function _lucChart(visiveis){
   });
 }
 
+/* ─── CLASSIFICAÇÃO ESTRATÉGICA ────────────────────────── */
+let _classifTierSel = 'all';
+let _classifSort = 'tier';
+let _classifView = 'list';
+
+const CLASSIF_STATUS_LABEL = {
+  'expansao-forte':  'Expansão Forte',
+  'estavel':         'Estável',
+  'ramp-up':         'Ramp-up',
+  'manutencao':      'Manutenção',
+  'internalizacao':  'Internalização',
+  'encerramento':    'Encerramento'
+};
+const CLASSIF_STATUS_CLASS = {
+  'expansao-forte':  'b-green',
+  'estavel':         'b-gray',
+  'ramp-up':         'b-amber',
+  'manutencao':      'b-gray',
+  'internalizacao':  'b-blue',
+  'encerramento':    'b-red'
+};
+const CLASSIF_POT_RANK = { alto: 3, medio: 2, baixo: 1 };
+
+function _classifReceitaAnual(cliente){
+  if(!_fatData) return 0;
+  const arr = _fatData.porCliente[cliente];
+  return arr ? arr.reduce((s,v)=>s+(Number(v)||0), 0) : 0;
+}
+function _classifReceitaMensal(cliente){
+  if(!_fatData) return 0;
+  const arr = _fatData.porCliente[cliente];
+  if(!arr) return 0;
+  const fechados = _fatQtdRealizados();
+  if(!fechados) return Number(arr[0])||0;
+  return Number(arr[fechados-1]) || 0;
+}
+function _classifBU(cliente){
+  return _fatUnidadeDoCliente(cliente) || '—';
+}
+function _classifFmt(v){
+  if(!v) return '—';
+  if(v >= 1_000_000) return 'R$ '+(v/1_000_000).toFixed(1).replace('.',',')+'M';
+  if(v >= 1_000)     return 'R$ '+Math.round(v/1000)+'k';
+  return 'R$ '+Math.round(v);
+}
+
+function _classifFiltradas(){
+  const bu = document.getElementById('classifFilBU')?.value || '';
+  let list = (db.classificacao||[]).slice();
+  if(_classifTierSel !== 'all') list = list.filter(c => c.tier === _classifTierSel);
+  if(bu) list = list.filter(c => _classifBU(c.cliente) === bu);
+  return list;
+}
+function _classifOrdenada(list){
+  const arr = list.slice();
+  switch(_classifSort){
+    case 'receita-mensal':
+      arr.sort((a,b)=>_classifReceitaMensal(b.cliente) - _classifReceitaMensal(a.cliente)); break;
+    case 'receita-anual':
+      arr.sort((a,b)=>_classifReceitaAnual(b.cliente) - _classifReceitaAnual(a.cliente)); break;
+    case 'potencial':
+      arr.sort((a,b)=>CLASSIF_POT_RANK[b.potencial] - CLASSIF_POT_RANK[a.potencial]); break;
+    case 'nome':
+      arr.sort((a,b)=>a.cliente.localeCompare(b.cliente,'pt-BR')); break;
+    case 'tier':
+    default:
+      arr.sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+  }
+  return arr;
+}
+
+function _classifMudaTier(v){ _classifTierSel = v; renderClassifPanel(); }
+function _classifMudaSort(v){ _classifSort = v; renderClassifPanel(); }
+function _classifMudaView(v){ _classifView = v; renderClassifPanel(); }
+
+function _classifCardHTML(c){
+  const tier = c.tier.toLowerCase();
+  const bgVar = tier==='a' ? 'rgba(52,211,153,0.06)' : tier==='b' ? 'rgba(246,173,85,0.06)' : 'rgba(255,255,255,0.02)';
+  const borderVar = tier==='a' ? 'rgba(52,211,153,0.20)' : tier==='b' ? 'rgba(246,173,85,0.20)' : 'rgba(255,255,255,0.10)';
+  const rMensal = _classifReceitaMensal(c.cliente);
+  const rAnual  = _classifReceitaAnual(c.cliente);
+  const bu      = _classifBU(c.cliente);
+  const stLabel = CLASSIF_STATUS_LABEL[c.status] || c.status;
+  const stClass = CLASSIF_STATUS_CLASS[c.status] || 'b-gray';
+  return `
+    <div style="background:${bgVar};border:1px solid ${borderVar};border-radius:var(--radius-lg);padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:6px">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text)">${c.cliente}</div>
+        <span style="font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.5px">${bu}</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums;margin-bottom:4px">
+        ${_classifFmt(rMensal)}${rAnual?` · ~${_classifFmt(rAnual)}/ano`:''}
+      </div>
+      <div style="margin:6px 0 8px"><span class="badge ${stClass}" style="font-size:10px">${stLabel}</span></div>
+      <div style="font-size:12px;color:var(--text-3);line-height:1.5">${c.observacoes||''}</div>
+    </div>`;
+}
+
+function _classifRenderResumo(){
+  const all = (db.classificacao||[]);
+  const bu = document.getElementById('classifFilBU')?.value || '';
+  const filt = bu ? all.filter(c=>_classifBU(c.cliente)===bu) : all;
+  const totalReceita = filt.reduce((s,c)=>s+_classifReceitaMensal(c.cliente),0) || 1;
+  const tiers = ['A','B','C'];
+  const labels = {
+    A: 'Tier A — Estratégicas',
+    B: 'Tier B — Ramp-up / Estáveis',
+    C: 'Tier C — Manutenção / Saída'
+  };
+  const descs = {
+    A: 'Contas com alta receita e relevância estratégica.',
+    B: 'Contas relevantes com potencial comercial.',
+    C: 'Sem expansão prevista ou em descontinuação.'
+  };
+  const corBorda = { A:'var(--accent)', B:'var(--amber)', C:'var(--text-3)' };
+  document.getElementById('classifResumo').innerHTML = tiers.map(t => {
+    const sub  = filt.filter(c=>c.tier===t);
+    const rec  = sub.reduce((s,c)=>s+_classifReceitaMensal(c.cliente),0);
+    const pct  = Math.round((rec/totalReceita)*100);
+    return `
+      <div class="tv-metric-card" style="border-top:3px solid ${corBorda[t]}">
+        <div class="tv-metric-label">${labels[t]}</div>
+        <div class="tv-metric-value" style="color:${corBorda[t]}">${sub.length} contas</div>
+        <div class="tv-metric-sub">≈ ${pct}% da receita do mês · ${descs[t]}</div>
+      </div>`;
+  }).join('');
+}
+
+function _classifRenderLista(){
+  const list = _classifOrdenada(_classifFiltradas());
+  const el = document.getElementById('classifContent');
+  if(!list.length){
+    el.innerHTML = '<div class="empty-state"><div class="empty-text">Nenhuma conta com esse filtro</div></div>';
+    return;
+  }
+  if(_classifSort !== 'tier'){
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${list.map(_classifCardHTML).join('')}</div>`;
+    return;
+  }
+  const blocos = [];
+  ['A','B','C'].forEach(t=>{
+    const sub = list.filter(c=>c.tier===t);
+    if(!sub.length) return;
+    const titulos = {
+      A: { t:'Tier A — Estratégicas',               hint:'Receita ≥ R$ 2M/ano · expansão · peso estratégico' },
+      B: { t:'Tier B — Ramp-up ou Estáveis',         hint:'Receita relevante; potencial comercial' },
+      C: { t:'Tier C — Manutenção ou rota de saída', hint:'Sem expansão prevista; ou em descontinuação' }
+    };
+    let body = '';
+    if(t === 'C'){
+      const manut = sub.filter(c=>c.sub==='manutencao');
+      const saida = sub.filter(c=>c.sub==='saida');
+      if(manut.length){
+        body += `<div style="font-size:12px;color:var(--text-3);margin:14px 0 8px">manutenção · sem saída prevista, sem expansão</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${manut.map(_classifCardHTML).join('')}</div>`;
+      }
+      if(saida.length){
+        body += `<div style="font-size:12px;color:var(--text-3);margin:14px 0 8px">rota de saída ou já encerradas</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${saida.map(_classifCardHTML).join('')}</div>`;
+      }
+    } else {
+      body = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${sub.map(_classifCardHTML).join('')}</div>`;
+    }
+    blocos.push(`
+      <section style="margin-bottom:24px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text)">${titulos[t].t}</div>
+          <div style="font-size:11px;color:var(--text-3)">${titulos[t].hint}</div>
+        </div>
+        ${body}
+      </section>`);
+  });
+  el.innerHTML = blocos.join('');
+}
+
+function _classifRenderDash(){
+  const list = _classifFiltradas();
+  const tiers = ['A','B','C'];
+  const corTier = ['#34D399','#F6AD55','#9a9a9a'];
+
+  const receitaPorTier = tiers.map(t =>
+    list.filter(c=>c.tier===t).reduce((s,c)=>s+_classifReceitaMensal(c.cliente),0));
+  const contasPorTier = tiers.map(t => list.filter(c=>c.tier===t).length);
+  const totalRec = receitaPorTier.reduce((a,b)=>a+b,0) || 1;
+  const pctPorTier = receitaPorTier.map(v => +(v/totalRec*100).toFixed(1));
+  const potencialPorTier = tiers.map(t => {
+    const sub = list.filter(c=>c.tier===t);
+    return {
+      alto:  sub.filter(c=>c.potencial==='alto').length,
+      medio: sub.filter(c=>c.potencial==='medio').length,
+      baixo: sub.filter(c=>c.potencial==='baixo').length
+    };
+  });
+
+  const el = document.getElementById('classifContent');
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="chart-card">
+        <div class="chart-title">Receita por Tier<span>mensal · R$ mil</span></div>
+        <div style="position:relative;height:240px"><canvas id="classifChart1"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Quantidade de contas por Tier</div>
+        <div style="position:relative;height:240px"><canvas id="classifChart2"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribuição % da receita</div>
+        <div style="position:relative;height:240px"><canvas id="classifChart3"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Potencial de expansão por Tier<span>alto / médio / baixo</span></div>
+        <div style="position:relative;height:240px"><canvas id="classifChart4"></canvas></div>
+      </div>
+    </div>`;
+
+  const cg = { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{} },
+    scales:{
+      x:{grid:{display:false},ticks:{color:'#9a9a9a',font:{family:'Poppins',size:11}}},
+      y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#9a9a9a',font:{family:'Poppins',size:11}},beginAtZero:true}
+    }};
+
+  chartInstances.classif1 = new Chart(document.getElementById('classifChart1'),{
+    type:'bar',
+    data:{ labels:['Tier A','Tier B','Tier C'],
+      datasets:[{ data:receitaPorTier.map(v=>Math.round(v/1000)), backgroundColor:corTier, borderRadius:5 }]},
+    options:{...cg, plugins:{...cg.plugins, tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR')+'k'}}}}
+  });
+
+  chartInstances.classif2 = new Chart(document.getElementById('classifChart2'),{
+    type:'bar', data:{ labels:['Tier A','Tier B','Tier C'],
+      datasets:[{ data:contasPorTier, backgroundColor:corTier, borderRadius:5 }]},
+    options:{...cg, indexAxis:'y',
+      scales:{ x:{...cg.scales.x, ticks:{...cg.scales.x.ticks, stepSize:1}}, y:{...cg.scales.y, grid:{display:false}} }}
+  });
+
+  chartInstances.classif3 = new Chart(document.getElementById('classifChart3'),{
+    type:'doughnut',
+    data:{ labels:['Tier A','Tier B','Tier C'],
+      datasets:[{ data:pctPorTier, backgroundColor:corTier, borderColor:'#000', borderWidth:2 }]},
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{position:'right',labels:{color:'#9a9a9a',font:{family:'Poppins',size:11}}},
+        tooltip:{callbacks:{label:ctx=>ctx.label+': '+ctx.parsed+'%'}} }}
+  });
+
+  chartInstances.classif4 = new Chart(document.getElementById('classifChart4'),{
+    type:'bar',
+    data:{ labels:['Tier A','Tier B','Tier C'],
+      datasets:[
+        { label:'Alto',  data:potencialPorTier.map(p=>p.alto),  backgroundColor:'#34D399', borderRadius:4 },
+        { label:'Médio', data:potencialPorTier.map(p=>p.medio), backgroundColor:'#F6AD55', borderRadius:4 },
+        { label:'Baixo', data:potencialPorTier.map(p=>p.baixo), backgroundColor:'#404040', borderRadius:4 }
+      ]},
+    options:{...cg, plugins:{legend:{display:true,position:'top',labels:{color:'#9a9a9a',font:{family:'Poppins',size:11}}}},
+      scales:{ x:{...cg.scales.x, stacked:true}, y:{...cg.scales.y, stacked:true, ticks:{...cg.scales.y.ticks, stepSize:1}} }}
+  });
+}
+
+function renderClassifPanel(){
+  Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}}); chartInstances={};
+  document.getElementById('classifViewList')?.classList.toggle('active', _classifView==='list');
+  document.getElementById('classifViewDash')?.classList.toggle('active', _classifView==='dashboard');
+  _classifRenderResumo();
+  if(_classifView==='dashboard') _classifRenderDash();
+  else _classifRenderLista();
+}
+
 /* ─── DASHBOARD ───────────────────────────────────────── */
 async function renderDashboard(mc){
   if(isCliMaster()){renderDashboardMaster(mc);return;}
@@ -1726,6 +2011,7 @@ async function renderDashboard(mc){
   <div style="display:flex;margin-bottom:18px;border-bottom:1px solid var(--border)">
     ${isInterno()?`<button class="dash-tab" id="tabFat" onclick="dashTab('fat')">Faturamento &amp; Metas</button>`:''}
     <button class="dash-tab active" id="tabOp" onclick="dashTab('op')">Operacional</button>
+    ${isInterno()?`<button class="dash-tab" id="tabClassif" onclick="dashTab('classif')">Classificação Estratégica</button>`:''}
   </div>
  
   <!-- ABA FATURAMENTO -->
@@ -1801,6 +2087,44 @@ async function renderDashboard(mc){
         <div id="lucTabelaCorpo"></div>
       </div>
     </div>
+  </div>`:''}
+
+  ${isInterno()?`<div id="abaClassif" style="display:none">
+    <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Tier</div>
+        <select class="filter-sel" id="classifFilTier" onchange="_classifMudaTier(this.value)" style="width:140px">
+          <option value="all">Todos</option>
+          <option value="A">Tier A</option>
+          <option value="B">Tier B</option>
+          <option value="C">Tier C</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
+        <select class="filter-sel" id="classifFilBU" onchange="renderClassifPanel()" style="width:140px">
+          <option value="">Todas</option>
+          <option value="OneBrain">OneBrain</option>
+          <option value="Outforce">Outforce</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Ordenar</div>
+        <select class="filter-sel" id="classifSort" onchange="_classifMudaSort(this.value)" style="width:180px">
+          <option value="tier">Por Tier (agrupado)</option>
+          <option value="receita-mensal">Receita mensal</option>
+          <option value="receita-anual">Receita anual</option>
+          <option value="potencial">Potencial de expansão</option>
+          <option value="nome">Nome (A–Z)</option>
+        </select>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px">
+        <button class="dash-tab" id="classifViewList" onclick="_classifMudaView('list')" style="padding:6px 12px;margin:0;border-bottom:none;font-size:12px">Lista</button>
+        <button class="dash-tab" id="classifViewDash" onclick="_classifMudaView('dashboard')" style="padding:6px 12px;margin:0;border-bottom:none;font-size:12px">Dashboard</button>
+      </div>
+    </div>
+    <div class="tv-metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px" id="classifResumo"></div>
+    <div id="classifContent"></div>
   </div>`:''}
 
   <!-- ABA OPERACIONAL (filtros + conteúdo originais) -->
