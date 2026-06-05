@@ -700,7 +700,7 @@ input[type=file]{display:none}
   </div>
   <div class="modal-body">
     <input type="hidden" id="accessId">
-    <div class="info-box">
+    <div class="info-box" id="accessInfoBox">
       <strong>Fluxo de acesso:</strong> O usuário receberá um link mágico por e-mail para definir sua senha e acessar a plataforma.
     </div>
     <div class="form-grid">
@@ -739,7 +739,7 @@ input[type=file]{display:none}
   </div>
   <div class="modal-footer">
     <button class="btn btn-ghost" onclick="closeModal('modalAcesso')">Cancelar</button>
-    <button class="btn btn-accent" onclick="salvarAcesso()">Enviar Link Mágico</button>
+    <button class="btn btn-accent" id="accessSaveBtn" onclick="salvarAcesso()">Enviar Link Mágico</button>
   </div>
 </div>
 </div>
@@ -4347,6 +4347,8 @@ function resetTurnoverFooter(){
 function openModalAcessoNew(){
   document.getElementById('accessId').value='';
   document.getElementById('modalAcessoTitle').textContent='Novo Usuário Interno';
+  document.getElementById('accessSaveBtn').textContent='Enviar Link Mágico';
+  document.getElementById('accessInfoBox').style.display='block';
   ['accessNome','accessEmail','accessTelefone','accessCargo'].forEach(f=>{document.getElementById(f).value=''});
   const sel=document.getElementById('accessPerfil');
   sel.innerHTML=`<option value="editor">Interno — Edição (acesso global, edição)</option>
@@ -4359,6 +4361,8 @@ function openModalAcessoEdit(id){
   const u=db.usuarios.find(x=>x.id===id);if(!u)return;
   document.getElementById('accessId').value=id;
   document.getElementById('modalAcessoTitle').textContent='Editar Acesso';
+  document.getElementById('accessSaveBtn').textContent='Salvar';
+  document.getElementById('accessInfoBox').style.display='none';
   document.getElementById('accessNome').value=u.nome;
   document.getElementById('accessEmail').value=u.email;
   document.getElementById('accessTelefone').value=u.telefone||'';
