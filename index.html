@@ -1752,6 +1752,18 @@ const CLASSIF_STATUS_CLASS = {
 };
 const CLASSIF_POT_RANK = { alto: 3, medio: 2, baixo: 1 };
 
+function _classifTierDe(c){
+  if(['internalizacao','encerramento','manutencao'].includes(c.status)) return 'C';
+  const receita = _classifReceitaAnual(c.cliente);
+  if(receita >= 2_000_000) return 'A';
+  return 'B';
+}
+function _classifSubDe(c){
+  if(['internalizacao','encerramento'].includes(c.status)) return 'saida';
+  if(c.status === 'manutencao') return 'manutencao';
+  return null;
+}
+
 function _classifReceitaAnual(cliente){
   if(!_fatData) return 0;
   const arr = _fatData.porCliente[cliente];
@@ -1778,7 +1790,7 @@ function _classifFmt(v){
 function _classifFiltradas(){
   const bu = document.getElementById('classifFilBU')?.value || '';
   let list = (db.classificacao||[]).slice();
-  if(_classifTierSel !== 'all') list = list.filter(c => c.tier === _classifTierSel);
+  if(_classifTierSel !== 'all') list = list.filter(c => _classifTierDe(c) === _classifTierSel);
   if(bu) list = list.filter(c => _classifBU(c.cliente) === bu);
   return list;
 }
@@ -1805,7 +1817,7 @@ function _classifMudaSort(v){ _classifSort = v; renderClassifPanel(); }
 function _classifMudaView(v){ _classifView = v; renderClassifPanel(); }
 
 function _classifCardHTML(c){
-  const tier = c.tier.toLowerCase();
+  const tier = _classifTierDe(c).toLowerCase();
   const bgVar = tier==='a' ? 'rgba(52,211,153,0.06)' : tier==='b' ? 'rgba(246,173,85,0.06)' : 'rgba(255,255,255,0.02)';
   const borderVar = tier==='a' ? 'rgba(52,211,153,0.20)' : tier==='b' ? 'rgba(246,173,85,0.20)' : 'rgba(255,255,255,0.10)';
   const rMensal = _classifReceitaMensal(c.cliente);
@@ -1845,7 +1857,7 @@ function _classifRenderResumo(){
   };
   const corBorda = { A:'var(--accent)', B:'var(--amber)', C:'var(--text-3)' };
   document.getElementById('classifResumo').innerHTML = tiers.map(t => {
-    const sub  = filt.filter(c=>c.tier===t);
+    const sub  = filt.filter(c=>_classifTierDe(c)===t);
     const rec  = sub.reduce((s,c)=>s+_classifReceitaMensal(c.cliente),0);
     const pct  = Math.round((rec/totalReceita)*100);
     return `
@@ -1870,7 +1882,7 @@ function _classifRenderLista(){
   }
   const blocos = [];
   ['A','B','C'].forEach(t=>{
-    const sub = list.filter(c=>c.tier===t);
+    const sub = list.filter(c=>_classifTierDe(c)===t);
     if(!sub.length) return;
     const titulos = {
       A: { t:'Tier A — Estratégicas',               hint:'Receita ≥ R$ 2M/ano · expansão · peso estratégico' },
@@ -1879,8 +1891,8 @@ function _classifRenderLista(){
     };
     let body = '';
     if(t === 'C'){
-      const manut = sub.filter(c=>c.sub==='manutencao');
-      const saida = sub.filter(c=>c.sub==='saida');
+      const manut = sub.filter(c=>_classifSubDe(c)==='manutencao');
+      const saida = sub.filter(c=>_classifSubDe(c)==='saida');
       if(manut.length){
         body += `<div style="font-size:12px;color:var(--text-3);margin:14px 0 8px">manutenção · sem saída prevista, sem expansão</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${manut.map(_classifCardHTML).join('')}</div>`;
@@ -1910,12 +1922,12 @@ function _classifRenderDash(){
   const corTier = ['#34D399','#F6AD55','#9a9a9a'];
 
   const receitaPorTier = tiers.map(t =>
-    list.filter(c=>c.tier===t).reduce((s,c)=>s+_classifReceitaMensal(c.cliente),0));
-  const contasPorTier = tiers.map(t => list.filter(c=>c.tier===t).length);
+    list.filter(c=>_classifTierDe(c)===t).reduce((s,c)=>s+_classifReceitaMensal(c.cliente),0));
+  const contasPorTier = tiers.map(t => list.filter(c=>_classifTierDe(c)===t).length);
   const totalRec = receitaPorTier.reduce((a,b)=>a+b,0) || 1;
   const pctPorTier = receitaPorTier.map(v => +(v/totalRec*100).toFixed(1));
   const potencialPorTier = tiers.map(t => {
-    const sub = list.filter(c=>c.tier===t);
+    const sub = list.filter(c=>_classifTierDe(c)===t);
     return {
       alto:  sub.filter(c=>c.potencial==='alto').length,
       medio: sub.filter(c=>c.potencial==='medio').length,
