@@ -725,6 +725,16 @@ input[type=file]{display:none}
         <label>Projetos vinculados</label>
         <div id="accessProjetosList" style="display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border-2)"></div>
       </div>
+      <div class="form-group full" id="accessSubPermGroup" style="display:none">
+        <label>Sub-permissões</label>
+        <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--text-3);margin-bottom:8px;line-height:1.5">
+          Viewers só leem por padrão. Marque para liberar edição específica:
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:var(--font-min);cursor:pointer;padding:10px 12px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border)">
+          <input type="checkbox" id="permClassifEdit" value="classif_edit" style="accent-color:var(--accent);width:14px;height:14px">
+          <span>Editar <strong>Classificação Estratégica</strong></span>
+        </label>
+      </div>
     </div>
   </div>
   <div class="modal-footer">
@@ -892,7 +902,18 @@ function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
 }
 function mapUsuario(r){
-  return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cargo:r.cargo||'',perfil:r.perfil,cliente:r.cliente||'',projetos:r.projetos||[],status:r.status};
+  return {
+    id:r.id,
+    nome:r.nome,
+    email:r.email,
+    telefone:r.telefone||'',
+    cargo:r.cargo||'',
+    perfil:r.perfil,
+    cliente:r.cliente||'',
+    projetos:r.projetos||[],
+    subPermissoes:r.sub_permissoes||[],
+    status:r.status
+  };
 }
 function mapContato(r){
   return {id:r.id,tipo:r.tipo,nome:r.nome,telefone:r.telefone||'',email:r.email||'',photo:r.photo_url||''};
@@ -1002,7 +1023,7 @@ async function logout(){
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
   db={projetos:[],alocados:[],gestores:[],turnover:[],usuarios:[],contatos:[],classificacao:[]};
-  currentUser={email:'',role:'',name:'',cliente:''};
+  currentUser={email:'',role:'',name:'',cliente:'',subPermissoes:[]};
   window.location.hash='';
 }
 
@@ -1060,7 +1081,7 @@ function initApp(){
   if(session){
     const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
     if(u){
-      currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||''};
+      currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||'',subPermissoes:u.sub_permissoes||[]};
       await loadAll();
       initApp();
     } else {
@@ -1140,6 +1161,11 @@ function calcSenDist(lista){
 /* ─── PROFILE HELPERS ─────────────────────────────────── */
 function isEditor(){return currentUser.role==='editor'}
 function isViewer(){return currentUser.role==='viewer'}
+function temPermissao(chave){
+  if(isEditor()) return true;
+  if(isViewer() && (currentUser.subPermissoes||[]).includes(chave)) return true;
+  return false;
+}
 function isCliMaster(){return currentUser.role==='cli-master'}
 function isCliGestor(){return currentUser.role==='cli-gestor'}
 function isInterno(){return isEditor()||isViewer()}
@@ -1875,7 +1901,7 @@ function _classifCardHTML(c){
   const bu      = _classifBU(c.cliente);
   const stLabel = CLASSIF_STATUS_LABEL[c.status] || c.status;
   const stClass = CLASSIF_STATUS_CLASS[c.status] || 'b-gray';
-  const editavel = isEditor();
+  const editavel = temPermissao('classif_edit');
   const clickHandler = editavel ? `onclick="openModalClassif('${c.id}')"` : '';
   const cursorStyle = editavel ? 'cursor:pointer' : 'cursor:default';
   return `
@@ -3663,7 +3689,10 @@ function filterInternos(){
     <td style="color:var(--blue)">${u.email}</td>
     <td>${u.telefone||'—'}</td>
     <td>${u.cargo||'—'}</td>
-    <td><span class="badge ${roleClass[u.perfil]||'b-gray'}">${roleLabel[u.perfil]||u.perfil}</span></td>
+    <td>
+      <span class="badge ${roleClass[u.perfil]||'b-gray'}">${roleLabel[u.perfil]||u.perfil}</span>
+      ${u.perfil==='viewer' && (u.subPermissoes||[]).includes('classif_edit') ? `<span class="badge b-purple" style="font-size:10px;margin-left:4px">+Classif</span>` : ''}
+    </td>
     <td><span class="badge ${u.status==='ativo'?'b-green':u.status==='pendente'?'b-amber':'b-gray'}">${u.status}</span></td>
     <td onclick="event.stopPropagation()"><div class="row-actions" style="opacity:1">
       ${isEditor()?`
@@ -4322,6 +4351,7 @@ function openModalAcessoNew(){
   const sel=document.getElementById('accessPerfil');
   sel.innerHTML=`<option value="editor">Interno — Edição (acesso global, edição)</option>
     <option value="viewer">Interno — Visualização (acesso global, somente leitura)</option>`;
+  document.getElementById('permClassifEdit').checked = false;
   updateAccessFields();
   openModal('modalAcesso');
 }
@@ -4344,7 +4374,10 @@ function openModalAcessoEdit(id){
   }
   sel.value=u.perfil;
   updateAccessFields();
-  setTimeout(()=>{if(u.cliente){const cl=document.getElementById('accessCliente');if(cl)cl.value=u.cliente;}},50);
+  setTimeout(()=>{
+    if(u.cliente){const cl=document.getElementById('accessCliente');if(cl)cl.value=u.cliente;}
+    document.getElementById('permClassifEdit').checked = (u.subPermissoes||[]).includes('classif_edit');
+  },50);
   openModal('modalAcesso');
 }
 function updateAccessFields(){
@@ -4352,6 +4385,7 @@ function updateAccessFields(){
   const isClient=perfil==='cli-master'||perfil==='cli-gestor';
   document.getElementById('accessClienteGroup').style.display=isClient?'block':'none';
   document.getElementById('accessProjetosGroup').style.display=perfil==='cli-gestor'?'block':'none';
+  document.getElementById('accessSubPermGroup').style.display=perfil==='viewer'?'block':'none';
   if(isClient){
     const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
     document.getElementById('accessCliente').innerHTML=clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -4368,7 +4402,11 @@ async function salvarAcesso(){
   const clienteEl=document.getElementById('accessCliente');
   const cliente=clienteEl?clienteEl.value||'':'';
   const projSel=[...document.querySelectorAll('#accessProjetosList input:checked')].map(i=>i.value);
-  const payload={nome,email,telefone:document.getElementById('accessTelefone').value||null,cargo:document.getElementById('accessCargo').value||null,perfil,cliente:cliente||null,projetos:projSel,status:'pendente'};
+  const subPermissoes=[];
+  if(perfil==='viewer' && document.getElementById('permClassifEdit')?.checked){
+    subPermissoes.push('classif_edit');
+  }
+  const payload={nome,email,telefone:document.getElementById('accessTelefone').value||null,cargo:document.getElementById('accessCargo').value||null,perfil,cliente:cliente||null,projetos:projSel,sub_permissoes:subPermissoes,status:'pendente'};
   const id=document.getElementById('accessId').value;
   let err;
   if(id){
