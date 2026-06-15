@@ -3426,6 +3426,77 @@ function _redeMkGestorNode(gestor, tipo){
   };
 }
 
+function _redeGetVHRange(){
+  const visiveis = db.alocados.filter(a => a.status === 'Ativo' || a.status === 'Em Admissão');
+  const vhs = visiveis.map(a => getVH(a)||0).filter(v => v > 0);
+  if(vhs.length === 0) return { min: 100, max: 200 };
+  return { min: Math.min(...vhs), max: Math.max(...vhs) };
+}
+
+function _redeAlocadoSize(vh, range){
+  if(range.max <= range.min) return 14;
+  const t = (vh - range.min) / (range.max - range.min);
+  return Math.round(10 + Math.max(0, Math.min(1, t)) * 12);
+}
+
+function _redeMkAlocadoNode(a, vhRange){
+  const vh = getVH(a) || 0;
+  const size = _redeAlocadoSize(vh, vhRange);
+  const projeto = db.projetos.find(p => p.id === a.projetoId);
+  const corProjeto = projeto?.cor || '#993C1D';
+  const base = {
+    id: 'aloc_' + a.id,
+    label: _redeShortName(a.nome),
+    group: 'alocado',
+    nomeOriginal: a.nome,
+    cargo: a.cargo,
+    senioridade: a.senioridade,
+    vh: vh,
+    projetoId: a.projetoId,
+    status: a.status,
+    size: size,
+    borderWidth: 2,
+    borderWidthSelected: 3,
+    font: { size: 10, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' }
+  };
+  if(a.photo){
+    return Object.assign({}, base, {
+      shape: 'circularImage',
+      image: a.photo,
+      color: { border: corProjeto, highlight: { border: corProjeto } }
+    });
+  }
+  return Object.assign({}, base, {
+    shape: 'dot',
+    color: { background: '#F0997B', border: corProjeto, highlight: { background: '#D85A30', border: corProjeto } }
+  });
+}
+
+function _redeExpandMaster(masterNodeId){
+  const masterId = masterNodeId.replace(/^gst_/, '');
+  const master = db.gestores.find(g => g.id === masterId);
+  if(!master) return false;
+  const vhRange = _redeGetVHRange();
+  let added = 0;
+  const times = db.gestores.filter(g => g.cliente === master.cliente && g.tipo === 'Gestor de Time');
+  times.forEach(t => {
+    const nodeId = 'gst_' + t.id;
+    if(!_redeNodes.get(nodeId)) _redeNodes.add(_redeMkGestorNode(t, 'time'));
+    const edgeId = 'e_' + masterNodeId + '__' + nodeId;
+    if(!_redeEdges.get(edgeId)){ _redeEdges.add({ id: edgeId, from: masterNodeId, to: nodeId }); added++; }
+  });
+  const diretos = db.alocados.filter(a => a.gestorId === master.id && (a.status === 'Ativo' || a.status === 'Em Admissão'));
+  diretos.forEach(a => {
+    const nodeId = 'aloc_' + a.id;
+    if(!_redeNodes.get(nodeId)) _redeNodes.add(_redeMkAlocadoNode(a, vhRange));
+    const edgeId = 'e_' + masterNodeId + '__' + nodeId;
+    if(!_redeEdges.get(edgeId)){ _redeEdges.add({ id: edgeId, from: masterNodeId, to: nodeId }); added++; }
+  });
+  if(added === 0){ console.log('[Rede] master sem filhos:', master.nome); return false; }
+  console.log('[Rede] master expandiu:', master.nome, '|', times.length, 'times,', diretos.length, 'alocados diretos');
+  return true;
+}
+
 function _redeExpandCliente(clienteNodeId){
   const cliente = clienteNodeId.replace(/^cli_/, '');
   const masters = db.gestores.filter(g => g.cliente === cliente && g.tipo === 'Master');
@@ -3574,6 +3645,14 @@ function renderRede(mc){
           const semMaster = db.gestores.filter(g => g.cliente === cliente && g.tipo === 'Master').length === 0;
           console.log('[Rede] expandiu:', node.label, semMaster ? '(fallback: foi direto pros Times)' : '(Masters)');
         }
+      }
+    } else if(node.group === 'master'){
+      if(_redeExpanded.has(nodeId)){
+        _redeColapsar(nodeId);
+        console.log('[Rede] colapsou master:', node.label);
+      } else {
+        const ok = _redeExpandMaster(nodeId);
+        if(ok) _redeExpanded.add(nodeId);
       }
     }
   });
