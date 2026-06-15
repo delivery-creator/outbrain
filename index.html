@@ -4031,16 +4031,38 @@ function _redeClientesVisiveis(){
   return [];
 }
 
-function _redeMkClienteNode(cliente){
+function _redeFatAnual(cliente){
+  if(!_fatData || !_fatData.porCliente) return 0;
+  const arr = _fatData.porCliente[cliente];
+  return arr ? arr.reduce((s,v) => s + (Number(v)||0), 0) : 0;
+}
+
+function _redeGetFatRange(){
+  if(!_fatData || !_fatData.porCliente) return { min: 0, max: 0 };
+  const todos = Object.keys(_fatData.porCliente).map(c => _redeFatAnual(c)).filter(v => v > 0);
+  if(todos.length === 0) return { min: 0, max: 0 };
+  return { min: Math.min(...todos), max: Math.max(...todos) };
+}
+
+function _redeClienteSize(fat, range){
+  if(!fat || range.max <= range.min) return 24;
+  const t = (fat - range.min) / (range.max - range.min);
+  return Math.round(18 + Math.max(0, Math.min(1, t)) * 24);
+}
+
+function _redeMkClienteNode(cliente, fatRange){
   const proj = db.projetos.find(p => p.cliente === cliente);
   const cor = proj?.cor || '#888780';
+  const fat = _redeFatAnual(cliente);
+  const size = fatRange ? _redeClienteSize(fat, fatRange) : 26;
   return {
     id: 'cli_' + cliente,
     label: cliente,
     group: 'cliente',
     nomeOriginal: cliente,
+    fatAnual: fat,
     shape: 'dot',
-    size: 26,
+    size: size,
     color: { background: cor, border: cor, highlight: { background: cor, border: '#FFFFFF' } },
     font: { size: 13, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' },
     borderWidth: 2,
@@ -4048,13 +4070,17 @@ function _redeMkClienteNode(cliente){
   };
 }
 
-function renderRede(mc){
+async function renderRede(mc){
   if(typeof vis === 'undefined'){
     mc.innerHTML = `<div class="empty-state"><div class="empty-text">vis-network não carregou</div><div class="empty-sub">Recarregue a página (Ctrl+F5).</div></div>`;
     return;
   }
 
   if(_redeNetwork){ try{ _redeNetwork.destroy(); }catch(e){} _redeNetwork = null; }
+
+  if(!_fatData){
+    try { await loadFaturamento(); } catch(e){ console.warn('[Rede] sem faturamento:', e); }
+  }
 
   mc.innerHTML = `
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
@@ -4081,8 +4107,10 @@ function renderRede(mc){
   </div>`;
 
   const clientes = _redeClientesVisiveis();
-  _redeNodes = new vis.DataSet(clientes.map(_redeMkClienteNode));
+  const fatRange = _redeGetFatRange();
+  _redeNodes = new vis.DataSet(clientes.map(c => _redeMkClienteNode(c, fatRange)));
   _redeEdges = new vis.DataSet();
+  console.log('[Rede] range de faturamento:', fatRange);
 
   if(clientes.length === 0){
     document.getElementById('redeHint').textContent = 'Nenhum cliente visível pra este perfil';
