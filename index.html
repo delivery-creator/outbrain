@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1040,7 +1041,7 @@ function initApp(){
   rb.textContent=roleLabels[currentUser.role]||currentUser.role;
   rb.className='role-badge '+(roleClasses[currentUser.role]||'role-viewer');
   buildNav();
-  const validPages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora'];
+  const validPages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora','rede'];
   const hashPage=window.location.hash.replace('#','');
   const startPage=validPages.includes(hashPage)?hashPage:'dashboard';
   showPage(startPage);
@@ -1200,6 +1201,7 @@ const icons={
   turnover:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
   acesso:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
   calculadora:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>`,
+  rede:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="1.8"/><circle cx="19" cy="5" r="1.8"/><circle cx="5" cy="19" r="1.8"/><circle cx="19" cy="19" r="1.8"/><line x1="10.5" y1="10.5" x2="6.5" y2="6.5"/><line x1="13.5" y1="10.5" x2="17.5" y2="6.5"/><line x1="10.5" y1="13.5" x2="6.5" y2="17.5"/><line x1="13.5" y1="13.5" x2="17.5" y2="17.5"/></svg>`,
 };
 function buildNav(){
   let html='';
@@ -1209,6 +1211,7 @@ function buildNav(){
     html+=navItem('alocados','Alocados',icons.alocados,'');
     html+=navItem('clientes','Clientes',icons.projetos,'');
     html+=navItem('turnover','Turnover',icons.turnover,'');
+    html+=navItem('rede','Rede',icons.rede,'');
     html+=navItem('calculadora','Calculadora',icons.calculadora,'');
     html+='<div class="nav-label">Gestão de Acessos</div>';
     html+=navItem('gestores','Gestores',icons.gestores,'');
@@ -1230,10 +1233,10 @@ function buildNav(){
 /* ─── PAGE ROUTER ─────────────────────────────────────── */
 function showPage(p){
   window.location.hash = p;
-  const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora'];
+  const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora','rede'];
   pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
   document.getElementById('nav-'+p)?.classList.add('active');
-  const titles={dashboard:'Dashboard',alocados:'Alocados',clientes:'Clientes',projetos:'Clientes',gestores:'Gestores',meutime:'Meu Time',contato:'Contato OneBrain',turnover:'Turnover',internos:'Internos',acesso:'Internos',calculadora:'Calculadora'};
+  const titles={dashboard:'Dashboard',alocados:'Alocados',clientes:'Clientes',projetos:'Clientes',gestores:'Gestores',meutime:'Meu Time',contato:'Contato OneBrain',turnover:'Turnover',internos:'Internos',acesso:'Internos',calculadora:'Calculadora',rede:'Rede'};
   document.getElementById('pageTitle').textContent=titles[p]||p;
   const actions=document.getElementById('topbarActions');
   actions.innerHTML='';
@@ -1246,7 +1249,7 @@ function showPage(p){
   if((p==='internos'||p==='acesso')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAcessoNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Interno</button>`;
   recalcAll();
   const mc=document.getElementById('mainContent');
-  const renders={dashboard:renderDashboard,alocados:renderAlocados,clientes:renderClientes,projetos:renderClientes,gestores:renderGestores,meutime:renderMeuTime,contato:renderContato,turnover:renderTurnover,internos:renderInternos,acesso:renderInternos,calculadora:renderCalculadora};
+  const renders={dashboard:renderDashboard,alocados:renderAlocados,clientes:renderClientes,projetos:renderClientes,gestores:renderGestores,meutime:renderMeuTime,contato:renderContato,turnover:renderTurnover,internos:renderInternos,acesso:renderInternos,calculadora:renderCalculadora,rede:renderRede};
   if(renders[p]) renders[p](mc);
 }
 
@@ -3390,7 +3393,115 @@ async function salvarParamCalc(){
   await loadParamCalc();
   showToast('Parâmetros salvos!');
 }
-/* ─── TURNOVER ────────────────────────────────────────── */
+
+/* ─── REDE ────────────────────────────────────────────── */
+let _redeNetwork = null;
+let _redeNodes = null;
+let _redeEdges = null;
+
+function _redeClientesVisiveis(){
+  if(isEditor() || isViewer()){
+    return [...new Set(db.projetos.map(p => p.cliente))].filter(Boolean).sort();
+  }
+  if(isCliMaster()){
+    return currentUser.cliente ? [currentUser.cliente] : [];
+  }
+  if(isCliGestor()){
+    const g = db.gestores.find(x => x.email === currentUser.email);
+    if(!g) return [];
+    const projsDoGestor = db.alocados.filter(a => a.gestorId === g.id).map(a => a.projetoId).filter(Boolean);
+    return [...new Set(db.projetos.filter(p => projsDoGestor.includes(p.id)).map(p => p.cliente))].filter(Boolean).sort();
+  }
+  return [];
+}
+
+function _redeMkClienteNode(cliente){
+  return {
+    id: 'cli_' + cliente,
+    label: cliente,
+    group: 'cliente',
+    nomeOriginal: cliente,
+    shape: 'dot',
+    size: 26,
+    color: { background: '#B4B2A9', border: '#5F5E5A', highlight: { background: '#888780', border: '#5F5E5A' } },
+    font: { size: 13, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' },
+    borderWidth: 1,
+    borderWidthSelected: 2
+  };
+}
+
+function renderRede(mc){
+  if(typeof vis === 'undefined'){
+    mc.innerHTML = `<div class="empty-state"><div class="empty-text">vis-network não carregou</div><div class="empty-sub">Recarregue a página (Ctrl+F5).</div></div>`;
+    return;
+  }
+
+  if(_redeNetwork){ try{ _redeNetwork.destroy(); }catch(e){} _redeNetwork = null; }
+
+  mc.innerHTML = `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <div class="search-box" style="width:240px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="Buscar pessoa ou cliente..." id="redeBusca" disabled>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="_redeCentralizar()">Centralizar</button>
+    <button class="btn btn-ghost btn-sm" onclick="_redeTogglePhysics()" id="redePhysicsBtn">Pausar física</button>
+    <div style="margin-left:auto;display:flex;gap:14px;align-items:center;font-size:11px;color:var(--text-3);flex-wrap:wrap">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#888780;margin-right:5px;vertical-align:middle"></span>Cliente</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#0F6E56;margin-right:5px;vertical-align:middle"></span>Master</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#5DCAA5;margin-right:5px;vertical-align:middle"></span>Time</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#D85A30;margin-right:5px;vertical-align:middle"></span>Alocado</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#7F77DD;margin-right:5px;vertical-align:middle"></span>Projeto</span>
+    </div>
+  </div>
+  <div class="chart-card" style="padding:0;position:relative;height:calc(100vh - 170px);overflow:hidden">
+    <div id="redeCanvas" style="width:100%;height:100%"></div>
+    <div id="redePop" style="position:absolute;display:none;z-index:20;pointer-events:none"></div>
+    <div id="redeHint" style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--text-3);background:rgba(0,0,0,0.7);padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border)">
+      Etapa 3 vai habilitar a expansão ao clicar
+    </div>
+  </div>`;
+
+  const clientes = _redeClientesVisiveis();
+  _redeNodes = new vis.DataSet(clientes.map(_redeMkClienteNode));
+  _redeEdges = new vis.DataSet();
+
+  if(clientes.length === 0){
+    document.getElementById('redeHint').textContent = 'Nenhum cliente visível pra este perfil';
+    return;
+  }
+
+  const container = document.getElementById('redeCanvas');
+  _redeNetwork = new vis.Network(container, { nodes: _redeNodes, edges: _redeEdges }, {
+    physics: {
+      enabled: true,
+      barnesHut: {
+        gravitationalConstant: -8000,
+        centralGravity: 0.15,
+        springLength: 140,
+        springConstant: 0.04,
+        damping: 0.5,
+        avoidOverlap: 0.2
+      },
+      stabilization: { iterations: 120, fit: true }
+    },
+    interaction: { hover: true, dragView: true, zoomView: true, tooltipDelay: 200 },
+    nodes: { shape: 'dot' }
+  });
+
+  console.log('[Rede] clientes renderizados:', clientes.length, clientes);
+}
+
+function _redeCentralizar(){
+  if(_redeNetwork) _redeNetwork.fit({ animation: { duration: 400 } });
+}
+function _redeTogglePhysics(){
+  if(!_redeNetwork) return;
+  const btn = document.getElementById('redePhysicsBtn');
+  const ativo = btn.textContent.includes('Pausar');
+  _redeNetwork.setOptions({ physics: { enabled: !ativo } });
+  btn.textContent = ativo ? 'Retomar física' : 'Pausar física';
+}
 function renderTurnover(mc){
   const anoAtual = TODAY.getFullYear();
 
