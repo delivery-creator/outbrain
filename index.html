@@ -536,22 +536,14 @@ input[type=file]{display:none}
     </div>
     <div class="form-grid">
       <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="gestorNome" placeholder="Nome"></div>
+      <div class="form-group"><label>E-mail *</label><input class="form-control" type="email" id="gestorEmail" placeholder="email@empresa.com"></div>
       <div class="form-group full">
-        <label>E-mail *</label>
-        <div style="display:flex;gap:7px">
-          <input class="form-control" type="email" id="gestorEmail" placeholder="email@empresa.com" style="flex:1">
-          <button class="btn btn-ghost btn-sm" onclick="fetchGestorSlackPhoto()" type="button" style="background:#4A154B;color:#fff;border-color:#4A154B;flex-shrink:0;gap:6px">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
-            Buscar foto Slack
-          </button>
-        </div>
-      </div>
-      <div class="form-group full">
+        <label>Foto</label>
         <div class="photo-row">
           <div class="photo-circle" id="gestorPhotoPreview"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
           <div style="font-size:var(--font-min);color:var(--text-3)">
             <div style="font-weight:600;color:var(--text-2);margin-bottom:2px" id="gestorPhotoStatus">Nenhuma foto</div>
-            Informe o e-mail e busque no Slack, ou faça upload manual.<br>
+            Faça upload de uma foto do gestor.<br>
             <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="document.getElementById('gestorPhotoInput').click()">+ Upload manual</span>
           </div>
         </div>
@@ -4724,33 +4716,6 @@ async function fetchSlackPhoto(){
   }
 }
 function previewPhoto(input){const file=input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{const d=e.target.result;document.getElementById('alocadoPhoto').value=d;document.getElementById('photoPreviewCircle').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover">`;document.getElementById('photoStatusText').textContent='Foto carregada'};r.readAsDataURL(file)}
-
-async function fetchGestorSlackPhoto(){
-  const email=document.getElementById('gestorEmail').value.trim();
-  if(!email){showToast('Informe o e-mail primeiro');return}
-  document.getElementById('gestorPhotoStatus').textContent='Buscando no Slack...';
-  try{
-    const res=await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/slack-photo',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
-      body:JSON.stringify({email})
-    });
-    const data=await res.json();
-    if(!data.ok){showToast('Não encontrado: '+(data.error||'sem foto'));document.getElementById('gestorPhotoStatus').textContent='Não encontrado';return}
-    if(data.photo){
-      document.getElementById('gestorPhoto').value=data.photo;
-      document.getElementById('gestorPhotoPreview').innerHTML=`<img src="${data.photo}" style="width:100%;height:100%;object-fit:cover">`;
-      document.getElementById('gestorPhotoStatus').textContent='Foto encontrada!';
-      showToast('Foto carregada com sucesso!');
-    }
-    if(data.nome&&!document.getElementById('gestorNome').value){
-      document.getElementById('gestorNome').value=data.nome;
-    }
-  }catch(e){
-    showToast('Erro: '+e.message);
-    document.getElementById('gestorPhotoStatus').textContent='Erro na busca';
-  }
-}
 
 function previewGestorPhoto(input){
   const file=input.files[0];if(!file)return;
