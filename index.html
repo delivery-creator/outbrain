@@ -3497,6 +3497,400 @@ function _redeExpandMaster(masterNodeId){
   return true;
 }
 
+function _redeFecharPop(){
+  const pop = document.getElementById('redePop');
+  if(pop) pop.style.display = 'none';
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeBuscar(){
+  const input = document.getElementById('redeBusca');
+  const q = (input?.value||'').toLowerCase().trim();
+  if(!_redeNetwork || !_redeNodes) return;
+  if(!q){
+    _redeNetwork.unselectAll();
+    _redeFecharPop();
+    return;
+  }
+  const todos = _redeNodes.get();
+  const matches = todos.filter(n => (n.nomeOriginal||'').toLowerCase().includes(q));
+  if(matches.length === 0){
+    console.log('[Rede] busca sem resultado:', q);
+    _redeNetwork.unselectAll();
+    return;
+  }
+  const ordem = { alocado: 0, time: 1, master: 2, cliente: 3 };
+  matches.sort((a,b) => (ordem[a.group]||9) - (ordem[b.group]||9));
+  const match = matches[0];
+  _redeNetwork.focus(match.id, { scale: 1.4, animation: { duration: 500 } });
+  _redeNetwork.selectNodes([match.id]);
+  console.log('[Rede] encontrado:', match.nomeOriginal, `(${matches.length} match${matches.length>1?'es':''})`);
+}
+
+function _redeCardGestor(g){
+  const tipoBadge = g.tipo === 'Master' ? 'b-amber' : 'b-blue';
+  const initials = getI(g.nome);
+  return `
+    <div style="background:#111;border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.6);pointer-events:auto">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text-2);flex-shrink:0">${initials}</div>
+        <div style="min-width:0">
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;line-height:1.2">${g.nome}</div>
+          <div style="margin-top:4px"><span class="badge ${tipoBadge}" style="font-size:10px">${g.tipo}</span></div>
+        </div>
+      </div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between;border-top:1px solid var(--border)"><span style="color:var(--text-3)">Cliente</span><span>${g.cliente||'—'}</span></div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">E-mail</span><span style="font-size:11px;color:var(--blue);text-align:right;word-break:break-all">${g.email||'—'}</span></div>
+      ${g.telefone?`<div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Telefone</span><span>${g.telefone}</span></div>`:''}
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="openGestorDetail('${g.id}');_redeFecharPop()">Ver perfil completo</button>
+    </div>`;
+}
+
+function _redeCardAlocado(a){
+  const projeto = db.projetos.find(p => p.id === a.projetoId);
+  const gestor = db.gestores.find(g => g.id === a.gestorId);
+  const vh = getVH(a);
+  return `
+    <div style="background:#111;border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.6);pointer-events:auto">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text-2);flex-shrink:0">
+          ${a.photo?`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span>${getI(a.nome)}</span>`}
+        </div>
+        <div style="min-width:0">
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;line-height:1.2">${a.nome}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fCargo(a.cargo, a.senioridade)}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between;border-top:1px solid var(--border)"><span style="color:var(--text-3)">V/H</span><span style="font-weight:600">${fBRL(vh)}/h${a.valorHoraCTH?' <span class="badge b-amber" style="font-size:10px">CTH</span>':''}</span></div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Projeto</span><span style="text-align:right">${projeto?projeto.nome:'—'}</span></div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Gestor</span><span style="text-align:right">${gestor?gestor.nome:'—'}</span></div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Contrato</span><span class="badge b-gray" style="font-size:10px">${a.contrato}</span></div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Status</span><span class="badge ${a.badge}" style="font-size:10px">${a.status}</span></div>
+      ${a.linkedin?`<div style="font-size:12px;padding:4px 0"><a href="${a.linkedin}" target="_blank" style="color:var(--blue)">LinkedIn ↗</a></div>`:''}
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="openDetailById('${a.id}');_redeFecharPop()">Ver perfil completo</button>
+    </div>`;
+}
+
+function _redeMostrarPop(nodeId, domPos){
+  const node = _redeNodes.get(nodeId);
+  const pop = document.getElementById('redePop');
+  const canvas = document.getElementById('redeCanvas');
+  if(!node || !pop || !canvas) return;
+  let html = '';
+  if(node.group === 'master' || node.group === 'time'){
+    const g = db.gestores.find(x => x.id === nodeId.replace(/^gst_/, ''));
+    if(!g) return;
+    html = _redeCardGestor(g);
+  } else if(node.group === 'alocado'){
+    const a = db.alocados.find(x => x.id === nodeId.replace(/^aloc_/, ''));
+    if(!a) return;
+    html = _redeCardAlocado(a);
+  } else {
+    return;
+  }
+  pop.innerHTML = html;
+  pop.style.display = 'block';
+  pop.style.pointerEvents = 'auto';
+  const rect = canvas.getBoundingClientRect();
+  const popW = pop.offsetWidth || 260;
+  const popH = pop.offsetHeight || 200;
+  let x = domPos.x + 20;
+  let y = domPos.y - 30;
+  if(x + popW > rect.width - 12) x = domPos.x - popW - 20;
+  if(x < 12) x = 12;
+  if(y + popH > rect.height - 12) y = rect.height - popH - 12;
+  if(y < 12) y = 12;
+  pop.style.left = x + 'px';
+  pop.style.top = y + 'px';
+}
+
 function _redeExpandTime(timeNodeId){
   const timeId = timeNodeId.replace(/^gst_/, '');
   const time = db.gestores.find(g => g.id === timeId);
@@ -3596,7 +3990,7 @@ function renderRede(mc){
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <div class="search-box" style="width:240px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" placeholder="Buscar pessoa ou cliente..." id="redeBusca" disabled>
+      <input type="text" placeholder="Buscar pessoa ou cliente..." id="redeBusca" oninput="_redeBuscar()">
     </div>
     <button class="btn btn-ghost btn-sm" onclick="_redeCentralizar()">Centralizar</button>
     <button class="btn btn-ghost btn-sm" onclick="_redeTogglePhysics()" id="redePhysicsBtn">Pausar física</button>
@@ -3646,12 +4040,16 @@ function renderRede(mc){
   _redeExpanded.clear();
 
   _redeNetwork.on('click', function(params){
-    if(params.nodes.length === 0) return;
+    if(params.nodes.length === 0){
+      _redeFecharPop();
+      return;
+    }
     const nodeId = params.nodes[0];
     const node = _redeNodes.get(nodeId);
     if(!node) return;
 
     if(node.group === 'cliente'){
+      _redeFecharPop();
       if(_redeExpanded.has(nodeId)){
         _redeColapsar(nodeId);
         console.log('[Rede] colapsou:', node.label);
@@ -3672,6 +4070,7 @@ function renderRede(mc){
         const ok = _redeExpandMaster(nodeId);
         if(ok) _redeExpanded.add(nodeId);
       }
+      _redeMostrarPop(nodeId, params.pointer.DOM);
     } else if(node.group === 'time'){
       if(_redeExpanded.has(nodeId)){
         _redeColapsar(nodeId);
@@ -3680,6 +4079,9 @@ function renderRede(mc){
         const ok = _redeExpandTime(nodeId);
         if(ok) _redeExpanded.add(nodeId);
       }
+      _redeMostrarPop(nodeId, params.pointer.DOM);
+    } else if(node.group === 'alocado'){
+      _redeMostrarPop(nodeId, params.pointer.DOM);
     }
   });
 
@@ -3687,6 +4089,28 @@ function renderRede(mc){
   if(hint) hint.textContent = 'Clique num cliente pra expandir';
 
   console.log('[Rede] clientes renderizados:', clientes.length, clientes);
+
+  if(isCliMaster() || isCliGestor()){
+    setTimeout(() => {
+      clientes.forEach(c => {
+        const id = 'cli_' + c;
+        const ok = _redeExpandCliente(id);
+        if(ok) _redeExpanded.add(id);
+      });
+      if(isCliGestor()){
+        const g = db.gestores.find(x => x.email === currentUser.email);
+        if(g){
+          const gid = 'gst_' + g.id;
+          if(_redeNodes.get(gid)){
+            const ok = g.tipo === 'Master' ? _redeExpandMaster(gid) : _redeExpandTime(gid);
+            if(ok) _redeExpanded.add(gid);
+          }
+        }
+      }
+      _redeNetwork.fit({ animation: { duration: 600 } });
+      if(hint) hint.textContent = 'Clique numa pessoa pra ver detalhes';
+    }, 300);
+  }
 }
 
 function _redeCentralizar(){
