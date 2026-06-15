@@ -536,7 +536,32 @@ input[type=file]{display:none}
     </div>
     <div class="form-grid">
       <div class="form-group full"><label>Nome completo *</label><input class="form-control" type="text" id="gestorNome" placeholder="Nome"></div>
-      <div class="form-group"><label>E-mail *</label><input class="form-control" type="email" id="gestorEmail" placeholder="email@empresa.com"></div>
+      <div class="form-group full">
+        <label>E-mail *</label>
+        <div style="display:flex;gap:7px">
+          <input class="form-control" type="email" id="gestorEmail" placeholder="email@empresa.com" style="flex:1">
+          <button class="btn btn-ghost btn-sm" onclick="fetchGestorSlackPhoto()" type="button" style="background:#4A154B;color:#fff;border-color:#4A154B;flex-shrink:0;gap:6px">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
+            Buscar foto Slack
+          </button>
+        </div>
+      </div>
+      <div class="form-group full">
+        <div class="photo-row">
+          <div class="photo-circle" id="gestorPhotoPreview"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div style="font-size:var(--font-min);color:var(--text-3)">
+            <div style="font-weight:600;color:var(--text-2);margin-bottom:2px" id="gestorPhotoStatus">Nenhuma foto</div>
+            Informe o e-mail e busque no Slack, ou faça upload manual.<br>
+            <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="document.getElementById('gestorPhotoInput').click()">+ Upload manual</span>
+          </div>
+        </div>
+        <input type="file" id="gestorPhotoInput" accept="image/*" onchange="previewGestorPhoto(this)">
+        <input type="hidden" id="gestorPhoto">
+      </div>
+      <div class="form-group full">
+        <label>URL do LinkedIn</label>
+        <input class="form-control" type="url" id="gestorLinkedin" placeholder="https://linkedin.com/in/...">
+      </div>
       <div class="form-group"><label>Telefone</label><input class="form-control" type="tel" id="gestorTelefone" placeholder="(11) 99999-9999"></div>
       <div class="form-group">
         <label>Cliente</label>
@@ -901,7 +926,7 @@ function mapProjeto(r){
   return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#34D399',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||''};
 }
 function mapGestor(r){
-  return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
+  return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo,linkedin:r.linkedin||'',photo:r.photo_url||''};
 }
 function mapAlocado(r){
   return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,companyEmail:r.company_email||'',equipamento:r.equipamento||'Notebook',unidadeNegocio:r.unidade_negocio||'OneBrain',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[],favorito:r.favorito||false};
@@ -2984,7 +3009,7 @@ function filterGestores(){
     const pr=db.projetos.find(p=>p.id===g.projetoId);
     const atv=db.alocados.filter(a=>a.gestorId===g.id&&a.status==='Ativo').length;
     return`<tr onclick="openGestorDetail('${g.id}')">
-      <td><div class="cell-name"><div class="avatar"><span>${getI(g.nome)}</span></div><div><div class="name-main">${g.nome}</div><div class="name-sub">${g.telefone||''}</div></div></div></td>
+      <td><div class="cell-name"><div class="avatar">${g.photo?`<img src="${g.photo}">`:`<span>${getI(g.nome)}</span>`}</div><div><div class="name-main">${g.nome}</div><div class="name-sub">${g.telefone||''}</div></div></div></td>
       <td style="color:var(--blue)">${g.email}</td>
       <td>${g.telefone||'—'}</td>
       <td>${g.cliente||'—'}</td>
@@ -3416,21 +3441,31 @@ function _redeShortName(full){
 
 function _redeMkGestorNode(gestor, tipo){
   const isMaster = tipo === 'master';
-  return {
+  const corBorder = isMaster ? '#04342C' : '#0F6E56';
+  const base = {
     id: 'gst_' + gestor.id,
     label: _redeShortName(gestor.nome),
     group: isMaster ? 'master' : 'time',
     nomeOriginal: gestor.nome,
     gestorTipo: gestor.tipo,
-    shape: 'dot',
-    size: isMaster ? 20 : 16,
-    color: isMaster
-      ? { background:'#0F6E56', border:'#04342C', highlight:{background:'#1D9E75',border:'#04342C'} }
-      : { background:'#5DCAA5', border:'#0F6E56', highlight:{background:'#1D9E75',border:'#0F6E56'} },
+    size: isMaster ? 22 : 18,
     font: { size: 11, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' },
-    borderWidth: 1,
-    borderWidthSelected: 2
+    borderWidth: 2,
+    borderWidthSelected: 3
   };
+  if(gestor.photo){
+    return Object.assign({}, base, {
+      shape: 'circularImage',
+      image: gestor.photo,
+      color: { border: corBorder, highlight: { border: '#FFFFFF' } }
+    });
+  }
+  return Object.assign({}, base, {
+    shape: 'dot',
+    color: isMaster
+      ? { background:'#0F6E56', border:corBorder, highlight:{background:'#1D9E75',border:corBorder} }
+      : { background:'#5DCAA5', border:corBorder, highlight:{background:'#1D9E75',border:corBorder} }
+  });
 }
 
 function _redeGetVHRange(){
@@ -3828,11 +3863,12 @@ function _redeBuscar(){
 
 function _redeCardGestor(g){
   const tipoBadge = g.tipo === 'Master' ? 'b-amber' : 'b-blue';
-  const initials = getI(g.nome);
   return `
     <div style="background:#111;border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.6);pointer-events:auto">
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-        <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text-2);flex-shrink:0">${initials}</div>
+        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text-2);flex-shrink:0">
+          ${g.photo?`<img src="${g.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span>${getI(g.nome)}</span>`}
+        </div>
         <div style="min-width:0">
           <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;line-height:1.2">${g.nome}</div>
           <div style="margin-top:4px"><span class="badge ${tipoBadge}" style="font-size:10px">${g.tipo}</span></div>
@@ -3841,6 +3877,7 @@ function _redeCardGestor(g){
       <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between;border-top:1px solid var(--border)"><span style="color:var(--text-3)">Cliente</span><span>${g.cliente||'—'}</span></div>
       <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">E-mail</span><span style="font-size:11px;color:var(--blue);text-align:right;word-break:break-all">${g.email||'—'}</span></div>
       ${g.telefone?`<div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Telefone</span><span>${g.telefone}</span></div>`:''}
+      ${g.linkedin?`<div style="font-size:12px;padding:4px 0"><a href="${g.linkedin}" target="_blank" style="color:var(--blue)">LinkedIn ↗</a></div>`:''}
       <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="openGestorDetail('${g.id}');_redeFecharPop()">Ver perfil completo</button>
     </div>`;
 }
@@ -4554,9 +4591,11 @@ function openGestorDetail(id){
   const g=db.gestores.find(x=>x.id===id);if(!g)return;
   const pr=db.projetos.find(x=>x.id===g.projetoId);
   const team=db.alocados.filter(a=>a.gestorId===id);
-  document.getElementById('detailAvatar').textContent=getI(g.nome);
+  document.getElementById('detailAvatar').innerHTML=g.photo?`<img src="${g.photo}">`:getI(g.nome);
   document.getElementById('detailName').textContent=g.nome;
   document.getElementById('detailRole').textContent=g.tipo+' · '+(g.cliente||'');
+  const dU=document.getElementById('detailUnidade'); if(dU) dU.textContent='';
+  const dE=document.getElementById('detailEmail'); if(dE) dE.textContent='';
   document.getElementById('detailBody').innerHTML=`
     <div class="d-section">
       <div class="d-section-title">Informações</div>
@@ -4565,6 +4604,7 @@ function openGestorDetail(id){
       <div class="d-row"><span class="d-label">Cliente</span><span class="d-val">${g.cliente||'—'}</span></div>
       <div class="d-row"><span class="d-label">Projeto</span><span class="d-val">${pr?pr.nome:'—'}</span></div>
       <div class="d-row"><span class="d-label">Tipo</span><span class="d-val"><span class="badge ${g.tipo==='Master'?'b-amber':'b-blue'}">${g.tipo}</span></span></div>
+      ${g.linkedin?`<div class="d-row"><span class="d-label">LinkedIn</span><span class="d-val"><a href="${g.linkedin}" target="_blank" style="color:var(--blue)">Ver perfil ↗</a></span></div>`:''}
     </div>
     <div class="d-section">
       <div class="d-section-title">Time (${team.length})</div>
@@ -4684,6 +4724,45 @@ async function fetchSlackPhoto(){
   }
 }
 function previewPhoto(input){const file=input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{const d=e.target.result;document.getElementById('alocadoPhoto').value=d;document.getElementById('photoPreviewCircle').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover">`;document.getElementById('photoStatusText').textContent='Foto carregada'};r.readAsDataURL(file)}
+
+async function fetchGestorSlackPhoto(){
+  const email=document.getElementById('gestorEmail').value.trim();
+  if(!email){showToast('Informe o e-mail primeiro');return}
+  document.getElementById('gestorPhotoStatus').textContent='Buscando no Slack...';
+  try{
+    const res=await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/slack-photo',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'},
+      body:JSON.stringify({email})
+    });
+    const data=await res.json();
+    if(!data.ok){showToast('Não encontrado: '+(data.error||'sem foto'));document.getElementById('gestorPhotoStatus').textContent='Não encontrado';return}
+    if(data.photo){
+      document.getElementById('gestorPhoto').value=data.photo;
+      document.getElementById('gestorPhotoPreview').innerHTML=`<img src="${data.photo}" style="width:100%;height:100%;object-fit:cover">`;
+      document.getElementById('gestorPhotoStatus').textContent='Foto encontrada!';
+      showToast('Foto carregada com sucesso!');
+    }
+    if(data.nome&&!document.getElementById('gestorNome').value){
+      document.getElementById('gestorNome').value=data.nome;
+    }
+  }catch(e){
+    showToast('Erro: '+e.message);
+    document.getElementById('gestorPhotoStatus').textContent='Erro na busca';
+  }
+}
+
+function previewGestorPhoto(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const d=e.target.result;
+    document.getElementById('gestorPhoto').value=d;
+    document.getElementById('gestorPhotoPreview').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover">`;
+    document.getElementById('gestorPhotoStatus').textContent='Foto carregada';
+  };
+  r.readAsDataURL(file);
+}
 
 /* ─── MODALS ALOCADO ──────────────────────────────────── */
 function openModalAlocado(id){
@@ -4869,7 +4948,10 @@ function openModalGestorEdit(id){
   document.getElementById('modalGestorTitle').textContent=id?'Editar Gestor':'Cadastrar Gestor';
   document.getElementById('gestorSaveBtn').textContent=id?'Salvar':'Enviar Link Mágico';
   document.getElementById('gestorInfoBox').style.display=id?'none':'block';
-  ['gestorNome','gestorEmail','gestorTelefone'].forEach(f=>{document.getElementById(f).value=''});
+  ['gestorNome','gestorEmail','gestorTelefone','gestorLinkedin'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
+  document.getElementById('gestorPhoto').value='';
+  document.getElementById('gestorPhotoPreview').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  document.getElementById('gestorPhotoStatus').textContent='Nenhuma foto';
   document.getElementById('gestorTipo').value='Gestor de Time';
   buildGestorClienteSelect('');
   document.getElementById('gestorProjeto').innerHTML='<option value="">Selecione...</option>';
@@ -4879,7 +4961,13 @@ function openModalGestorEdit(id){
       document.getElementById('gestorNome').value=g.nome;
       document.getElementById('gestorEmail').value=g.email;
       document.getElementById('gestorTelefone').value=g.telefone||'';
+      document.getElementById('gestorLinkedin').value=g.linkedin||'';
       document.getElementById('gestorTipo').value=g.tipo;
+      if(g.photo){
+        document.getElementById('gestorPhoto').value=g.photo;
+        document.getElementById('gestorPhotoPreview').innerHTML=`<img src="${g.photo}" style="width:100%;height:100%;object-fit:cover">`;
+        document.getElementById('gestorPhotoStatus').textContent='Foto carregada';
+      }
       buildGestorClienteSelect(g.cliente||'');
       const ps=document.getElementById('gestorProjeto');
       ps.innerHTML='<option value="">Selecione...</option>'+db.projetos.filter(p=>!g.cliente||p.cliente===g.cliente).map(p=>`<option value="${p.id}"${p.id===g.projetoId?' selected':''}>${p.nome}</option>`).join('');
@@ -4890,7 +4978,16 @@ function openModalGestorEdit(id){
 async function salvarGestor(){
   const nome=document.getElementById('gestorNome').value.trim();const email=document.getElementById('gestorEmail').value.trim();
   if(!nome||!email){showToast('Informe nome e e-mail');return}
-  const payload={nome,email,telefone:document.getElementById('gestorTelefone').value||null,cliente:document.getElementById('gestorCliente').value||null,projeto_id:document.getElementById('gestorProjeto').value||null,tipo:document.getElementById('gestorTipo').value};
+  const payload={
+    nome,
+    email,
+    telefone:document.getElementById('gestorTelefone').value||null,
+    cliente:document.getElementById('gestorCliente').value||null,
+    projeto_id:document.getElementById('gestorProjeto').value||null,
+    tipo:document.getElementById('gestorTipo').value,
+    linkedin:document.getElementById('gestorLinkedin').value.trim()||null,
+    photo_url:document.getElementById('gestorPhoto').value||null
+  };
   const id=document.getElementById('gestorId').value;
   let err;
   if(id){({error:err}=await supa.from('gestores').update(payload).eq('id',id));}
