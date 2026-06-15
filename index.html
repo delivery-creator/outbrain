@@ -3497,6 +3497,24 @@ function _redeExpandMaster(masterNodeId){
   return true;
 }
 
+function _redeExpandTime(timeNodeId){
+  const timeId = timeNodeId.replace(/^gst_/, '');
+  const time = db.gestores.find(g => g.id === timeId);
+  if(!time) return false;
+  const vhRange = _redeGetVHRange();
+  let added = 0;
+  const alocados = db.alocados.filter(a => a.gestorId === time.id && (a.status === 'Ativo' || a.status === 'Em Admissão'));
+  alocados.forEach(a => {
+    const nodeId = 'aloc_' + a.id;
+    if(!_redeNodes.get(nodeId)) _redeNodes.add(_redeMkAlocadoNode(a, vhRange));
+    const edgeId = 'e_' + timeNodeId + '__' + nodeId;
+    if(!_redeEdges.get(edgeId)){ _redeEdges.add({ id: edgeId, from: timeNodeId, to: nodeId }); added++; }
+  });
+  if(added === 0){ console.log('[Rede] time sem alocados:', time.nome); return false; }
+  console.log('[Rede] time expandiu:', time.nome, '|', alocados.length, 'alocados');
+  return true;
+}
+
 function _redeExpandCliente(clienteNodeId){
   const cliente = clienteNodeId.replace(/^cli_/, '');
   const masters = db.gestores.filter(g => g.cliente === cliente && g.tipo === 'Master');
@@ -3652,6 +3670,14 @@ function renderRede(mc){
         console.log('[Rede] colapsou master:', node.label);
       } else {
         const ok = _redeExpandMaster(nodeId);
+        if(ok) _redeExpanded.add(nodeId);
+      }
+    } else if(node.group === 'time'){
+      if(_redeExpanded.has(nodeId)){
+        _redeColapsar(nodeId);
+        console.log('[Rede] colapsou time:', node.label);
+      } else {
+        const ok = _redeExpandTime(nodeId);
         if(ok) _redeExpanded.add(nodeId);
       }
     }
