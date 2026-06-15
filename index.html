@@ -625,6 +625,19 @@ input[type=file]{display:none}
         <label>Cor do Projeto</label>
         <input class="form-control" type="color" id="projetoCor" value="#34D399">
       </div>
+      <div class="form-group full">
+        <label>Foto do Cliente</label>
+        <div class="photo-row">
+          <div class="photo-circle" id="clientePhotoPreview"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div style="font-size:var(--font-min);color:var(--text-3)">
+            <div style="font-weight:600;color:var(--text-2);margin-bottom:2px" id="clientePhotoStatus">Nenhuma foto</div>
+            Faça upload de uma foto/logo do cliente.<br>
+            <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="document.getElementById('clientePhotoInput').click()">+ Upload manual</span>
+          </div>
+        </div>
+        <input type="file" id="clientePhotoInput" accept="image/*" onchange="previewClientePhoto(this)">
+        <input type="hidden" id="clientePhoto">
+      </div>
       <div class="form-group">
         <label>Status</label>
         <select class="form-control" id="projetoStatus">
@@ -915,7 +928,7 @@ function calcTurnoverMetrics(ano, filtroProjetoIds) {
 
 /* ─── MAPPERS ─────────────────────────────────────────── */
 function mapProjeto(r){
-  return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#34D399',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||''};
+  return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#34D399',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||'',photo:r.photo_url||''};
 }
 function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo,linkedin:r.linkedin||'',photo:r.photo_url||''};
@@ -3541,6 +3554,49 @@ function _redeFecharPop(){
   if(pop) pop.style.display = 'none';
 }
 
+function _redeColapsarTudo(){
+  if(!_redeNetwork || !_redeNodes) return;
+  const expandidos = Array.from(_redeExpanded);
+  expandidos.forEach(nodeId => { try{ _redeColapsar(nodeId); }catch(e){} });
+  _redeFecharPop();
+  _redeNetwork.unselectAll();
+  const sel = document.getElementById('redeClienteSel');
+  if(sel) sel.value = '';
+  console.log('[Rede] colapsou tudo');
+}
+
+function _redeFocarCliente(cliente){
+  if(!cliente || !_redeNetwork || !_redeNodes) return;
+  const clienteNodeId = 'cli_' + cliente;
+  const outros = Array.from(_redeExpanded).filter(id => id.startsWith('cli_') && id !== clienteNodeId);
+  outros.forEach(id => { try{ _redeColapsar(id); }catch(e){} });
+  if(!_redeExpanded.has(clienteNodeId)){
+    const ok = _redeExpandCliente(clienteNodeId);
+    if(ok) _redeExpanded.add(clienteNodeId);
+  }
+  const masters = db.gestores.filter(g => g.cliente === cliente && g.tipo === 'Master');
+  masters.forEach(m => {
+    const gid = 'gst_' + m.id;
+    if(_redeNodes.get(gid) && !_redeExpanded.has(gid)){
+      const ok = _redeExpandMaster(gid);
+      if(ok) _redeExpanded.add(gid);
+    }
+  });
+  const times = db.gestores.filter(g => g.cliente === cliente && g.tipo === 'Gestor de Time');
+  times.forEach(t => {
+    const gid = 'gst_' + t.id;
+    if(_redeNodes.get(gid) && !_redeExpanded.has(gid)){
+      const ok = _redeExpandTime(gid);
+      if(ok) _redeExpanded.add(gid);
+    }
+  });
+  setTimeout(() => {
+    _redeNetwork.focus(clienteNodeId, { scale: 1.0, animation: { duration: 600 } });
+    _redeNetwork.selectNodes([clienteNodeId]);
+  }, 200);
+  console.log('[Rede] focou em:', cliente);
+}
+
 function _redeBuscar(){
   const input = document.getElementById('redeBusca');
   const q = (input?.value||'').toLowerCase().trim();
@@ -4053,21 +4109,31 @@ function _redeClienteSize(fat, range){
 function _redeMkClienteNode(cliente, fatRange){
   const proj = db.projetos.find(p => p.cliente === cliente);
   const cor = proj?.cor || '#888780';
+  const foto = db.projetos.find(p => p.cliente === cliente && p.photo)?.photo || '';
   const fat = _redeFatAnual(cliente);
   const size = fatRange ? _redeClienteSize(fat, fatRange) : 26;
-  return {
+  const base = {
     id: 'cli_' + cliente,
     label: cliente,
     group: 'cliente',
     nomeOriginal: cliente,
     fatAnual: fat,
-    shape: 'dot',
     size: size,
-    color: { background: cor, border: cor, highlight: { background: cor, border: '#FFFFFF' } },
     font: { size: 13, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' },
-    borderWidth: 2,
-    borderWidthSelected: 4
+    borderWidth: 3,
+    borderWidthSelected: 5
   };
+  if(foto){
+    return Object.assign({}, base, {
+      shape: 'circularImage',
+      image: foto,
+      color: { border: cor, highlight: { border: '#FFFFFF' } }
+    });
+  }
+  return Object.assign({}, base, {
+    shape: 'dot',
+    color: { background: cor, border: cor, highlight: { background: cor, border: '#FFFFFF' } }
+  });
 }
 
 async function renderRede(mc){
@@ -4084,10 +4150,10 @@ async function renderRede(mc){
 
   mc.innerHTML = `
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-    <div class="search-box" style="width:240px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="text" placeholder="Buscar pessoa ou cliente..." id="redeBusca" oninput="_redeBuscar()">
-    </div>
+    <select class="filter-sel" id="redeClienteSel" onchange="_redeFocarCliente(this.value)" style="width:240px">
+      <option value="">Focar cliente...</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="_redeColapsarTudo()">Colapsar tudo</button>
     <button class="btn btn-ghost btn-sm" onclick="_redeCentralizar()">Centralizar</button>
     <button class="btn btn-ghost btn-sm" onclick="_redeTogglePhysics()" id="redePhysicsBtn">Pausar física</button>
     <div style="margin-left:auto;display:flex;gap:14px;align-items:center;font-size:11px;color:var(--text-3);flex-wrap:wrap">
@@ -4111,6 +4177,12 @@ async function renderRede(mc){
   _redeNodes = new vis.DataSet(clientes.map(c => _redeMkClienteNode(c, fatRange)));
   _redeEdges = new vis.DataSet();
   console.log('[Rede] range de faturamento:', fatRange);
+
+  const sel = document.getElementById('redeClienteSel');
+  if(sel){
+    sel.innerHTML = '<option value="">Focar cliente...</option>' +
+      [...clientes].sort((a,b)=>a.localeCompare(b)).map(c => `<option value="${c}">${c}</option>`).join('');
+  }
 
   if(clientes.length === 0){
     document.getElementById('redeHint').textContent = 'Nenhum cliente visível pra este perfil';
@@ -4757,6 +4829,18 @@ function previewGestorPhoto(input){
   r.readAsDataURL(file);
 }
 
+function previewClientePhoto(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const d=e.target.result;
+    document.getElementById('clientePhoto').value=d;
+    document.getElementById('clientePhotoPreview').innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:cover">`;
+    document.getElementById('clientePhotoStatus').textContent='Foto carregada';
+  };
+  r.readAsDataURL(file);
+}
+
 /* ─── MODALS ALOCADO ──────────────────────────────────── */
 function openModalAlocado(id){
   selectedStacks=[];histSal=[];histVH=[];origSal=null;origVH=null;
@@ -5054,6 +5138,9 @@ function openModalProjetoEdit(id){
   document.getElementById('projetoId').value=id||'';
   document.getElementById('modalProjetoTitle').textContent=id?'Editar Cliente/Projeto':'Novo Cliente';
   ['projetoNome','projetoInicio','projetoFim','projetoContratoPDF','projetoAditivos','projetoMotivo','projetoClienteNovo'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
+  document.getElementById('clientePhoto').value='';
+  document.getElementById('clientePhotoPreview').innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  document.getElementById('clientePhotoStatus').textContent='Nenhuma foto';
   selectedProjetos=[];
   const pg=document.getElementById('projetoGrid');if(pg)pg.innerHTML='';
   document.getElementById('projetoContrato').value='Essencial';
@@ -5078,6 +5165,12 @@ function openModalProjetoEdit(id){
     document.getElementById('projetoStatus').value=p.status;
     document.getElementById('projetoMotivo').value=p.motivo||'';
     document.getElementById('motivoEncerramentoGroup').classList.toggle('hidden',p.status==='Ativo');
+    const fotoCli = db.projetos.find(x => x.cliente === p.cliente && x.photo)?.photo || '';
+    if(fotoCli){
+      document.getElementById('clientePhoto').value = fotoCli;
+      document.getElementById('clientePhotoPreview').innerHTML = `<img src="${fotoCli}" style="width:100%;height:100%;object-fit:cover">`;
+      document.getElementById('clientePhotoStatus').textContent = 'Foto carregada';
+    }
   }
   openModal('modalProjeto');
 }
@@ -5087,7 +5180,8 @@ async function salvarProjeto(){
   if(clienteSel==='__new__')clienteSel=document.getElementById('projetoClienteNovo').value.trim();
   if(!clienteSel){showToast('Informe o cliente');return}
   const status=document.getElementById('projetoStatus').value;
-  const basePayload={cliente:clienteSel,contrato:document.getElementById('projetoContrato').value,inicio:document.getElementById('projetoInicio').value||null,fim:document.getElementById('projetoFim').value||null,contrato_link:document.getElementById('projetoContratoPDF').value||null,aditivos:document.getElementById('projetoAditivos').value||null,cor:document.getElementById('projetoCor').value,status,motivo:document.getElementById('projetoMotivo').value||null};
+  const fotoCliente = document.getElementById('clientePhoto').value||null;
+  const basePayload={cliente:clienteSel,contrato:document.getElementById('projetoContrato').value,inicio:document.getElementById('projetoInicio').value||null,fim:document.getElementById('projetoFim').value||null,contrato_link:document.getElementById('projetoContratoPDF').value||null,aditivos:document.getElementById('projetoAditivos').value||null,cor:document.getElementById('projetoCor').value,photo_url:fotoCliente,status,motivo:document.getElementById('projetoMotivo').value||null};
   for(const sp of selectedProjetos){
     if(sp.id===''&&sp.nome){
       await supa.from('projetos').insert({...basePayload,nome:sp.nome});
@@ -5099,6 +5193,9 @@ async function salvarProjeto(){
         for(const a of ativosProj){await supa.from('alocados').update({desligamento:basePayload.fim}).eq('id',a.id);}
       }
     }
+  }
+  if(fotoCliente){
+    await supa.from('projetos').update({photo_url: fotoCliente}).eq('cliente', clienteSel);
   }
   await loadAll();closeModal('modalProjeto');renderClientes(document.getElementById('mainContent'));showToast(selectedProjetos.length>1?'Projetos salvos!':'Projeto salvo!');
 }
