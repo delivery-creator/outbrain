@@ -381,6 +381,13 @@ input[type=file]{display:none}
         <input class="form-control" type="url" id="alocadoLinkedin" placeholder="https://linkedin.com/in/...">
       </div>
       <div class="form-group full">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+          <input type="checkbox" id="alocadoFavorito" style="accent-color:var(--amber);width:14px;height:14px">
+          <span style="display:flex;align-items:center;gap:6px">⭐ Marcar como destaque</span>
+        </label>
+        <span class="calc-note">Aparece com borda dourada e estrela na Rede</span>
+      </div>
+      <div class="form-group full">
         <label>E-mail Corporativo</label>
         <div style="display:flex;gap:7px">
           <input class="form-control" type="email" id="alocadoSlackEmail" placeholder="email@empresa.com" style="flex:1">
@@ -897,7 +904,7 @@ function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo};
 }
 function mapAlocado(r){
-  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,companyEmail:r.company_email||'',equipamento:r.equipamento||'Notebook',unidadeNegocio:r.unidade_negocio||'OneBrain',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[]};
+  return {id:r.id,nome:r.nome,linkedin:r.linkedin||'',photo:r.photo_url||'',cargo:r.cargo,senioridade:r.senioridade||'',modalidade:r.modalidade||'',margem:r.margem||null,valorHoraCTH:r.valor_hora_cth||null,companyEmail:r.company_email||'',equipamento:r.equipamento||'Notebook',unidadeNegocio:r.unidade_negocio||'OneBrain',stack:r.stack||[],gestorId:r.gestor_id||'',projetoId:r.projeto_id||'',contrato:r.contrato,salario:Number(r.salario)||0,valorHora:Number(r.valor_hora)||0,admissao:r.admissao||'',desligamento:r.desligamento||'',salarioHist:r._hist_sal||[],valorHoraHist:r._hist_vh||[],favorito:r.favorito||false};
 }
 function mapTurnover(r){
   return {id:r.id,alocadoId:r.alocado_id,alocadoNome:r.alocado_nome,data:r.data_desl,motivo:r.motivo,obs:r.obs||'',substituicaoId:r.substituto_id||'',substituicao:r.substituicao_obs||'',status:r.status};
@@ -3444,9 +3451,13 @@ function _redeMkAlocadoNode(a, vhRange){
   const size = _redeAlocadoSize(vh, vhRange);
   const projeto = db.projetos.find(p => p.id === a.projetoId);
   const corProjeto = projeto?.cor || '#993C1D';
+  const fav = !!a.favorito;
+  const borderCor = fav ? '#FBBF24' : corProjeto;
+  const borderW = fav ? 4 : 2;
+  const labelTexto = (fav ? '⭐ ' : '') + _redeShortName(a.nome);
   const base = {
     id: 'aloc_' + a.id,
-    label: _redeShortName(a.nome),
+    label: labelTexto,
     group: 'alocado',
     nomeOriginal: a.nome,
     cargo: a.cargo,
@@ -3454,21 +3465,22 @@ function _redeMkAlocadoNode(a, vhRange){
     vh: vh,
     projetoId: a.projetoId,
     status: a.status,
+    favorito: fav,
     size: size,
-    borderWidth: 2,
-    borderWidthSelected: 3,
-    font: { size: 10, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' }
+    borderWidth: borderW,
+    borderWidthSelected: borderW + 1,
+    font: { size: 10, face: 'Poppins, sans-serif', color: fav ? '#FBBF24' : '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' }
   };
   if(a.photo){
     return Object.assign({}, base, {
       shape: 'circularImage',
       image: a.photo,
-      color: { border: corProjeto, highlight: { border: corProjeto } }
+      color: { border: borderCor, highlight: { border: borderCor } }
     });
   }
   return Object.assign({}, base, {
     shape: 'dot',
-    color: { background: '#F0997B', border: corProjeto, highlight: { background: '#D85A30', border: corProjeto } }
+    color: { background: '#F0997B', border: borderCor, highlight: { background: '#D85A30', border: borderCor } }
   });
 }
 
@@ -3837,15 +3849,23 @@ function _redeCardAlocado(a){
   const projeto = db.projetos.find(p => p.id === a.projetoId);
   const gestor = db.gestores.find(g => g.id === a.gestorId);
   const vh = getVH(a);
+  const estrela = a.favorito ? '★' : '☆';
+  const estrelaCor = a.favorito ? '#FBBF24' : 'var(--text-3)';
+  const estrelaTitle = a.favorito ? 'Remover destaque' : 'Marcar como destaque';
   return `
     <div style="background:#111;border:1px solid var(--border-2);border-radius:var(--radius-lg);padding:14px 16px;width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.6);pointer-events:auto">
-      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text-2);flex-shrink:0">
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
+        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--text-2);flex-shrink:0;${a.favorito?'box-shadow:0 0 0 2px #FBBF24':''}">
           ${a.photo?`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span>${getI(a.nome)}</span>`}
         </div>
-        <div style="min-width:0">
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;line-height:1.2">${a.nome}</div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fCargo(a.cargo, a.senioridade)}</div>
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+            <div style="min-width:0">
+              <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;line-height:1.2">${a.nome}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${fCargo(a.cargo, a.senioridade)}</div>
+            </div>
+            <button onclick="_redeToggleFavorito('${a.id}')" title="${estrelaTitle}" style="background:none;border:none;color:${estrelaCor};font-size:20px;cursor:pointer;padding:0;line-height:1;flex-shrink:0">${estrela}</button>
+          </div>
         </div>
       </div>
       <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between;border-top:1px solid var(--border)"><span style="color:var(--text-3)">V/H</span><span style="font-weight:600">${fBRL(vh)}/h${a.valorHoraCTH?' <span class="badge b-amber" style="font-size:10px">CTH</span>':''}</span></div>
@@ -3856,6 +3876,25 @@ function _redeCardAlocado(a){
       ${a.linkedin?`<div style="font-size:12px;padding:4px 0"><a href="${a.linkedin}" target="_blank" style="color:var(--blue)">LinkedIn ↗</a></div>`:''}
       <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="openDetailById('${a.id}');_redeFecharPop()">Ver perfil completo</button>
     </div>`;
+}
+
+async function _redeToggleFavorito(id){
+  const a = db.alocados.find(x => x.id === id);
+  if(!a) return;
+  const novoValor = !a.favorito;
+  const {error} = await supa.from('alocados').update({favorito: novoValor}).eq('id', id);
+  if(error){ showToast('Erro: '+error.message); return; }
+  a.favorito = novoValor;
+  const nodeId = 'aloc_' + id;
+  if(_redeNodes && _redeNodes.get(nodeId)){
+    const vhRange = _redeGetVHRange();
+    _redeNodes.update(_redeMkAlocadoNode(a, vhRange));
+  }
+  const pop = document.getElementById('redePop');
+  if(pop && pop.style.display !== 'none'){
+    pop.innerHTML = _redeCardAlocado(a);
+  }
+  showToast(novoValor ? '⭐ Marcado como destaque' : 'Destaque removido');
 }
 
 function _redeMostrarPop(nodeId, domPos){
@@ -3964,6 +4003,8 @@ function _redeClientesVisiveis(){
 }
 
 function _redeMkClienteNode(cliente){
+  const proj = db.projetos.find(p => p.cliente === cliente);
+  const cor = proj?.cor || '#888780';
   return {
     id: 'cli_' + cliente,
     label: cliente,
@@ -3971,10 +4012,10 @@ function _redeMkClienteNode(cliente){
     nomeOriginal: cliente,
     shape: 'dot',
     size: 26,
-    color: { background: '#B4B2A9', border: '#5F5E5A', highlight: { background: '#888780', border: '#5F5E5A' } },
+    color: { background: cor, border: cor, highlight: { background: cor, border: '#FFFFFF' } },
     font: { size: 13, face: 'Poppins, sans-serif', color: '#d0d0c8', strokeWidth: 3, strokeColor: '#0a0a0a' },
-    borderWidth: 1,
-    borderWidthSelected: 2
+    borderWidth: 2,
+    borderWidthSelected: 4
   };
 }
 
@@ -4650,6 +4691,7 @@ function openModalAlocado(id){
   document.getElementById('alocadoId').value=id||'';
   document.getElementById('modalAlocadoTitle').textContent=id?'Editar Alocado':'Cadastrar Alocado';
   ['alocadoNome','alocadoLinkedin','alocadoSlackEmail','alocadoSalario','alocadoVH','alocadoMC','alocadoAdm','alocadoDesl','alocadoStatus','alocadoMeses'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
+  const favEl=document.getElementById('alocadoFavorito'); if(favEl) favEl.checked=false;
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoCargo').value='';
   document.getElementById('alocadoContrato').value='Essencial';
@@ -4681,6 +4723,7 @@ function openModalAlocado(id){
     }
     document.getElementById('alocadoNome').value=a.nome;
     document.getElementById('alocadoLinkedin').value=a.linkedin||'';
+    const favEl2=document.getElementById('alocadoFavorito'); if(favEl2) favEl2.checked=a.favorito||false;
     document.getElementById('alocadoCargo').value=a.cargo;
     document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
     document.getElementById('alocadoModalidade').value=a.modalidade||'';
@@ -4762,7 +4805,8 @@ async function salvarAlocado(){
     unidade_negocio:document.getElementById('alocadoUnidade').value||'OneBrain',
     contrato:document.getElementById('alocadoContrato').value,
     admissao:adm||null,
-    desligamento:desl
+    desligamento:desl,
+    favorito:document.getElementById('alocadoFavorito')?.checked||false
   };
   const id=document.getElementById('alocadoId').value;
   let err;
