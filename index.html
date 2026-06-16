@@ -265,6 +265,87 @@ input[type=file]{display:none}
 .tv-metric-label{font-size:12px;font-weight:700;color:var(--text-3);letter-spacing:0.3px;margin-bottom:8px}
 .tv-metric-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;line-height:1;margin-bottom:4px}
 .tv-metric-sub{font-size:12px;color:var(--text-3)}
+
+/* HAMBURGER + BACKDROP (hidden on desktop) */
+.hamburger-btn{display:none;align-items:center;justify-content:center;width:38px;height:38px;margin-left:-8px;border:none;background:transparent;color:var(--text);border-radius:8px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.hamburger-btn:active{background:rgba(255,255,255,0.08)}
+.hamburger-btn svg{width:22px;height:22px}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);z-index:99;opacity:0;transition:opacity 0.22s}
+.sidebar-backdrop.show{opacity:1}
+
+/* ═══════════════ RESPONSIVE / MOBILE ═══════════════ */
+@media (max-width:900px){
+  /* Off-canvas sidebar */
+  .sidebar{transform:translateX(-100%);transition:transform 0.24s cubic-bezier(.4,0,.2,1);box-shadow:none;width:270px;max-width:84vw}
+  .sidebar.open{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,0.6)}
+  .sidebar-backdrop{display:block}
+  body.sidebar-locked{overflow:hidden}
+  .main{margin-left:0}
+  .hamburger-btn{display:inline-flex}
+
+  /* Topbar / content spacing */
+  .topbar{padding:0 14px;height:54px;gap:8px}
+  .topbar-title{font-size:15px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar-actions{flex-shrink:0}
+  .content{padding:16px 14px}
+  .topbar-actions .btn{padding:8px 12px}
+
+  /* Collapse multi-column grids to a single column */
+  .form-grid,.contact-grid{grid-template-columns:1fr!important}
+  .stats-grid,.viewer-stats,.tv-metrics{grid-template-columns:repeat(2,1fr)!important}
+  .content [style*="repeat(2,"],.content [style*="repeat(3,"],
+  .content [style*="repeat(4,"],.content [style*="repeat(5,"],
+  .content [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:repeat(2,1fr)!important}
+  .stack-grid{grid-template-columns:repeat(3,1fr)!important}
+
+  /* Detail side panel becomes full-screen sheet */
+  .detail-panel{width:100%;right:-100%}
+
+  /* Modals: nearly full-width sheet */
+  .modal-overlay{padding:0;align-items:flex-end}
+  .modal{max-width:100%!important;border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin:0;max-height:94vh;overflow-y:auto}
+  .modal-head{position:sticky;top:0;background:#0f0f0f;z-index:2}
+  .modal-footer{position:sticky;bottom:0;background:#0f0f0f}
+
+  /* Filter bars / toolbars: full-width controls that wrap */
+  .table-header,.proj-table-header{gap:8px}
+  .table-header .search-box{width:100%;order:-1}
+  .table-header .filter-sel,.filter-sel[style*="width"]{width:100%!important;min-width:0!important}
+  .table-header>div,.table-header .btn{flex:1 1 auto}
+
+  /* Tables scroll horizontally inside their card */
+  .table-card,.access-card{overflow-x:auto}
+  table{min-width:560px}
+
+  /* Hide hover-only row actions hint; keep them visible on touch */
+  .row-actions{opacity:1}
+
+  /* Login */
+  .login-card{padding:26px 20px}
+}
+
+@media (max-width:560px){
+  .content{padding:12px 10px}
+  .stats-grid,.viewer-stats,.tv-metrics,.contact-grid{grid-template-columns:1fr!important}
+  .content [style*="repeat(2,"],.content [style*="repeat(3,"],
+  .content [style*="repeat(4,"],.content [style*="repeat(5,"],
+  .content [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  .stack-grid{grid-template-columns:repeat(2,1fr)!important}
+  .stat-value{font-size:21px}
+  .tv-metric-value{font-size:18px}
+  .modal-body{padding:18px 16px}
+  .modal-head{padding:16px}
+  .dash-tab{margin-right:16px;font-size:13px}
+  .d-val{max-width:60%}
+}
+
+/* Larger touch targets on coarse pointers */
+@media (pointer:coarse){
+  .nav-item{padding:12px 10px}
+  .icon-btn{width:34px;height:34px}
+  .btn{padding:10px 15px}
+  select.filter-sel,.form-control{min-height:42px}
+}
 </style>
 </head>
 <body>
@@ -330,7 +411,8 @@ input[type=file]{display:none}
 
 <!-- APP -->
 <div id="appShell" class="hidden">
-<aside class="sidebar">
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="appSidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
       <svg width="571" height="236" viewBox="0 0 571 236" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:35px;width:auto">
@@ -357,6 +439,9 @@ input[type=file]{display:none}
 
 <main class="main">
 <div class="topbar">
+  <button class="hamburger-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="Menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
   <div class="topbar-title" id="pageTitle">Dashboard</div>
   <div class="topbar-actions" id="topbarActions"></div>
 </div>
@@ -1267,8 +1352,23 @@ function buildNav(){
   document.getElementById('sidebarNav').innerHTML=html;
 }
 
+/* ─── MOBILE SIDEBAR ──────────────────────────────────── */
+function toggleSidebar(){
+  const sb=document.getElementById('appSidebar');
+  const bd=document.getElementById('sidebarBackdrop');
+  const open=sb.classList.toggle('open');
+  bd.classList.toggle('show',open);
+  document.body.classList.toggle('sidebar-locked',open);
+}
+function closeSidebar(){
+  document.getElementById('appSidebar')?.classList.remove('open');
+  document.getElementById('sidebarBackdrop')?.classList.remove('show');
+  document.body.classList.remove('sidebar-locked');
+}
+
 /* ─── PAGE ROUTER ─────────────────────────────────────── */
 function showPage(p){
+  closeSidebar();
   window.location.hash = p;
   const pages=['dashboard','alocados','clientes','projetos','gestores','meutime','contato','turnover','internos','acesso','calculadora','rede'];
   pages.forEach(id=>{document.getElementById('nav-'+id)?.classList.remove('active')});
