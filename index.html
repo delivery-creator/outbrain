@@ -267,6 +267,16 @@ input[type=file]{display:none}
 .tv-metric-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;line-height:1;margin-bottom:4px}
 .tv-metric-sub{font-size:12px;color:var(--text-3)}
 
+/* CALCULADORA — grids responsivos */
+.calc-locais-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;align-items:flex-end}
+.calc-params-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px}
+.calc-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media (max-width:900px){
+  .calc-locais-grid{grid-template-columns:repeat(2,1fr)}
+  .calc-params-grid{grid-template-columns:repeat(2,1fr)}
+  .calc-cards-grid{grid-template-columns:1fr}
+}
+
 /* HAMBURGER + BACKDROP (hidden on desktop) */
 .hamburger-btn{display:none;align-items:center;justify-content:center;width:38px;height:38px;margin-left:-8px;border:none;background:transparent;color:var(--text);border-radius:8px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .hamburger-btn:active{background:rgba(255,255,255,0.08)}
@@ -3256,7 +3266,7 @@ async function renderCalculadora(mc){
   </div>
 
   <div class="chart-card" style="margin-bottom:16px">
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;align-items:flex-end">
+    <div class="calc-locais-grid">
       <div class="form-group">
         <label>Margem %</label>
         <div style="display:flex;align-items:center;gap:5px">
@@ -3302,7 +3312,7 @@ async function renderCalculadora(mc){
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+  <div class="calc-cards-grid">
     <div class="chart-card">
       <div class="chart-title" style="margin-bottom:12px">Calculadora — Valor Hora</div>
       <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rVH_custoCliente" style="font-weight:600;color:var(--text)">R$ 0,00</span></div>
@@ -3353,7 +3363,9 @@ async function salvarCalcImagem(){
       backgroundColor: '#000000',
       scale: 2,
       useCORS: true,
-      logging: false
+      logging: false,
+      windowWidth: document.documentElement.clientWidth,
+      windowHeight: document.documentElement.clientHeight
     });
     const link = document.createElement('a');
     link.download = `calculadora-${_calcUnidadeSel}-${toISO(TODAY)}.png`;
@@ -3389,7 +3401,7 @@ function _calcParamBaseInner(p){
       <span class="badge b-gray">Embaixador ${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}%</span>
     </div>
     <div id="paramEditModeDiv" style="display:none">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px">
+      <div class="calc-params-grid">
         <div class="form-group"><label>Horas/mês</label><input class="form-control" type="number" id="paramHoras" value="${p.horas_mes}" oninput="recalcAll_calc()"></div>
         <div class="form-group"><label>Imposto (%)</label><input class="form-control" type="number" id="paramImposto" value="${(p.imposto*100).toFixed(0)}" oninput="recalcAll_calc()"></div>
         <div class="form-group"><label>Infra (R$)</label><input class="form-control" type="number" id="paramInfra" value="${p.infra}" oninput="recalcAll_calc()"></div>
