@@ -3219,87 +3219,46 @@ function renderContato(mc){
 /* ─── CALCULADORA ─────────────────────────────────────── */
 let paramCalc = null;
 let paramEditMode = false;
+let _paramCalcMap = {};            // { OneBrain:{...}, Outforce:{...} }
+let _calcUnidadeSel = 'OneBrain';
 
 function fBRL2(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 
 async function loadParamCalc(){
-  const {data} = await supa.from('parametros_calculadora').select('*').single();
-  paramCalc = data;
+  const {data, error} = await supa.from('parametros_calculadora').select('*');
+  if(error) console.error('[Calc] erro params:', error);
+  _paramCalcMap = {};
+  (data||[]).forEach(r => { if(r.unidade) _paramCalcMap[r.unidade] = r; });
+  paramCalc = _paramCalcMap[_calcUnidadeSel] || (data && data[0]) || null;
+  console.log('[Calc] unidades:', Object.keys(_paramCalcMap), '| ativa:', _calcUnidadeSel);
 }
 
 async function renderCalculadora(mc){
   await loadParamCalc();
-  const isE = isEditor();
+  if(!paramCalc){
+    mc.innerHTML = `<div class="empty-state"><div class="empty-text">Sem parâmetros de calculadora</div><div class="empty-sub">Rode a migration e confira o RLS de parametros_calculadora.</div></div>`;
+    return;
+  }
   const p = paramCalc;
+  const isE = isEditor();
   paramEditMode = false;
 
   mc.innerHTML=`
-  <!-- PARÂMETROS BASE -->
-  <div class="chart-card" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div class="chart-title" style="margin-bottom:0">Parâmetros Base</div>
-      ${isE?`<button class="btn btn-ghost btn-sm" id="btnEditParam" onclick="toggleEditParam()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Editar
-      </button>`:''}
-    </div>
-    <!-- MODO LEITURA -->
-    <div id="paramReadMode" style="display:flex;flex-wrap:wrap;gap:6px">
-      <span class="badge b-gray">Horas/mês ${p.horas_mes}</span>
-      <span class="badge b-gray">Imposto ${(p.imposto*100).toFixed(0)}%</span>
-      <span class="badge b-gray">Infra ${fBRL(p.infra)}</span>
-      <span class="badge b-gray">Custo CLT ${(p.custo_clt*100).toFixed(0)}%</span>
-      <span class="badge b-gray">PIS+COFINS ${(p.pis_cofins*100).toFixed(2)}%</span>
-      <span class="badge b-gray">Notebook ${fBRL(p.custo_equipamento==395?p.custo_equipamento:395)}</span>
-      <span class="badge b-gray">Macbook ${fBRL(p.custo_equipamento==1165?p.custo_equipamento:1165)}</span>
-      <span class="badge b-gray">Embaixador ${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}%</span>
-    </div>
-    <!-- MODO EDIÇÃO -->
-    <div id="paramEditModeDiv" style="display:none">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px">
-        <div class="form-group">
-          <label>Horas/mês</label>
-          <input class="form-control" type="number" id="paramHoras" value="${p.horas_mes}" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>Imposto (%)</label>
-          <input class="form-control" type="number" id="paramImposto" value="${(p.imposto*100).toFixed(0)}" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>Infra (R$)</label>
-          <input class="form-control" type="number" id="paramInfra" value="${p.infra}" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>Custo CLT (%)</label>
-          <input class="form-control" type="number" id="paramCLT" value="${(p.custo_clt*100).toFixed(0)}" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>PIS+COFINS (%)</label>
-          <input class="form-control" type="number" id="paramPIS" value="${(p.pis_cofins*100).toFixed(2)}" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>Valor Notebook (R$)</label>
-          <input class="form-control" type="number" id="paramNotebook" value="395" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>Valor Macbook (R$)</label>
-          <input class="form-control" type="number" id="paramMacbook" value="1165" oninput="recalcAll_calc()">
-        </div>
-        <div class="form-group">
-          <label>Custo Embaixador (%)</label>
-          <input class="form-control" type="number" id="paramEmbaixador" value="${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}" oninput="recalcAll_calc()">
-        </div>
-      </div>
-    </div>
+  <div style="display:flex;margin-bottom:16px;border-bottom:1px solid var(--border)">
+    <button class="dash-tab active" id="tabCalcOneBrain" onclick="_calcTrocaUnidade('OneBrain')">OneBrain</button>
+    <button class="dash-tab" id="tabCalcOutforce" onclick="_calcTrocaUnidade('Outforce')">Outforce</button>
   </div>
 
-  <!-- CAMPOS LOCAIS -->
+  <div class="chart-card" id="paramBaseCard" style="margin-bottom:16px">
+    ${_calcParamBaseInner(p)}
+  </div>
+
   <div class="chart-card" style="margin-bottom:16px">
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;align-items:flex-end">
       <div class="form-group">
         <label>Margem %</label>
         <div style="display:flex;align-items:center;gap:5px">
-          <input class="form-control" type="number" id="paramLucro" value="${(p.pct_lucro*100).toFixed(0)}" oninput="recalcAll_calc()">
+          <input class="form-control" type="number" id="paramLucro" value="${((p.pct_lucro||0.20)*100).toFixed(0)}" oninput="recalcAll_calc()">
           <span style="color:var(--text-3);font-size:var(--font-min)">%</span>
         </div>
       </div>
@@ -3341,10 +3300,7 @@ async function renderCalculadora(mc){
     </div>
   </div>
 
-  <!-- CALCULADORAS -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-
-    <!-- CALC VALOR HORA -->
     <div class="chart-card">
       <div class="chart-title" style="margin-bottom:12px">Calculadora — Valor Hora</div>
       <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rVH_custoCliente" style="font-weight:600;color:var(--text)">R$ 0,00</span></div>
@@ -3357,8 +3313,6 @@ async function renderCalculadora(mc){
         <span class="d-val" id="rVH_cth" style="color:var(--amber);font-weight:700">R$ 0,00</span>
       </div>
     </div>
-
-    <!-- CALC CUSTO COLABORADOR -->
     <div class="chart-card">
       <div class="chart-title" style="margin-bottom:12px">Calculadora — Custo Colaborador</div>
       <div class="d-row"><span class="d-label">Custo Colaborador</span><span class="d-val" id="rCC_custoColab">R$ 0,00</span></div>
@@ -3371,7 +3325,6 @@ async function renderCalculadora(mc){
     </div>
   </div>
 
-  <!-- BOTÃO CRIAR ALOCADO -->
   ${isE?`<div style="display:flex;justify-content:flex-end">
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px">
       <span id="btnCriarMsg" style="font-size:12px;color:var(--text-3);display:none"></span>
@@ -3382,6 +3335,56 @@ async function renderCalculadora(mc){
     </div>
   </div>`:''}
   `;
+
+  recalcAll_calc();
+}
+
+function _calcParamBaseInner(p){
+  const isE = isEditor();
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="chart-title" style="margin-bottom:0">Parâmetros Base <span style="color:var(--text-3);font-weight:400">· ${_calcUnidadeSel}</span></div>
+      ${isE?`<button class="btn btn-ghost btn-sm" id="btnEditParam" onclick="toggleEditParam()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </button>`:''}
+    </div>
+    <div id="paramReadMode" style="display:flex;flex-wrap:wrap;gap:6px">
+      <span class="badge b-gray">Horas/mês ${p.horas_mes}</span>
+      <span class="badge b-gray">Imposto ${(p.imposto*100).toFixed(0)}%</span>
+      <span class="badge b-gray">Infra ${fBRL(p.infra)}</span>
+      <span class="badge b-gray">Custo CLT ${(p.custo_clt*100).toFixed(0)}%</span>
+      <span class="badge b-gray">PIS+COFINS ${(p.pis_cofins*100).toFixed(2)}%</span>
+      <span class="badge b-gray">Notebook ${fBRL(p.custo_equipamento)}</span>
+      <span class="badge b-gray">Macbook ${fBRL(p.custo_macbook)}</span>
+      <span class="badge b-gray">Embaixador ${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}%</span>
+    </div>
+    <div id="paramEditModeDiv" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px">
+        <div class="form-group"><label>Horas/mês</label><input class="form-control" type="number" id="paramHoras" value="${p.horas_mes}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>Imposto (%)</label><input class="form-control" type="number" id="paramImposto" value="${(p.imposto*100).toFixed(0)}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>Infra (R$)</label><input class="form-control" type="number" id="paramInfra" value="${p.infra}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>Custo CLT (%)</label><input class="form-control" type="number" id="paramCLT" value="${(p.custo_clt*100).toFixed(0)}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>PIS+COFINS (%)</label><input class="form-control" type="number" id="paramPIS" value="${(p.pis_cofins*100).toFixed(2)}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>Valor Notebook (R$)</label><input class="form-control" type="number" id="paramNotebook" value="${p.custo_equipamento}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>Valor Macbook (R$)</label><input class="form-control" type="number" id="paramMacbook" value="${p.custo_macbook}" oninput="recalcAll_calc()"></div>
+        <div class="form-group"><label>Custo Embaixador (%)</label><input class="form-control" type="number" id="paramEmbaixador" value="${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}" oninput="recalcAll_calc()"></div>
+      </div>
+    </div>`;
+}
+
+function _calcTrocaUnidade(u){
+  if(!_paramCalcMap[u]){ showToast('Sem parâmetros para '+u); return; }
+  _calcUnidadeSel = u;
+  paramCalc = _paramCalcMap[u];
+  paramEditMode = false;
+  document.getElementById('tabCalcOneBrain')?.classList.toggle('active', u==='OneBrain');
+  document.getElementById('tabCalcOutforce')?.classList.toggle('active', u==='Outforce');
+  const card = document.getElementById('paramBaseCard');
+  if(card) card.innerHTML = _calcParamBaseInner(paramCalc);
+  const lucroEl = document.getElementById('paramLucro');
+  if(lucroEl) lucroEl.value = ((paramCalc.pct_lucro||0.20)*100).toFixed(0);
+  recalcAll_calc();
 }
 
 function getParamCalc(){
@@ -3545,6 +3548,7 @@ function criarAlocadoFromCalc(){
     if(vh)  document.getElementById('alocadoVH').value = vh;
     if(sal) document.getElementById('alocadoSalario').value = sal;
     document.getElementById('alocadoModalidade').value = mod;
+    document.getElementById('alocadoUnidade').value = _calcUnidadeSel;
     if(_calcVHCTH && document.getElementById('alocadoContrato').value === 'Talent Pipeline Pro'){
       document.getElementById('alocadoVHCTH').value = _calcVHCTH;
       document.getElementById('cthGroup').classList.remove('hidden');
@@ -3566,6 +3570,7 @@ async function salvarParamCalc(){
     pis_cofins:       pis,
     horas_mes:        horas,
     custo_equipamento: notebookVal,
+    custo_macbook:     macbookVal,
     custo_embaixador:  embaixador,
     updated_at:       new Date().toISOString()
   }).eq('id', paramCalc.id);
