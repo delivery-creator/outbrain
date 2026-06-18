@@ -3252,6 +3252,7 @@ async function renderCalculadora(mc){
       <span class="badge b-gray">PIS+COFINS ${(p.pis_cofins*100).toFixed(2)}%</span>
       <span class="badge b-gray">Notebook ${fBRL(p.custo_equipamento==395?p.custo_equipamento:395)}</span>
       <span class="badge b-gray">Macbook ${fBRL(p.custo_equipamento==1165?p.custo_equipamento:1165)}</span>
+      <span class="badge b-gray">Embaixador ${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}%</span>
     </div>
     <!-- MODO EDIÇÃO -->
     <div id="paramEditModeDiv" style="display:none">
@@ -3284,13 +3285,17 @@ async function renderCalculadora(mc){
           <label>Valor Macbook (R$)</label>
           <input class="form-control" type="number" id="paramMacbook" value="1165" oninput="recalcAll_calc()">
         </div>
+        <div class="form-group">
+          <label>Custo Embaixador (%)</label>
+          <input class="form-control" type="number" id="paramEmbaixador" value="${((p.custo_embaixador ?? 0.05)*100).toFixed(0)}" oninput="recalcAll_calc()">
+        </div>
       </div>
     </div>
   </div>
 
   <!-- CAMPOS LOCAIS -->
   <div class="chart-card" style="margin-bottom:16px">
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:flex-end">
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;align-items:flex-end">
       <div class="form-group">
         <label>Margem %</label>
         <div style="display:flex;align-items:center;gap:5px">
@@ -3318,6 +3323,13 @@ async function renderCalculadora(mc){
         <select class="form-control" id="calcModalidade" onchange="recalcAll_calc();atualizarBtnCriar()">
           <option value="PJ">PJ</option>
           <option value="CLT">CLT</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Embaixador</label>
+        <select class="form-control" id="calcEmbaixador" onchange="recalcAll_calc()">
+          <option value="nao">Não</option>
+          <option value="sim">Sim</option>
         </select>
       </div>
     </div>
@@ -3380,15 +3392,18 @@ function getParamCalc(){
     horas:      parseFloat(document.getElementById('paramHoras')?.value)||168,
     custo_clt: (parseFloat(document.getElementById('paramCLT')?.value)||85) / 100,
     pis:       (parseFloat(document.getElementById('paramPIS')?.value)||6.15) / 100,
+    embaixador:(parseFloat(document.getElementById('paramEmbaixador')?.value)||5) / 100,
   };
 }
 
 function calcVH(){
   const vh  = parseFloat(document.getElementById('calcVH')?.value)||0;
   const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
-  const {lucro, infra, equip, horas, imposto, pis} = getParamCalc();
+  const {lucro, infra, equip, horas, imposto, pis, embaixador} = getParamCalc();
+  const embAtivo = document.getElementById('calcEmbaixador')?.value === 'sim';
 
-  const custoCliente  = vh * horas;
+  const custoEmbaixador = embAtivo ? sal * embaixador : 0;
+  const custoCliente  = (vh * horas) + custoEmbaixador;
   const valorLiquido  = custoCliente - (custoCliente * imposto);
   const dolLucro      = custoCliente * lucro;
   const contratacao   = (valorLiquido - dolLucro - infra - equip) * (1 - 0.0577);
@@ -3484,6 +3499,7 @@ function limparCalculadora(){
   });
   document.getElementById('calcEquip').value='notebook';
   document.getElementById('calcModalidade').value='PJ';
+  document.getElementById('calcEmbaixador').value='nao';
   document.getElementById('paramLucro').value=(paramCalc?.pct_lucro*100||25).toFixed(0);
   const zeros=['rVH_custoCliente','rVH_liquido','rVH_lucro','rVH_contratacao','rVH_propComercial','rVH_cth','rCC_custoColab','rCC_custoCliente'];
   zeros.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='R$ 0,00';});
@@ -3524,7 +3540,7 @@ async function salvarParamCalc(){
   if(!paramCalc?.id) return;
   const notebookVal = parseFloat(document.getElementById('paramNotebook')?.value)||395;
   const macbookVal  = parseFloat(document.getElementById('paramMacbook')?.value)||1165;
-  const {imposto, lucro, infra, horas, custo_clt, pis} = getParamCalc();
+  const {imposto, lucro, infra, horas, custo_clt, pis, embaixador} = getParamCalc();
   const {error} = await supa.from('parametros_calculadora').update({
     imposto,
     pct_lucro:        lucro,
@@ -3533,6 +3549,7 @@ async function salvarParamCalc(){
     pis_cofins:       pis,
     horas_mes:        horas,
     custo_equipamento: notebookVal,
+    custo_embaixador:  embaixador,
     updated_at:       new Date().toISOString()
   }).eq('id', paramCalc.id);
   if(error){ showToast('Erro ao salvar: '+error.message); return; }
@@ -3545,6 +3562,7 @@ async function salvarParamCalc(){
     <span class="badge b-gray">PIS+COFINS ${(pis*100).toFixed(2)}%</span>
     <span class="badge b-gray">Notebook ${fBRL(notebookVal)}</span>
     <span class="badge b-gray">Macbook ${fBRL(macbookVal)}</span>
+    <span class="badge b-gray">Embaixador ${(embaixador*100).toFixed(0)}%</span>
   `;
   await loadParamCalc();
   showToast('Parâmetros salvos!');
