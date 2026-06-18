@@ -1639,9 +1639,28 @@ function _fatChart(mensal, ehGlobal, m){
     data:{labels:_mesesLbl, datasets},
     options:{
       responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0})}}
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          callbacks:{
+            label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0}),
+            afterBody: items => {
+              if(!ehGlobal || !items.length) return '';
+              const ds = items[0].chart.data.datasets;
+              const i = items[0].dataIndex;
+              const acum = ds.find(d=>d.label==='Acumulado')?.data[i];
+              const meta = ds.find(d=>d.label==='Meta')?.data[i];
+              if(acum==null || !meta) return '';
+              const pct = (acum/meta*100).toFixed(1);
+              const diff = (acum - meta) * 1e6;
+              const diffStr = (diff>=0?'+':'') + 'R$ ' + Math.abs(diff).toLocaleString('pt-BR',{maximumFractionDigits:0});
+              return ['', '% da meta no mês: '+pct+'%', 'Diferença vs meta: '+diffStr];
+            }
+          }
+        }
       },
       scales:{
         x:{grid:{display:false},ticks:{font:{size:12}}},
