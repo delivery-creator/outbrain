@@ -12,6 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/dist/vis-network.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1384,6 +1385,7 @@ function showPage(p){
   if((p==='clientes'||p==='projetos')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalProjeto()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Cliente</button>`;
   if(p==='gestores'&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalGestor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Gestor</button>`;
   if((p==='internos'||p==='acesso')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAcessoNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Interno</button>`;
+  if(p==='calculadora') actions.innerHTML=`<button class="btn btn-ghost" onclick="salvarCalcImagem()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Salvar imagem</button>`;
   recalcAll();
   const mc=document.getElementById('mainContent');
   const renders={dashboard:renderDashboard,alocados:renderAlocados,clientes:renderClientes,projetos:renderClientes,gestores:renderGestores,meutime:renderMeuTime,contato:renderContato,turnover:renderTurnover,internos:renderInternos,acesso:renderInternos,calculadora:renderCalculadora,rede:renderRede};
@@ -3337,6 +3339,33 @@ async function renderCalculadora(mc){
   `;
 
   recalcAll_calc();
+}
+
+async function salvarCalcImagem(){
+  if(typeof html2canvas === 'undefined'){ showToast('Biblioteca de captura não carregou'); return; }
+  const alvo = document.getElementById('mainContent');
+  if(!alvo) return;
+  const btn = document.querySelector('#topbarActions .btn');
+  if(btn) btn.disabled = true;
+  showToast('Gerando imagem...');
+  try{
+    const canvas = await html2canvas(alvo, {
+      backgroundColor: '#000000',
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+    const link = document.createElement('a');
+    link.download = `calculadora-${_calcUnidadeSel}-${toISO(TODAY)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('Imagem salva!');
+  }catch(e){
+    console.error('[Calc] erro screenshot:', e);
+    showToast('Falha ao gerar imagem: '+e.message);
+  }finally{
+    if(btn) btn.disabled = false;
+  }
 }
 
 function _calcParamBaseInner(p){
