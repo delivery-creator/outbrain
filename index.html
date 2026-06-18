@@ -3364,6 +3364,10 @@ async function renderCalculadora(mc){
       <div class="d-row"><span class="d-label">Custo Colaborador</span><span class="d-val" id="rCC_custoColab">R$ 0,00</span></div>
       <div class="d-row"><span class="d-label">Custo Cliente</span><span class="d-val" id="rCC_custoCliente" style="font-weight:600;color:var(--text)">R$ 0,00</span></div>
       <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val" id="rCC_vh" style="font-weight:700">R$ 0</span></div>
+      <div class="d-row" id="rowCC_embaixador" style="display:none;background:var(--amber-soft);border-radius:var(--radius);padding:6px 10px;margin-top:6px">
+        <span class="d-label" style="color:var(--amber);font-weight:700">Custo Embaixador</span>
+        <span class="d-val" id="rCC_embaixador" style="color:var(--amber);font-weight:700">R$ 0,00</span>
+      </div>
     </div>
   </div>
 
@@ -3427,15 +3431,27 @@ function calcVH(){
 function calcCC(){
   const sal = parseFloat(document.getElementById('calcSal')?.value)||0;
   const mod = document.getElementById('calcModalidade')?.value||'PJ';
-  const {lucro, infra, equip, horas, imposto, custo_clt} = getParamCalc();
+  const {lucro, infra, equip, horas, imposto, custo_clt, embaixador} = getParamCalc();
+  const embAtivo = document.getElementById('calcEmbaixador')?.value === 'sim';
 
-  const custoColab   = mod==='CLT' ? sal + (sal * custo_clt) : sal * (1 + 0.0577);
+  const custoEmbaixador = embAtivo ? sal * embaixador : 0;
+  const custoColab   = (mod==='CLT' ? sal + (sal * custo_clt) : sal * (1 + 0.0577)) + custoEmbaixador;
   const custoCliente = (custoColab + infra + equip) / (1 - imposto - lucro);
   const valorHora    = Math.ceil(custoCliente / horas);
 
   document.getElementById('rCC_custoColab').textContent   = fBRL2(custoColab);
   document.getElementById('rCC_custoCliente').textContent = fBRL2(custoCliente);
   document.getElementById('rCC_vh').textContent           = 'R$ '+valorHora;
+
+  const rowEmb = document.getElementById('rowCC_embaixador');
+  if(rowEmb){
+    if(embAtivo){
+      document.getElementById('rCC_embaixador').textContent = fBRL2(custoEmbaixador);
+      rowEmb.style.display = 'flex';
+    } else {
+      rowEmb.style.display = 'none';
+    }
+  }
   atualizarBtnCriar();
 }
 
@@ -3504,6 +3520,7 @@ function limparCalculadora(){
   const zeros=['rVH_custoCliente','rVH_liquido','rVH_lucro','rVH_contratacao','rVH_propComercial','rVH_cth','rCC_custoColab','rCC_custoCliente'];
   zeros.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='R$ 0,00';});
   document.getElementById('rCC_vh').textContent='R$ 0';
+  const _rowEmb=document.getElementById('rowCC_embaixador'); if(_rowEmb)_rowEmb.style.display='none';
   document.querySelectorAll('input[name="calcBase"]').forEach(r=>r.checked=false);
   atualizarBtnCriar();
 }
