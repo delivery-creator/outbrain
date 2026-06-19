@@ -1273,15 +1273,26 @@ function calcMargemVH(alocado){
 function calcMargem(valorHora, salario, modalidade, equipamento){
   const custoCliente = valorHora * 168;
   if(!custoCliente) return null;
-  const custoColab = modalidade === 'CLT' ? salario * 1.85 : salario;
   const p = paramCalc;
-  const infra = p?.infra || 2500;
-  const imposto = p?.imposto || 0.13;
-  const equipVal = equipamento === 'Macbook'
-    ? (p?.custo_equipamento === 1165 ? p.custo_equipamento : 1165)
-    : (p?.custo_equipamento === 395 ? p.custo_equipamento : 395);
-  const custoTotal = custoColab + infra + equipVal + (custoCliente * imposto);
-  return Math.round(((custoCliente - custoTotal) / custoCliente) * 100 * 100) / 100;
+  const infra       = p?.infra            ?? 2500;
+  const imposto     = p?.imposto          ?? 0.13;
+  const custoCLT    = p?.custo_clt        ?? 0.85;
+  const notebookVal = p?.custo_equipamento ?? 395;
+  const macbookVal  = p?.custo_macbook    ?? 1165;
+  const equipVal    = equipamento === 'Macbook' ? macbookVal : notebookVal;
+
+  // Custo Colaborador — mesma lógica da calculadora (calcCC):
+  //   PJ  → salário × (1 + 5,77%)
+  //   CLT → salário × (1 + custo_clt)
+  const custoColab = modalidade === 'CLT'
+    ? salario * (1 + custoCLT)
+    : salario * (1 + 0.0577);
+
+  const custosTotais = custoColab + infra + equipVal;
+
+  // Margem = 1 − imposto − (Custos Totais ÷ Custo Cliente)
+  const margem = 1 - imposto - (custosTotais / custoCliente);
+  return Math.round(margem * 100 * 100) / 100;
 }
 function calcSenDist(lista){
   const ordem=['JR','PL','SR','ESP'];
