@@ -4917,12 +4917,95 @@ async function openDetailById(id){
   document.getElementById('detailPanel').classList.add('open');
 }
 
-function openHistoricoEdit(id){
+// estado da edição de histórico: registros carregados + ações pendentes
+let _histEdit = { fin:[], sen:[], mar:[], deletar:{fin:new Set(),sen:new Set(),mar:new Set()} };
+
+async function openHistoricoEdit(id){
   document.getElementById('histEditAlocadoId').value=id;
-  document.getElementById('histEditContent').innerHTML='<div class="empty-state"><div class="empty-text">Carregando histórico... (Etapa 2)</div></div>';
+  document.getElementById('histEditContent').innerHTML='<div class="empty-state"><div class="empty-text">Carregando histórico...</div></div>';
   openModal('modalHistorico');
+  _histEdit={ fin:[], sen:[], mar:[], deletar:{fin:new Set(),sen:new Set(),mar:new Set()} };
+  try{
+    const [finRes,senRes,marRes]=await Promise.all([
+      supa.from('historico_financeiro').select('*').eq('alocado_id',id).order('data_alt'),
+      supa.from('historico_senioridade').select('*').eq('alocado_id',id).order('data_alt'),
+      supa.from('historico_margem').select('*').eq('alocado_id',id).order('data_alt')
+    ]);
+    _histEdit.fin=finRes.data||[];
+    _histEdit.sen=senRes.data||[];
+    _histEdit.mar=marRes.data||[];
+    renderHistEdit();
+  }catch(e){
+    document.getElementById('histEditContent').innerHTML=`<div class="empty-state"><div class="empty-text">Erro ao carregar: ${e.message}</div></div>`;
+  }
 }
-function salvarHistorico(){ /* Etapa 2 */ }
+
+function _histLinha(tipo, reg, valorTxt){
+  const del=_histEdit.deletar[tipo].has(reg.id);
+  return `<div class="d-row" style="gap:8px;${del?'opacity:0.4':''}" id="histrow-${tipo}-${reg.id}">
+    <span class="d-label" style="flex:1;${del?'text-decoration:line-through':''}">${valorTxt}</span>
+    <input type="date" class="form-control" style="width:150px;padding:6px 9px" value="${reg.data_alt||''}" ${del?'disabled':''} onchange="_histSetData('${tipo}','${reg.id}',this.value)">
+    <button class="icon-btn ${del?'':'danger'}" title="${del?'Desfazer':'Excluir'}" onclick="_histToggleDel('${tipo}','${reg.id}')">
+      ${del
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`}
+    </button>
+  </div>`;
+}
+
+function renderHistEdit(){
+  const sec=(titulo,linhas)=>`<div>
+    <div class="d-section-title" style="margin-bottom:6px">${titulo}</div>
+    ${linhas||'<div style="font-size:12px;color:var(--text-3);padding:4px 0">Sem registros</div>'}
+  </div>`;
+  const finTxt=_histEdit.fin.map(r=>_histLinha('fin',r,`${r.tipo==='salario'?'Salário':'Valor Hora'}: ${fBRL(r.valor_ant)} → ${fBRL(r.valor_novo)}`)).join('');
+  const senTxt=_histEdit.sen.map(r=>_histLinha('sen',r,`Senioridade: ${r.senioridade_ant} → ${r.senioridade_nova}`)).join('');
+  const marTxt=_histEdit.mar.map(r=>_histLinha('mar',r,`Margem: ${r.margem_ant}% → ${r.margem_nova}%`)).join('');
+  document.getElementById('histEditContent').innerHTML=
+    sec('Financeiro',finTxt)+sec('Senioridade',senTxt)+sec('Margem',marTxt);
+}
+
+function _histSetData(tipo,id,val){
+  const arr=_histEdit[tipo==='fin'?'fin':tipo==='sen'?'sen':'mar'];
+  const reg=arr.find(r=>r.id===id);
+  if(reg) reg.data_alt=val;
+}
+
+function _histToggleDel(tipo,id){
+  const set=_histEdit.deletar[tipo];
+  if(set.has(id)) set.delete(id); else set.add(id);
+  renderHistEdit();
+}
+
+async function salvarHistorico(){
+  const btn=document.getElementById('histSaveBtn');
+  if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+  const tabela={fin:'historico_financeiro',sen:'historico_senioridade',mar:'historico_margem'};
+  try{
+    for(const tipo of ['fin','sen','mar']){
+      // exclusões
+      for(const id of _histEdit.deletar[tipo]){
+        const {error}=await supa.from(tabela[tipo]).delete().eq('id',id);
+        if(error) throw error;
+      }
+      // updates de data (ignora os que serão excluídos)
+      for(const reg of _histEdit[tipo]){
+        if(_histEdit.deletar[tipo].has(reg.id)) continue;
+        const {error}=await supa.from(tabela[tipo]).update({data_alt:reg.data_alt||null}).eq('id',reg.id);
+        if(error) throw error;
+      }
+    }
+    closeModal('modalHistorico');
+    showToast('Histórico atualizado!');
+    const aid=document.getElementById('histEditAlocadoId').value;
+    await loadAll();
+    if(document.getElementById('detailPanel').classList.contains('open')) openDetailById(aid);
+  }catch(e){
+    showToast('Erro: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Salvar Alterações';}
+  }
+}
 
 function openGestorDetail(id){
   const g=db.gestores.find(x=>x.id===id);if(!g)return;
