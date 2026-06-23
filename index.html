@@ -5200,6 +5200,17 @@ async function salvarAlocado(){
       await supa.from('historico_margem').insert({alocado_id:novoId,margem_ant:margemInicial,margem_nova:margemInicial,data_alt:hoje});
     }
   }
+
+  // Registra histórico financeiro nas EDIÇÕES (só quando muda)
+  if(id && novoId){
+    const hoje=toISO(TODAY);
+    if(origVH!==null && nvh!==origVH){
+      await supa.from('historico_financeiro').insert({alocado_id:novoId,tipo:'valor_hora',valor_ant:String(origVH),valor_novo:String(nvh),data_alt:hoje});
+    }
+    if(origSal!==null && ns!==origSal){
+      await supa.from('historico_financeiro').insert({alocado_id:novoId,tipo:'salario',valor_ant:String(origSal),valor_novo:String(ns),data_alt:hoje});
+    }
+  }
   
   // Registra histórico de senioridade apenas se havia valor anterior E mudou
   if(novoId && senAnterior && novaSen && senAnterior !== novaSen){
