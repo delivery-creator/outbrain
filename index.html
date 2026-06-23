@@ -928,6 +928,27 @@ input[type=file]{display:none}
 </div>
 </div>
 
+<!-- MODAL HISTÓRICO -->
+<div class="modal-overlay" id="modalHistorico">
+<div class="modal" style="max-width:600px">
+  <div class="modal-head">
+    <div class="modal-title">Editar Histórico</div>
+    <button class="icon-btn" onclick="closeModal('modalHistorico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="histEditAlocadoId">
+    <div class="info-box">
+      <strong>Atenção:</strong> alterar a data ou excluir um registro afeta apenas o histórico exibido — não recalcula valores nem reescreve o cadastro do alocado.
+    </div>
+    <div id="histEditContent" style="display:flex;flex-direction:column;gap:18px"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal('modalHistorico')">Cancelar</button>
+    <button class="btn btn-accent" id="histSaveBtn" onclick="salvarHistorico()">Salvar Alterações</button>
+  </div>
+</div>
+</div>
+
 <!-- DETAIL PANEL -->
 <div class="detail-panel" id="detailPanel">
   <div class="detail-head">
@@ -4888,9 +4909,21 @@ async function openDetailById(id){
     ${isE?`<div style="display:flex;gap:7px;margin-top:4px">
       <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openModalAlocado('${a.id}')">Editar</button>
       ${a.status==='Ativo'?`<button class="btn btn-danger btn-sm" style="flex:1;justify-content:center" onclick="openTurnover('${a.id}');closeDetail()">Desligar</button>`:''}
-    </div>`:''}`;
+    </div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-top:7px" onclick="openHistoricoEdit('${a.id}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Editar histórico
+    </button>`:''}`;
   document.getElementById('detailPanel').classList.add('open');
 }
+
+function openHistoricoEdit(id){
+  document.getElementById('histEditAlocadoId').value=id;
+  document.getElementById('histEditContent').innerHTML='<div class="empty-state"><div class="empty-text">Carregando histórico... (Etapa 2)</div></div>';
+  openModal('modalHistorico');
+}
+function salvarHistorico(){ /* Etapa 2 */ }
+
 function openGestorDetail(id){
   const g=db.gestores.find(x=>x.id===id);if(!g)return;
   const pr=db.projetos.find(x=>x.id===g.projetoId);
@@ -5709,7 +5742,7 @@ async function excluirAcesso(id,page){
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 let tt;function showToast(m){document.getElementById('toast-msg').textContent=m;document.getElementById('toast').classList.add('show');clearTimeout(tt);tt=setTimeout(()=>document.getElementById('toast').classList.remove('show'),2800)}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();['modalAlocado','modalGestor','modalProjeto','modalTurnover','modalAcesso','modalEncerrar','modalClassif'].forEach(id=>{closeModal(id);if(id==='modalTurnover')resetTurnoverFooter();})}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();['modalAlocado','modalGestor','modalProjeto','modalTurnover','modalAcesso','modalEncerrar','modalClassif','modalHistorico'].forEach(id=>{closeModal(id);if(id==='modalTurnover')resetTurnoverFooter();})}});
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
 </script>
 </body>
