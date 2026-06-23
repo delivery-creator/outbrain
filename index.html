@@ -4876,7 +4876,7 @@ async function openDetailById(id){
           <span class="d-label">Senioridade</span>
           <span class="d-val" style="font-weight:600">${a.senioridade}</span>
         </div>
-        ${hSen.length>0?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hSen].map(h=>`${fDate(h.data_alt)}: ${h.senioridade_ant} / ${h.senioridade_nova}`).join(' → ')}</div>`:''}
+        ${fmtTrilhaSen(hSen)}
       `:''}
     </div>`:''}
     ${(histReloc&&histReloc.length)||(substDe&&substDe.length)?`
@@ -4927,6 +4927,16 @@ function fmtTrilhaFin(hist){
   const linhas=[...mudancas]
     .sort((a,b)=>new Date(a.data_alt)-new Date(b.data_alt))
     .map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_ant)} → ${fBRL(h.valor_novo)}`)
+    .join(' · ');
+  return `<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${linhas}</div>`;
+}
+
+function fmtTrilhaSen(hist){
+  const mudancas=(hist||[]).filter(h=>String(h.senioridade_ant)!==String(h.senioridade_nova));
+  if(!mudancas.length) return '';
+  const linhas=[...mudancas]
+    .sort((a,b)=>new Date(a.data_alt)-new Date(b.data_alt))
+    .map(h=>`${fDate(h.data_alt)}: ${h.senioridade_ant} → ${h.senioridade_nova}`)
     .join(' · ');
   return `<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${linhas}</div>`;
 }
