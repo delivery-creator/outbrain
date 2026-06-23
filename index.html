@@ -5340,13 +5340,36 @@ function checkNovoCliente(sel){
 function checkNewCargo(sel){
   document.getElementById('cargoNovoGroup').style.display=sel.value==='__new__'?'flex':'none';
 }
+function _cargoNorm(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,''); }
+function _cargoCanonico(a,b){
+  // 1) prefere a grafia que existe em CARGOS_DEF
+  const inDef=x=>CARGOS_DEF.some(d=>_cargoNorm(d)===_cargoNorm(x));
+  if(inDef(a)&&!inDef(b))return a;
+  if(inDef(b)&&!inDef(a))return b;
+  // 2) prefere a grafia com mais maiúsculas (DevOps > Devops)
+  const caps=x=>(x.match(/[A-ZÀ-Ý]/g)||[]).length;
+  if(caps(a)!==caps(b))return caps(a)>caps(b)?a:b;
+  // 3) desempate alfabético estável
+  return a.localeCompare(b,'pt-BR')<=0?a:b;
+}
 function buildCargoSelect(selectedVal){
   const sel=document.getElementById('alocadoCargo');
   if(!sel)return;
-  const fromDb=db.alocados.map(a=>a.cargo).filter(Boolean);
-  const todos=[...new Set([...CARGOS_DEF,...fromDb])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  // agrupa defaults + cargos do banco por chave normalizada, 1 rótulo por grupo
+  const grupos={};
+  [...CARGOS_DEF, ...db.alocados.map(a=>a.cargo)].forEach(c=>{
+    const k=_cargoNorm(c);
+    if(!k)return;
+    grupos[k] = grupos[k] ? _cargoCanonico(grupos[k],c) : c;
+  });
+  // editando: mantém a grafia EXATA do alocado aberto, pra não reescrever a base ao salvar
+  if(selectedVal){
+    const k=_cargoNorm(selectedVal);
+    if(grupos[k]) grupos[k]=selectedVal;
+  }
+  const labels=Object.values(grupos).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   sel.innerHTML='<option value="">Selecione...</option>'
-    +todos.map(c=>`<option value="${c}"${c===selectedVal?' selected':''}>${c}</option>`).join('')
+    +labels.map(c=>`<option value="${c}"${c===selectedVal?' selected':''}>${c}</option>`).join('')
     +'<option value="__new__">+ Novo cargo</option>';
 }
 function buildClienteSelect(selectedVal){
