@@ -941,6 +941,7 @@ input[type=file]{display:none}
 <script>
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const STACKS_DEF = ['Android','iOS','PHP','Node.JS','Java','Kotlin','C#','Python','Flutter','Ruby','React Native','Cypress','Vue.JS','Angular.JS','IAM','N8N'];
+const CARGOS_DEF = ['Backend','Frontend','Mobile','Engenheiro de AI','Analista de Segurança'];
 let customStacks = [], allStacks = [...STACKS_DEF], selectedStacks = [];
 let histSal = [], histVH = [], origSal = null, origVH = null;
 
@@ -5059,8 +5060,9 @@ function openModalAlocado(id){
   document.getElementById('modalAlocadoTitle').textContent=id?'Editar Alocado':'Cadastrar Alocado';
   ['alocadoNome','alocadoLinkedin','alocadoSlackEmail','alocadoSalario','alocadoVH','alocadoMC','alocadoAdm','alocadoDesl','alocadoStatus','alocadoMeses'].forEach(f=>{const el=document.getElementById(f);if(el)el.value=''});
   const favEl=document.getElementById('alocadoFavorito'); if(favEl) favEl.checked=false;
-  document.getElementById('alocadoCargo').value='';
-  document.getElementById('alocadoCargo').value='';
+  buildCargoSelect('');
+  document.getElementById('cargoNovo').value='';
+  document.getElementById('cargoNovoGroup').style.display='none';
   document.getElementById('alocadoContrato').value='Essencial';
   document.getElementById('alocadoModalidade').value='';
   document.getElementById('alocadoEquipamento').value='Notebook';
@@ -5091,7 +5093,7 @@ function openModalAlocado(id){
     document.getElementById('alocadoNome').value=a.nome;
     document.getElementById('alocadoLinkedin').value=a.linkedin||'';
     const favEl2=document.getElementById('alocadoFavorito'); if(favEl2) favEl2.checked=a.favorito||false;
-    document.getElementById('alocadoCargo').value=a.cargo;
+    buildCargoSelect(a.cargo);
     document.getElementById('alocadoSenioridade').value=a.senioridade||''; // Se já tem senioridade, remove a opção vazia para não permitir limpar const senSel=document.getElementById('alocadoSenioridade'); if(a.senioridade){   const emptyOpt=senSel.querySelector('option[value=""]');   if(emptyOpt) emptyOpt.remove(); }
     document.getElementById('alocadoModalidade').value=a.modalidade||'';
     document.getElementById('alocadoEquipamento').value=a.equipamento||'Notebook';
@@ -5337,6 +5339,15 @@ function checkNovoCliente(sel){
 }
 function checkNewCargo(sel){
   document.getElementById('cargoNovoGroup').style.display=sel.value==='__new__'?'flex':'none';
+}
+function buildCargoSelect(selectedVal){
+  const sel=document.getElementById('alocadoCargo');
+  if(!sel)return;
+  const fromDb=db.alocados.map(a=>a.cargo).filter(Boolean);
+  const todos=[...new Set([...CARGOS_DEF,...fromDb])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  sel.innerHTML='<option value="">Selecione...</option>'
+    +todos.map(c=>`<option value="${c}"${c===selectedVal?' selected':''}>${c}</option>`).join('')
+    +'<option value="__new__">+ Novo cargo</option>';
 }
 function buildClienteSelect(selectedVal){
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
