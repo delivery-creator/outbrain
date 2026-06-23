@@ -4861,9 +4861,9 @@ async function openDetailById(id){
       <div class="d-section-title">Financeiro</div>
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--text);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
       <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(getVH(a))}/h${a.valorHoraCTH?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</span></div>
-      ${hVH.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hVH].reverse().map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
+      ${fmtTrilhaFin(hVH)}
       <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
-      ${hSal.length>1?`<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${[...hSal].reverse().map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_novo)}`).join(' → ')}</div>`:''}
+      ${fmtTrilhaFin(hSal)}
       ${a.margem!==null?`
       <div class="d-row">
         <span class="d-label">Margem</span>
@@ -4918,6 +4918,18 @@ function openGestorDetail(id){
   document.getElementById('detailPanel').classList.add('open');
 }
 function closeDetail(){document.getElementById('detailPanel').classList.remove('open')}
+
+// Trilha de histórico financeiro: mostra apenas mudanças reais (valor_ant ≠ valor_novo),
+// renderizando "data: ant → novo" por registro.
+function fmtTrilhaFin(hist){
+  const mudancas=(hist||[]).filter(h=>String(h.valor_ant)!==String(h.valor_novo));
+  if(!mudancas.length) return '';
+  const linhas=[...mudancas]
+    .sort((a,b)=>new Date(a.data_alt)-new Date(b.data_alt))
+    .map(h=>`${fDate(h.data_alt)}: ${fBRL(h.valor_ant)} → ${fBRL(h.valor_novo)}`)
+    .join(' · ');
+  return `<div style="font-size:12px;color:var(--text-3);padding:2px 0 6px">${linhas}</div>`;
+}
 
 /* ─── FORM HELPERS ────────────────────────────────────── */
 async function reenviarLinkGestor(id) {
