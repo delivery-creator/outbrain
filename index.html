@@ -5492,9 +5492,10 @@ async function sincronizarMapa(){
     const {data:{session}}=await supa.auth.getSession();
     const resp=await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-mapa',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
     const r=await resp.json();
+    const dup = r.duplicados ? ` · ${r.duplicados} duplicata(s) (cliente+BU) somada(s)` : '';
     if(!r.ok){ showToast('Falha no mapa: '+(r.erro||'erro desconhecido')); }
-    else if(r.nao_geocodados&&r.nao_geocodados.length){ showToast('Sync ok — sem geolocalização: '+r.nao_geocodados.join(', ')); }
-    else { showToast(`Mapa sincronizado! ${r.total} clientes (${r.geocodificados} novos, ${r.do_cache} do cache).`); }
+    else if(r.nao_geocodados&&r.nao_geocodados.length){ showToast('Sync ok — sem geolocalização: '+r.nao_geocodados.join(', ')+dup); }
+    else { showToast(`Mapa sincronizado! ${r.total} clientes (${r.geocodificados} novos, ${r.do_cache} do cache)${dup}.`); }
     await loadMapaGeo();
     _mapaDraw();
   }catch(e){ showToast('Falha: '+e.message); }

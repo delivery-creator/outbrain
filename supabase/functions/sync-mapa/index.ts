@@ -272,17 +272,27 @@ Deno.serve(async (req) => {
       .select("cliente, bu, endereco, lat, lng, cidade, uf, estado");
     const cache = new Map((atuais || []).map((r) => [`${r.cliente}|${r.bu || ""}`, r]));
 
+    // Pré-agrega por (cliente|bu): soma o faturamento e remove duplicatas — o
+    // Postgres rejeita 2 linhas com a mesma chave no mesmo ON CONFLICT.
+    const itens = new Map<string, { cliente: string; bu: string; endereco: string; faturamento: number }>();
+    let duplicados = 0;
+    for (const row of dataRows) {
+      const cliente = (row[ci.cliente] || "").trim();
+      if (!cliente) continue;
+      const bu = (row[ci.bu] || "").trim();
+      const endereco = (row[ci.endereco] || "").trim();
+      const faturamento = parseValor(row[ci.faturamento]);
+      const k = `${cliente}|${bu}`;
+      const ex = itens.get(k);
+      if (ex) { ex.faturamento += faturamento; if (!ex.endereco && endereco) ex.endereco = endereco; duplicados++; }
+      else itens.set(k, { cliente, bu, endereco, faturamento });
+    }
+
     let geocodificados = 0, doCache = 0, falhas = 0;
     const naoGeocodados: string[] = [];
     const registros: Record<string, unknown>[] = [];
 
-    for (const row of dataRows) {
-      const cliente = (row[ci.cliente] || "").trim();
-      if (!cliente) continue;
-      const endereco = (row[ci.endereco] || "").trim();
-      const faturamento = parseValor(row[ci.faturamento]);
-      const bu = (row[ci.bu] || "").trim();
-
+    for (const { cliente, bu, endereco, faturamento } of itens.values()) {
       const prev = cache.get(`${cliente}|${bu}`);
       let geo = null as null | { lat: number; lng: number; cidade: string | null; estado: string | null; uf: string | null };
       let geo_status = "pendente";
@@ -331,6 +341,7 @@ Deno.serve(async (req) => {
       geocodificados,
       do_cache: doCache,
       falhas,
+      duplicados,
       nao_geocodados: naoGeocodados,
       sincronizado_em: new Date().toISOString(),
     });
