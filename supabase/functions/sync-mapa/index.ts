@@ -95,6 +95,19 @@ function parseValor(s: string): number {
 function norm(s: string): string {
   return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 }
+
+// Notação A1: nomes de aba com acento/espaço/caractere especial precisam vir
+// entre aspas simples (ex.: 'Página1'!A1:D200). Cita o nome da aba se necessário.
+function a1Range(range: string): string {
+  const bang = range.lastIndexOf("!");
+  if (bang < 0) return range;
+  let sheet = range.slice(0, bang);
+  const cells = range.slice(bang + 1);
+  if (!/^'.*'$/.test(sheet) && /[^A-Za-z0-9_]/.test(sheet)) {
+    sheet = "'" + sheet.replace(/'/g, "''") + "'";
+  }
+  return `${sheet}!${cells}`;
+}
 function acharCol(header: string[], ...nomes: string[]): number {
   const H = header.map(norm);
   for (const nome of nomes) { const i = H.indexOf(norm(nome)); if (i >= 0) return i; }
@@ -207,7 +220,7 @@ Deno.serve(async (req) => {
 
     // 1) lê a planilha via API do Google (mesma service account do faturamento)
     const token = await getGoogleAccessToken(SA_EMAIL, SA_KEY);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_RANGE)}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(a1Range(SHEET_RANGE))}`;
     const sheetResp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     const sheet = await sheetResp.json();
     if (!sheet.values || !sheet.values.length) {

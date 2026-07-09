@@ -104,6 +104,10 @@ MAPA_SHEET_RANGE = Página1!A1:D200      (aba!intervalo; inclua o cabeçalho)
 ```
 > `SB_URL`, `SB_SERVICE_ROLE_KEY`, `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` já são do projeto
 > (reusados da `sync-faturamento`) — **não precisa recriar**.
+>
+> Obs.: nomes de aba com **acento/espaço** precisam de aspas simples na notação A1
+> (ex.: `'Página1'!A1:D200`). A função já faz esse aspeamento sozinha, então tanto
+> `Página1!A1:D200` quanto `'Página1'!A1:D200` funcionam.
 
 ### 4. Deploy
 ```bash
