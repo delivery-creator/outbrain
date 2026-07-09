@@ -5492,6 +5492,7 @@ async function sincronizarMapa(){
     const {data:{session}}=await supa.auth.getSession();
     const resp=await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-mapa',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
     const r=await resp.json();
+    console.log('[Mapa] resposta do sync-mapa:', r, '| colunas lidas:', r.colunas, '| aba:', r.aba, '| abas:', r.abas);
     const dup = r.duplicados ? ` · ${r.duplicados} duplicata(s) (cliente+BU) somada(s)` : '';
     if(!r.ok){ showToast('Falha no mapa: '+(r.erro||'erro desconhecido')); }
     else if(r.nao_geocodados&&r.nao_geocodados.length){ showToast('Sync ok — sem geolocalização: '+r.nao_geocodados.join(', ')+dup); }

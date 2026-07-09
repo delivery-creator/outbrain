@@ -342,6 +342,9 @@ Deno.serve(async (req) => {
       do_cache: doCache,
       falhas,
       duplicados,
+      aba,                       // aba lida
+      abas: titles,              // todas as abas da planilha
+      colunas: primeira,         // cabeçalho detectado (p/ diagnóstico)
       nao_geocodados: naoGeocodados,
       sincronizado_em: new Date().toISOString(),
     });
