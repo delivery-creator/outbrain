@@ -220,11 +220,30 @@ Deno.serve(async (req) => {
 
     // 1) lê a planilha via API do Google (mesma service account do faturamento)
     const token = await getGoogleAccessToken(SA_EMAIL, SA_KEY);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(a1Range(SHEET_RANGE))}`;
+
+    // Resolve o nome REAL da aba pelos metadados do Google — robusto a acento,
+    // forma Unicode (NFC/NFD) e caixa. Evita "Unable to parse range" quando o
+    // "á" digitado no secret difere do "á" guardado no nome da aba.
+    const metaResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const meta = await metaResp.json();
+    const titles: string[] = (meta.sheets || []).map((s: { properties?: { title?: string } }) => s?.properties?.title).filter(Boolean) as string[];
+    if (!titles.length) {
+      return json({ ok: false, erro: "Planilha inacessível ou sem abas — confira MAPA_SHEET_ID e se a planilha foi compartilhada com a service account. Resp: " + JSON.stringify(meta).slice(0, 300) }, 400);
+    }
+    const bang = SHEET_RANGE.lastIndexOf("!");
+    const cells = bang >= 0 ? SHEET_RANGE.slice(bang + 1) : SHEET_RANGE;
+    const wanted = bang >= 0 ? SHEET_RANGE.slice(0, bang).replace(/^'|'$/g, "").replace(/''/g, "'") : "";
+    const nrm = (s: string) => s.normalize("NFC").trim().toLowerCase();
+    const aba = titles.find((t) => nrm(t) === nrm(wanted)) || titles[0];
+
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(a1Range(`${aba}!${cells}`))}`;
     const sheetResp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     const sheet = await sheetResp.json();
     if (!sheet.values || !sheet.values.length) {
-      return json({ ok: false, erro: "Planilha sem dados: " + JSON.stringify(sheet).slice(0, 300) }, 400);
+      return json({ ok: false, erro: `Sem dados na aba "${aba}" (abas encontradas: ${titles.join(", ")}). Resp: ` + JSON.stringify(sheet).slice(0, 200) }, 400);
     }
     const values = sheet.values as string[][];
 
