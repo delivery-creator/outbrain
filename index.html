@@ -5249,7 +5249,8 @@ function _esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp
 let _geoData    = null;  // linhas de faturamento_geo (com lat/lng)
 let _mapaBU     = '';    // '' = todas | 'OneBrain' | 'Outforce'
 let _mapaUF     = null;  // sigla do estado em drill, ou null (Brasil)
-let _mapaPinned = null;  // chave (cliente|bu) com tooltip fixado por clique
+let _mapaMetrica= 'faturamento'; // 'faturamento' (bolha=R$) | 'clientes' (bolha=nº por cidade)
+let _mapaPinned = null;  // chave (cliente|bu ou cidade) com tooltip fixado por clique
 let _mapaBolhasAtual = []; // bolhas do último desenho (índice = data-idx)
 let _mapaVB = null;      // viewBox atual (com zoom/pan aplicados)
 let _mapaDrag = null;    // estado do arraste (pan)
@@ -5302,11 +5303,23 @@ async function loadMapaGeo(){
   }));
 }
 
-function _mapaBolhas(){
+// clientes visíveis aplicando os filtros de BU e estado (drill)
+function _mapaFiltrados(){
   let arr=(_geoData||[]).filter(d=>isFinite(d.lat)&&isFinite(d.lng));
   if(_mapaBU) arr=arr.filter(d=>(d.bu||'')===_mapaBU);
   if(_mapaUF) arr=arr.filter(d=>(d.uf||'')===_mapaUF);
-  return arr.sort((a,b)=>b.faturamento-a.faturamento);
+  return arr;
+}
+// agrega por cidade (nº de clientes, faturamento somado, centroide) p/ a visão "clientes"
+function _mapaCidades(arr){
+  const m=new Map();
+  for(const d of arr){
+    const key=(d.cidade||'—').toLowerCase()+'|'+(d.uf||'');
+    let g=m.get(key);
+    if(!g){ g={cidade:d.cidade||'—', uf:d.uf||'', estado:d.estado||'', n:0, lat:0, lng:0, fat:0, nomes:[]}; m.set(key,g); }
+    g.n++; g.lat+=d.lat; g.lng+=d.lng; g.fat+=d.faturamento; g.nomes.push(d.cliente);
+  }
+  return [...m.values()].map(g=>({...g, lat:g.lat/g.n, lng:g.lng/g.n})).sort((a,b)=>b.n-a.n);
 }
 
 async function renderMapa(mc){
@@ -5316,17 +5329,18 @@ async function renderMapa(mc){
 
   const bus=[...new Set((_geoData||[]).map(d=>d.bu).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const opts = ['<option value="">Todas as BUs</option>'].concat(bus.map(b=>`<option value="${_esc(b)}">${_esc(b)}</option>`)).join('');
-  const legenda = bus.map(b=>`<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${_mapaCorBU(b)};margin-right:5px;vertical-align:middle"></span>${_esc(b)}</span>`).join('');
 
   mc.innerHTML = `
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <div id="mapaCrumb" style="font-size:13px;color:var(--text-2);font-weight:600"></div>
     <button class="btn btn-ghost btn-sm" id="mapaVoltar" onclick="_mapaSetUF(null)" style="display:none">← Brasil</button>
+    <select class="filter-sel" id="mapaMetrica" onchange="_mapaSetMetrica(this.value)" style="width:180px">
+      <option value="faturamento">Ver por: Faturamento</option>
+      <option value="clientes">Ver por: Nº de clientes</option>
+    </select>
     <select class="filter-sel" id="mapaBU" onchange="_mapaSetBU(this.value)" style="width:170px">${opts}</select>
     <button class="btn btn-ghost btn-sm" id="btnSyncMapa" onclick="sincronizarMapa()">↻ Sincronizar</button>
-    <div style="margin-left:auto;display:flex;gap:14px;align-items:center;font-size:11px;color:var(--text-3);flex-wrap:wrap">
-      ${legenda}<span style="opacity:.85">● tamanho = faturamento</span>
-    </div>
+    <div id="mapaLegenda" style="margin-left:auto;display:flex;gap:14px;align-items:center;font-size:11px;color:var(--text-3);flex-wrap:wrap"></div>
   </div>
   <div class="chart-card" style="padding:0;position:relative;height:calc(100vh - 170px);overflow:hidden">
     <svg id="mapaSvg" style="width:100%;height:100%;display:block;cursor:grab" preserveAspectRatio="xMidYMid meet"></svg>
@@ -5340,6 +5354,7 @@ async function renderMapa(mc){
   </div>`;
 
   const bu=document.getElementById('mapaBU'); if(bu) bu.value=_mapaBU;
+  const mt=document.getElementById('mapaMetrica'); if(mt) mt.value=_mapaMetrica;
   _mapaDraw();
   _mapaInitSvg();
 }
@@ -5349,33 +5364,70 @@ function _mapaDraw(){
   if(!_mapaVB) _mapaVB=_mapaViewBox();
   const vb=_mapaVB;
   svg.setAttribute('viewBox', `${vb.x.toFixed(3)} ${vb.y.toFixed(3)} ${vb.w.toFixed(3)} ${vb.h.toFixed(3)}`);
-  const bolhas=_mapaBolhas();
-  const maxV=Math.max(1, ...bolhas.map(b=>b.faturamento));
-  const rMax=vb.w*0.05, rMin=vb.w*0.012, sw=vb.w*0.0016;
+  const sw=vb.w*0.0016, rMin=vb.w*0.012;
+  const porCliente = _mapaMetrica!=='clientes';
 
+  const arr=_mapaFiltrados();
+  const cidades=_mapaCidades(arr);
+
+  // marks (bolhas) conforme a métrica escolhida
+  let marks;
+  if(porCliente){
+    marks = arr.slice().sort((a,b)=>b.faturamento-a.faturamento).map(d=>{
+      const [jx,jy]=_mapaJitter(d.cliente+'|'+d.bu);
+      return { key:d.cliente+'|'+d.bu, lat:d.lat+jy, lng:d.lng+jx, valor:d.faturamento, cor:_mapaCorBU(d.bu), tipo:'cli', cli:d };
+    });
+  } else {
+    marks = cidades.map(c=>({ key:'cid|'+c.cidade+'|'+c.uf, lat:c.lat, lng:c.lng, valor:c.n, cor:'#34D399', tipo:'cid', cid:c }));
+  }
+  const maxV=Math.max(1, ...marks.map(m=>m.valor));
+  const rMax=vb.w*(porCliente?0.05:0.06);
+  _mapaBolhasAtual = marks;
+
+  // estados
   let paths='';
   for(const f of BR_UF){
     const ativo = _mapaUF && f.s===_mapaUF;
     const fill = ativo ? 'rgba(52,211,153,0.10)' : 'rgba(255,255,255,0.04)';
     paths+=`<path d="${_mapaPathUF(f)}" fill="${fill}" fill-rule="evenodd" stroke="rgba(255,255,255,0.16)" stroke-width="${sw.toFixed(4)}" data-uf="${f.s}" class="mapaUF" style="cursor:pointer;transition:fill .15s"><title>${f.n}</title></path>`;
   }
-  _mapaBolhasAtual = bolhas;
+
+  // bolhas
   let circles='';
-  bolhas.forEach((b,i)=>{
-    const [jx,jy]=_mapaJitter(b.cliente+'|'+b.bu);
-    const [x,y]=_proj(b.lng+jx, b.lat+jy);
-    const r = rMin + (rMax-rMin)*Math.sqrt(b.faturamento/maxV);
-    const cor=_mapaCorBU(b.bu);
-    const foco = _mapaPinned===(b.cliente+'|'+b.bu);
-    circles+=`<circle cx="${x.toFixed(3)}" cy="${y.toFixed(3)}" r="${r.toFixed(3)}" fill="${cor}" fill-opacity="${foco?0.9:0.5}" stroke="${cor}" stroke-width="${(sw*(foco?2.2:1.4)).toFixed(4)}" data-idx="${i}" class="mapaBolha" style="cursor:pointer"></circle>`;
+  marks.forEach((m,i)=>{
+    const [x,y]=_proj(m.lng, m.lat);
+    const r = rMin + (rMax-rMin)*Math.sqrt(m.valor/maxV);
+    const foco = _mapaPinned===m.key;
+    circles+=`<circle cx="${x.toFixed(3)}" cy="${y.toFixed(3)}" r="${r.toFixed(3)}" fill="${m.cor}" fill-opacity="${foco?0.9:(porCliente?0.5:0.55)}" stroke="${m.cor}" stroke-width="${(sw*(foco?2.2:1.4)).toFixed(4)}" data-idx="${i}" class="mapaBolha" style="cursor:pointer"></circle>`;
   });
-  svg.innerHTML = `<g>${paths}</g><g>${circles}</g>`;
+
+  // rótulos: nome da cidade (na visão por clientes mostra "Cidade (N)")
+  let labels='';
+  const fs=vb.w*0.013, off=rMin*1.4+fs*0.9;
+  for(const c of cidades){
+    const [x,y]=_proj(c.lng, c.lat);
+    const txt = porCliente ? c.cidade : `${c.cidade} (${c.n})`;
+    labels+=`<text x="${x.toFixed(3)}" y="${(y+off).toFixed(3)}" text-anchor="middle" font-size="${fs.toFixed(3)}" fill="#fff" stroke="rgba(0,0,0,.85)" stroke-width="${(fs*0.14).toFixed(3)}" paint-order="stroke" style="pointer-events:none;font-family:'Poppins',sans-serif;font-weight:600;opacity:.92">${_esc(txt)}</text>`;
+  }
+
+  svg.innerHTML = `<g>${paths}</g><g>${circles}</g><g>${labels}</g>`;
 
   document.getElementById('mapaCrumb').textContent = _mapaUF ? `Brasil › ${_mapaNomeUF(_mapaUF)}` : 'Brasil — visão geral';
   document.getElementById('mapaVoltar').style.display = _mapaUF ? '' : 'none';
 
+  // legenda dinâmica
+  const leg=document.getElementById('mapaLegenda');
+  if(leg){
+    if(porCliente){
+      const bus=[...new Set(arr.map(d=>d.bu).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+      leg.innerHTML = bus.map(b=>`<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${_mapaCorBU(b)};margin-right:5px;vertical-align:middle"></span>${_esc(b)}</span>`).join('') + '<span style="opacity:.85">● tamanho = faturamento</span>';
+    } else {
+      leg.innerHTML = '<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#34D399;margin-right:5px;vertical-align:middle"></span>cidade</span><span style="opacity:.85">● tamanho = nº de clientes na cidade</span>';
+    }
+  }
+
   const empty=document.getElementById('mapaEmpty');
-  if(bolhas.length===0){
+  if(marks.length===0){
     empty.style.display='flex';
     empty.innerHTML = (_geoData&&_geoData.length===0)
       ? `<div style="font-weight:600;color:var(--text-2)">Sem dados de localização</div><div>Rode o seed de <b>faturamento_geo.sql</b> ou clique em <b>↻ Sincronizar</b>.</div>`
@@ -5392,12 +5444,22 @@ function _mapaWireEvents(){
   svg.querySelectorAll('.mapaUF').forEach(p=>{
     p.addEventListener('click',e=>{ if(_mapaPanning)return; e.stopPropagation(); _mapaSetUF(p.getAttribute('data-uf')); });
   });
-  const showPop=(b,evt)=>{
-    const nAloc = db.alocados.filter(a=>{const pr=db.projetos.find(x=>x.id===a.projetoId);return pr&&pr.cliente===b.cliente;}).length;
-    pop.innerHTML = `<div style="font-weight:700;margin-bottom:3px">${_esc(b.cliente)}</div>
-      <div style="color:var(--text-2)">${_esc(b.cidade||'—')}${b.uf?' · '+_esc(b.uf):''}</div>
-      <div style="margin-top:5px;font-weight:600">${_fmtBRL(b.faturamento)}</div>
-      <div style="color:var(--text-3);margin-top:2px">${_esc(b.bu||'—')}${nAloc?' · '+nAloc+' alocado'+(nAloc>1?'s':''):''}</div>`;
+  const showPop=(m,evt)=>{
+    if(m.tipo==='cid'){
+      const c=m.cid;
+      const lista = c.nomes.slice(0,10).map(_esc).join(', ') + (c.nomes.length>10?` +${c.nomes.length-10}`:'');
+      pop.innerHTML = `<div style="font-weight:700;margin-bottom:2px">${_esc(c.cidade||'—')}${c.uf?' · '+_esc(c.uf):''}</div>
+        <div style="font-weight:600;color:var(--accent)">${c.n} cliente${c.n>1?'s':''}</div>
+        <div style="color:var(--text-2);margin-top:4px;line-height:1.35">${lista}</div>
+        <div style="color:var(--text-3);margin-top:4px">Faturamento: ${_fmtBRL(c.fat)}</div>`;
+    } else {
+      const b=m.cli;
+      const nAloc = db.alocados.filter(a=>{const pr=db.projetos.find(x=>x.id===a.projetoId);return pr&&pr.cliente===b.cliente;}).length;
+      pop.innerHTML = `<div style="font-weight:700;margin-bottom:3px">${_esc(b.cliente)}</div>
+        <div style="color:var(--text-2)">${_esc(b.cidade||'—')}${b.uf?' · '+_esc(b.uf):''}</div>
+        <div style="margin-top:5px;font-weight:600">${_fmtBRL(b.faturamento)}</div>
+        <div style="color:var(--text-3);margin-top:2px">${_esc(b.bu||'—')}${nAloc?' · '+nAloc+' alocado'+(nAloc>1?'s':''):''}</div>`;
+    }
     pop.style.display='block';
     const rect=card.getBoundingClientRect();
     let px=evt.clientX-rect.left+14, py=evt.clientY-rect.top+14;
@@ -5406,23 +5468,24 @@ function _mapaWireEvents(){
     pop.style.left=px+'px'; pop.style.top=py+'px';
   };
   svg.querySelectorAll('.mapaBolha').forEach(c=>{
-    const b=_mapaBolhasAtual[+c.getAttribute('data-idx')];
-    if(!b) return;
-    const chave=b.cliente+'|'+b.bu;
-    c.addEventListener('mousemove',e=>{ if(!_mapaPanning) showPop(b,e); });
+    const m=_mapaBolhasAtual[+c.getAttribute('data-idx')];
+    if(!m) return;
+    const uf = m.tipo==='cid' ? m.cid.uf : m.cli.uf;
+    c.addEventListener('mousemove',e=>{ if(!_mapaPanning) showPop(m,e); });
     c.addEventListener('mouseleave',()=>{ if(_mapaPinned==null) pop.style.display='none'; });
     c.addEventListener('click',e=>{
       if(_mapaPanning) return;
       e.stopPropagation();
-      _mapaPinned = (_mapaPinned===chave) ? null : chave;
-      if(_mapaPinned && !_mapaUF && b.uf && _UF_BBOX[b.uf]){ _mapaVB=null; _mapaUF=b.uf; }
+      _mapaPinned = (_mapaPinned===m.key) ? null : m.key;
+      if(_mapaPinned && !_mapaUF && uf && _UF_BBOX[uf]){ _mapaVB=null; _mapaUF=uf; }
       _mapaDraw();
-      if(_mapaPinned) showPop(b,e);
+      if(_mapaPinned) showPop(m,e);
     });
   });
 }
 
 function _mapaSetBU(v){ _mapaBU=v; _mapaPinned=null; _mapaDraw(); }
+function _mapaSetMetrica(v){ _mapaMetrica=v; _mapaPinned=null; const pop=document.getElementById('mapaPop'); if(pop)pop.style.display='none'; _mapaDraw(); }
 function _mapaSetUF(uf){ _mapaUF=uf; _mapaPinned=null; _mapaVB=null; const pop=document.getElementById('mapaPop'); if(pop)pop.style.display='none'; _mapaDraw(); }
 function _mapaResetZoom(){ _mapaVB=_mapaViewBox(); _mapaDraw(); }
 
