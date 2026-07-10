@@ -5230,6 +5230,9 @@ const BR_UF = [{"n":"Acre","s":"AC","p":[[[[-73.608,-7.202],[-72.659,-7.625],[-7
 
 const MAPA_CORES = { 'onebrain':'#34D399', 'outforce':'#F59E0B', 'fast':'#60A5FA', 'kolivo':'#A78BFA', 'stoom':'#F472B6' };
 const _MAPA_PAL = ['#34D399','#F59E0B','#60A5FA','#A78BFA','#F472B6','#22D3EE','#FB7185','#A3E635'];
+// Canoniza a BU: unifica variações de grafia (ex.: "Onebrain" e "OneBrain")
+const _BU_CANON = { 'onebrain':'OneBrain', 'outforce':'Outforce', 'fast':'Fast', 'kolivo':'Kolivo', 'stoom':'Stoom' };
+function _mapaBUCanon(bu){ const k=(bu||'').trim().toLowerCase(); return _BU_CANON[k] || (bu||'').trim(); }
 function _mapaCorBU(bu){
   const k=(bu||'').trim().toLowerCase();
   if(MAPA_CORES[k]) return MAPA_CORES[k];
@@ -5310,7 +5313,7 @@ async function loadMapaGeo(){
     .not('lat','is',null);
   if(error){ console.warn('[Mapa] faturamento_geo indisponível:', error.message); _geoData=[]; return; }
   _geoData = (data||[]).map(r=>({
-    cliente:r.cliente, faturamento:Number(r.faturamento)||0, bu:r.bu||'',
+    cliente:r.cliente, faturamento:Number(r.faturamento)||0, bu:_mapaBUCanon(r.bu),
     cidade:r.cidade||'', uf:r.uf||'', estado:r.estado||'',
     lat:Number(r.lat), lng:Number(r.lng)
   }));
