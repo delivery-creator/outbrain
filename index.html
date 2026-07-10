@@ -5365,23 +5365,37 @@ function _mapaDraw(){
   const vb=_mapaVB;
   svg.setAttribute('viewBox', `${vb.x.toFixed(3)} ${vb.y.toFixed(3)} ${vb.w.toFixed(3)} ${vb.h.toFixed(3)}`);
   const sw=vb.w*0.0016, rMin=vb.w*0.012;
-  const porCliente = _mapaMetrica!=='clientes';
+  const porCli = _mapaMetrica==='clientes';
+  // Nível de detalhe pelo zoom: afastado = consolidado por cidade (1 bola no
+  // centro da cidade); aproximado / dentro de um estado = clientes individuais.
+  const detalhado = vb.w < _BR_VIEW.w*0.55;
 
   const arr=_mapaFiltrados();
-  const cidades=_mapaCidades(arr);
+  const cidades=_mapaCidades(arr);   // usado p/ bolhas consolidadas e p/ rótulos
 
-  // marks (bolhas) conforme a métrica escolhida
   let marks;
-  if(porCliente){
-    marks = arr.slice().sort((a,b)=>b.faturamento-a.faturamento).map(d=>{
-      const [jx,jy]=_mapaJitter(d.cliente+'|'+d.bu);
-      return { key:d.cliente+'|'+d.bu, lat:d.lat+jy, lng:d.lng+jx, valor:d.faturamento, cor:_mapaCorBU(d.bu), tipo:'cli', cli:d };
-    });
+  if(detalhado){
+    // Como o geocoding é a nível de cidade, clientes da mesma cidade compartilham
+    // coordenada. Espalha-os num anel ao redor do centro p/ ver cada um.
+    marks = [];
+    const byCity=new Map();
+    for(const d of arr){ const k=(d.cidade||'').toLowerCase()+'|'+(d.uf||''); if(!byCity.has(k)) byCity.set(k,[]); byCity.get(k).push(d); }
+    for(const list of byCity.values()){
+      const n=list.length;
+      const clat=list.reduce((s,d)=>s+d.lat,0)/n, clng=list.reduce((s,d)=>s+d.lng,0)/n;
+      const rad=vb.w*Math.min(0.18, 0.07+n*0.008); // anel proporcional ao zoom
+      list.sort((a,b)=>b.faturamento-a.faturamento).forEach((d,idx)=>{
+        let lat=d.lat, lng=d.lng;
+        if(n>1){ const ang=(idx/n)*Math.PI*2 - Math.PI/2; lat=clat+Math.sin(ang)*rad; lng=clng+Math.cos(ang)*rad; }
+        marks.push({ key:d.cliente+'|'+d.bu, lat, lng, valor:d.faturamento, cor:_mapaCorBU(d.bu), tipo:'cli', cli:d });
+      });
+    }
+    marks.sort((a,b)=>b.valor-a.valor);
   } else {
-    marks = cidades.map(c=>({ key:'cid|'+c.cidade+'|'+c.uf, lat:c.lat, lng:c.lng, valor:c.n, cor:'#34D399', tipo:'cid', cid:c }));
+    marks = cidades.map(c=>({ key:'cid|'+c.cidade+'|'+c.uf, lat:c.lat, lng:c.lng, valor:(porCli?c.n:c.fat), cor:'#34D399', tipo:'cid', cid:c }));
   }
   const maxV=Math.max(1, ...marks.map(m=>m.valor));
-  const rMax=vb.w*(porCliente?0.05:0.06);
+  const rMax=vb.w*(detalhado?0.03:0.06), rMinB=vb.w*(detalhado?0.014:0.012);
   _mapaBolhasAtual = marks;
 
   // estados
@@ -5396,9 +5410,9 @@ function _mapaDraw(){
   let circles='';
   marks.forEach((m,i)=>{
     const [x,y]=_proj(m.lng, m.lat);
-    const r = rMin + (rMax-rMin)*Math.sqrt(m.valor/maxV);
+    const r = rMinB + (rMax-rMinB)*Math.sqrt(m.valor/maxV);
     const foco = _mapaPinned===m.key;
-    circles+=`<circle cx="${x.toFixed(3)}" cy="${y.toFixed(3)}" r="${r.toFixed(3)}" fill="${m.cor}" fill-opacity="${foco?0.9:(porCliente?0.5:0.55)}" stroke="${m.cor}" stroke-width="${(sw*(foco?2.2:1.4)).toFixed(4)}" data-idx="${i}" class="mapaBolha" style="cursor:pointer"></circle>`;
+    circles+=`<circle cx="${x.toFixed(3)}" cy="${y.toFixed(3)}" r="${r.toFixed(3)}" fill="${m.cor}" fill-opacity="${foco?0.9:(detalhado?0.5:0.55)}" stroke="${m.cor}" stroke-width="${(sw*(foco?2.2:1.4)).toFixed(4)}" data-idx="${i}" class="mapaBolha" style="cursor:pointer"></circle>`;
   });
 
   // rótulos: nome da cidade (na visão por clientes mostra "Cidade (N)")
@@ -5406,23 +5420,25 @@ function _mapaDraw(){
   const fs=vb.w*0.013, off=rMin*1.4+fs*0.9;
   for(const c of cidades){
     const [x,y]=_proj(c.lng, c.lat);
-    const txt = porCliente ? c.cidade : `${c.cidade} (${c.n})`;
+    const txt = (!detalhado && porCli) ? `${c.cidade} (${c.n})` : c.cidade;
     labels+=`<text x="${x.toFixed(3)}" y="${(y+off).toFixed(3)}" text-anchor="middle" font-size="${fs.toFixed(3)}" fill="#fff" stroke="rgba(0,0,0,.85)" stroke-width="${(fs*0.14).toFixed(3)}" paint-order="stroke" style="pointer-events:none;font-family:'Poppins',sans-serif;font-weight:600;opacity:.92">${_esc(txt)}</text>`;
   }
 
   svg.innerHTML = `<g>${paths}</g><g>${circles}</g><g>${labels}</g>`;
 
-  document.getElementById('mapaCrumb').textContent = _mapaUF ? `Brasil › ${_mapaNomeUF(_mapaUF)}` : 'Brasil — visão geral';
+  const lod = detalhado ? 'clientes (detalhado)' : 'consolidado por cidade';
+  document.getElementById('mapaCrumb').textContent = (_mapaUF ? `Brasil › ${_mapaNomeUF(_mapaUF)}` : 'Brasil') + ' · ' + lod;
   document.getElementById('mapaVoltar').style.display = _mapaUF ? '' : 'none';
 
   // legenda dinâmica
   const leg=document.getElementById('mapaLegenda');
   if(leg){
-    if(porCliente){
+    if(detalhado){
       const bus=[...new Set(arr.map(d=>d.bu).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
       leg.innerHTML = bus.map(b=>`<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${_mapaCorBU(b)};margin-right:5px;vertical-align:middle"></span>${_esc(b)}</span>`).join('') + '<span style="opacity:.85">● tamanho = faturamento</span>';
     } else {
-      leg.innerHTML = '<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#34D399;margin-right:5px;vertical-align:middle"></span>cidade</span><span style="opacity:.85">● tamanho = nº de clientes na cidade</span>';
+      const oq = porCli ? 'nº de clientes na cidade' : 'faturamento somado na cidade';
+      leg.innerHTML = '<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#34D399;margin-right:5px;vertical-align:middle"></span>cidade</span><span style="opacity:.85">● tamanho = '+oq+' · clique/zoom p/ detalhar</span>';
     }
   }
 
@@ -5476,6 +5492,17 @@ function _mapaWireEvents(){
     c.addEventListener('click',e=>{
       if(_mapaPanning) return;
       e.stopPropagation();
+      if(m.tipo==='cid'){
+        // expandir a cidade: aproxima na região central → revela os clientes individuais
+        const c=m.cid;
+        if(c.uf && _UF_BBOX[c.uf]) _mapaUF=c.uf;
+        const [cx,cy]=_proj(c.lng,c.lat);
+        const w=_BR_VIEW.w*0.30, h=w*(_mapaVB.h/_mapaVB.w);
+        _mapaVB={ x:cx-w/2, y:cy-h/2, w, h };
+        _mapaPinned=null;
+        _mapaDraw();
+        return;
+      }
       _mapaPinned = (_mapaPinned===m.key) ? null : m.key;
       if(_mapaPinned && !_mapaUF && uf && _UF_BBOX[uf]){ _mapaVB=null; _mapaUF=uf; }
       _mapaDraw();
