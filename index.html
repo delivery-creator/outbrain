@@ -5261,12 +5261,13 @@ let _mapaWinInit = false;// listeners de window (mousemove/up) só uma vez
 const _MID_LAT = -15, _KX = Math.cos(_MID_LAT*Math.PI/180);
 function _proj(lng,lat){ return [lng*_KX, -lat]; }
 
-// bounds projetados: Brasil inteiro (_BR_VIEW) e por UF (_UF_BBOX)
-let _BR_VIEW = null; const _UF_BBOX = {};
+// bounds projetados: Brasil inteiro (_BR_VIEW), por UF (_UF_BBOX) e polígonos por UF
+let _BR_VIEW = null; const _UF_BBOX = {}, _UF_POLYS = {};
 function _mapaCalcBounds(){
   if(_BR_VIEW) return;
   let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   for(const f of BR_UF){
+    _UF_POLYS[f.s]=f.p;
     let sx=1e9,sy=1e9,SX=-1e9,SY=-1e9;
     for(const poly of f.p) for(const r of poly) for(const [lng,lat] of r){
       const [x,y]=_proj(lng,lat);
@@ -5276,6 +5277,18 @@ function _mapaCalcBounds(){
     _UF_BBOX[f.s]={x:sx,y:sy,w:SX-sx,h:SY-sy};
   }
   _BR_VIEW={x:minx,y:miny,w:maxx-minx,h:maxy-miny};
+}
+// teste ponto-em-polígono (ray casting) contra os anéis da UF, em coords lng/lat
+function _pointInUF(lng,lat,uf){
+  const polys=_UF_POLYS[uf]; if(!polys) return true;
+  let inside=false;
+  for(const poly of polys) for(const ring of poly){
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+      if(((yi>lat)!==(yj>lat)) && (lng < (xj-xi)*(lat-yi)/((yj-yi)||1e-12)+xi)) inside=!inside;
+    }
+  }
+  return inside;
 }
 function _mapaViewBox(){
   const b = _mapaUF ? _UF_BBOX[_mapaUF] : _BR_VIEW;
@@ -5383,10 +5396,16 @@ function _mapaDraw(){
     for(const list of byCity.values()){
       const n=list.length;
       const clat=list.reduce((s,d)=>s+d.lat,0)/n, clng=list.reduce((s,d)=>s+d.lng,0)/n;
-      const rad=vb.w*Math.min(0.18, 0.07+n*0.008); // anel proporcional ao zoom
+      const rad=vb.w*Math.min(0.13, 0.05+n*0.007); // anel proporcional ao zoom
+      const uf=list[0].uf;
       list.sort((a,b)=>b.faturamento-a.faturamento).forEach((d,idx)=>{
         let lat=d.lat, lng=d.lng;
-        if(n>1){ const ang=(idx/n)*Math.PI*2 - Math.PI/2; lat=clat+Math.sin(ang)*rad; lng=clng+Math.cos(ang)*rad; }
+        if(n>1){
+          const ang=(idx/n)*Math.PI*2 - Math.PI/2, s=Math.sin(ang), c=Math.cos(ang);
+          // se a posição no anel cair fora do estado (ex.: no mar), puxa de volta pro centro
+          let k=1; lat=clat+s*rad; lng=clng+c*rad;
+          while(k>0.06 && uf && !_pointInUF(lng,lat,uf)){ k*=0.6; lat=clat+s*rad*k; lng=clng+c*rad*k; }
+        }
         marks.push({ key:d.cliente+'|'+d.bu, lat, lng, valor:d.faturamento, cor:_mapaCorBU(d.bu), tipo:'cli', cli:d });
       });
     }
