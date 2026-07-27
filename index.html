@@ -3615,7 +3615,7 @@ function renderAlocados(mc){
       </div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Projeto</th><th>Gestor</th><th>Contrato</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th><th style="width:70px"></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Projeto</th><th>Gestor</th><th>Modalidade</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th><th style="width:70px"></th></tr></thead>
       <tbody id="alocTbody"></tbody>
     </table></div>
   </div>`;
@@ -3740,7 +3740,7 @@ function filterAlocados(){
       <td><div class="tag-list">${(a.stack||[]).slice(0,2).map(s=>`<span class="tag">${s}</span>`).join('')}${(a.stack||[]).length>2?`<span class="tag">+${a.stack.length-2}</span>`:''}</div></td>
       <td>${pr?`<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:${pr.cor}"></span>${pr.nome}</span>`:'—'}</td>
       <td>${g?g.nome:'—'}</td>
-      <td><span class="badge b-gray">${a.contrato}</span></td>
+      <td><span class="badge b-gray">${a.modalidade||'—'}</span></td>
       <td>${a.meses}m</td>
       <td style="font-weight:600">${fBRL(a.salario)}</td>
       <td>${fBRL(getVH(a))}/h${a.valorHoraCTH?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</td>
