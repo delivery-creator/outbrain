@@ -780,7 +780,6 @@ input[type=file]{display:none}
           <option value="__em_processo__">Em processo seletivo</option>
         </select>
       </div>
-      <div class="form-group full"><label>Obs. Substituição</label><input class="form-control" type="text" id="tvSubst" placeholder="Ex: Previsão de entrada em 30 dias"></div>
     </div>
   </div>
   <div class="modal-footer">
@@ -6716,7 +6715,6 @@ function openTurnover(aid){
   document.getElementById('tvAlocadoNome').value=a.nome;
   document.getElementById('tvData').value=toISO(TODAY);
   document.getElementById('tvObs').value='';
-  document.getElementById('tvSubst').value='';
   const substSel=document.getElementById('tvSubstId');
   // ✅ MODIFICADO: opções atualizadas
   substSel.innerHTML=
@@ -6734,7 +6732,7 @@ async function confirmarTurnover(){
   const substVal=document.getElementById('tvSubstId').value;
   const isEmProcesso=substVal==='__em_processo__';
   const substId=(!substVal||isEmProcesso)?null:substVal;
-  const substObs=isEmProcesso?'__em_processo__':(document.getElementById('tvSubst').value||null);
+  const substObs=isEmProcesso?'__em_processo__':null;
   await supa.from('alocados').update({desligamento:data}).eq('id',aid);
   const {error}=await supa.from('turnover').insert({
     alocado_id:aid,alocado_nome:a.nome,data_desl:data,
@@ -6753,7 +6751,6 @@ function openEditTurnover(id){
   document.getElementById('tvAlocadoNome').value=t.alocadoNome;
   document.getElementById('tvData').value=t.data;
   document.getElementById('tvObs').value=t.obs||'';
-  document.getElementById('tvSubst').value=(t.substituicao&&t.substituicao!=='__em_processo__')?t.substituicao:'';
   const motSel=document.getElementById('tvMotivo');
   for(let i=0;i<motSel.options.length;i++){if(motSel.options[i].value===t.motivo||motSel.options[i].text===t.motivo){motSel.selectedIndex=i;break;}}
   const substSel=document.getElementById('tvSubstId');
@@ -6778,7 +6775,7 @@ async function salvarEdicaoTurnover(id){
     motivo:document.getElementById('tvMotivo').value,
     obs:document.getElementById('tvObs').value||null,
     substituto_id:(!substVal||isEmProcesso)?null:substVal,
-    substituicao_obs:isEmProcesso?'__em_processo__':(document.getElementById('tvSubst').value||null),
+    substituicao_obs:isEmProcesso?'__em_processo__':null,
     data_desl:document.getElementById('tvData').value
   };
   const {error}=await supa.from('turnover').update(payload).eq('id',id);
