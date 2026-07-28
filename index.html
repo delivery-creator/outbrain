@@ -6736,7 +6736,7 @@ async function confirmarTurnover(){
   const substId=(!substVal||isEmProcesso)?null:substVal;
   const substObs=isEmProcesso?'__em_processo__':(document.getElementById('tvSubst').value||null);
   await supa.from('alocados').update({desligamento:data}).eq('id',aid);
-  await supa.from('turnover').insert({
+  const {error}=await supa.from('turnover').insert({
     alocado_id:aid,alocado_nome:a.nome,data_desl:data,
     motivo:document.getElementById('tvMotivo').value,
     obs:document.getElementById('tvObs').value||null,
@@ -6744,6 +6744,7 @@ async function confirmarTurnover(){
     substituicao_obs:substObs,
     status:'Confirmado'
   });
+  if(error){showToast('Erro ao salvar: '+error.message);return}
   await loadAll();closeModal('modalTurnover');filterAlocados();showToast('Desligamento registrado');
 }
 function openEditTurnover(id){
@@ -6780,7 +6781,8 @@ async function salvarEdicaoTurnover(id){
     substituicao_obs:isEmProcesso?'__em_processo__':(document.getElementById('tvSubst').value||null),
     data_desl:document.getElementById('tvData').value
   };
-  await supa.from('turnover').update(payload).eq('id',id);
+  const {error}=await supa.from('turnover').update(payload).eq('id',id);
+  if(error){showToast('Erro ao salvar: '+error.message);return}
   await loadAll();closeModal('modalTurnover');resetTurnoverFooter();renderTurnover(document.getElementById('mainContent'));showToast('Turnover atualizado');
 }
 async function cancelarDesligamento(id){
