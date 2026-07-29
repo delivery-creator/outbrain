@@ -4014,6 +4014,7 @@ async function renderCalculadora(mc){
         <select class="form-control" id="calcEquip" onchange="recalcAll_calc()">
           <option value="notebook">Notebook</option>
           <option value="macbook">Macbook</option>
+          <option value="sem">Sem equipamento</option>
         </select>
       </div>
       <div class="form-group">
@@ -4163,7 +4164,7 @@ function getParamCalc(){
     imposto:   (parseFloat(document.getElementById('paramImposto')?.value)||13) / 100,
     lucro:     (parseFloat(document.getElementById('paramLucro')?.value)||25) / 100,
     infra:      parseFloat(document.getElementById('paramInfra')?.value)||2500,
-    equip:      equipSel==='notebook' ? notebookVal : macbookVal,
+    equip:      equipSel==='sem' ? 0 : (equipSel==='notebook' ? notebookVal : macbookVal),
     horas:      parseFloat(document.getElementById('paramHoras')?.value)||168,
     custo_clt: (parseFloat(document.getElementById('paramCLT')?.value)||85) / 100,
     pis:       (parseFloat(document.getElementById('paramPIS')?.value)||6.15) / 100,
