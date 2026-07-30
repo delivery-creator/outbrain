@@ -714,6 +714,13 @@ input[type=file]{display:none}
           <option>Essencial</option><option>Squad</option><option>Talent Pipeline Pro</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Unidade</label>
+        <select class="form-control" id="projetoUnidade">
+          <option value="OneBrain">OneBrain</option>
+          <option value="Outforce">Outforce</option>
+        </select>
+      </div>
       <div class="form-group"><label>Data de Início</label><input class="form-control" type="date" id="projetoInicio"></div>
       <div class="form-group"><label>Data de Encerramento</label><input class="form-control" type="date" id="projetoFim"></div>
       <div class="form-group full"><label>Link do Contrato (PDF)</label><input class="form-control" type="url" id="projetoContratoPDF" placeholder="https://..."></div>
@@ -1536,7 +1543,7 @@ function calcTurnoverMetrics(ano, filtroProjetoIds) {
 
 /* ─── MAPPERS ─────────────────────────────────────────── */
 function mapProjeto(r){
-  return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#34D399',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||'',photo:r.photo_url||''};
+  return {id:r.id,nome:r.nome,cliente:r.cliente,cor:r.cor||'#34D399',contrato:r.contrato,contratoLink:r.contrato_link||'',aditivos:r.aditivos||'',inicio:r.inicio||'',fim:r.fim||'',status:r.status,motivo:r.motivo||'',photo:r.photo_url||'',unidade:r.unidade||''};
 }
 function mapGestor(r){
   return {id:r.id,nome:r.nome,email:r.email,telefone:r.telefone||'',cliente:r.cliente||'',projetoId:r.projeto_id||'',tipo:r.tipo,linkedin:r.linkedin||'',photo:r.photo_url||''};
@@ -1959,13 +1966,17 @@ let _fatTabelaAberta = false;
 // Descobre a unidade de cada cliente olhando os alocados dele.
 // Como cada cliente é de uma unidade só, basta o primeiro alocado encontrado.
 function _fatUnidadeDoCliente(cliente){
+  // 1) unidade explícita salva no cadastro do cliente (projetos.unidade)
+  const pu = db.projetos.find(x=>x.cliente===cliente && x.unidade);
+  if(pu) return pu.unidade;
+  // 2) fallback: deriva pelo primeiro alocado do cliente
   for(const a of db.alocados){
     const p = db.projetos.find(x=>x.id===a.projetoId);
     if(p && p.cliente === cliente && a.unidadeNegocio){
       return a.unidadeNegocio;
     }
   }
-  return null; // cliente sem alocado vinculado → unidade desconhecida
+  return null; // cliente sem unidade e sem alocado → desconhecida
 }
  
 // Lista de clientes do faturamento que pertencem à unidade selecionada
@@ -6561,6 +6572,9 @@ function checkNovoCliente(sel){
   const cli=sel.value==='__new__'?'':sel.value;
   selectedProjetos=[];
   renderProjetoGrid(cli);
+  // puxa a unidade do cliente existente; novo cliente mantém default OneBrain
+  const u=document.getElementById('projetoUnidade');
+  if(u) u.value = (cli && _fatUnidadeDoCliente(cli)) || 'OneBrain';
 }
 function checkNewCargo(sel){
   document.getElementById('cargoNovoGroup').style.display=sel.value==='__new__'?'flex':'none';
@@ -6614,6 +6628,7 @@ function openModalProjetoEdit(id){
   selectedProjetos=[];
   const pg=document.getElementById('projetoGrid');if(pg)pg.innerHTML='';
   document.getElementById('projetoContrato').value='Essencial';
+  document.getElementById('projetoUnidade').value='OneBrain';
   document.getElementById('projetoStatus').value='Ativo';
   document.getElementById('projetoCor').value='#34D399';
   document.getElementById('motivoEncerramentoGroup').classList.add('hidden');
@@ -6627,6 +6642,7 @@ function openModalProjetoEdit(id){
     renderProjetoGrid(p.cliente||'');
     document.getElementById('projetoNome').value='';
     document.getElementById('projetoContrato').value=p.contrato;
+    document.getElementById('projetoUnidade').value=p.unidade||_fatUnidadeDoCliente(p.cliente)||'OneBrain';
     document.getElementById('projetoInicio').value=p.inicio||'';
     document.getElementById('projetoFim').value=p.fim||'';
     document.getElementById('projetoContratoPDF').value=p.contratoLink||'';
@@ -6651,7 +6667,7 @@ async function salvarProjeto(){
   if(!clienteSel){showToast('Informe o cliente');return}
   const status=document.getElementById('projetoStatus').value;
   const fotoCliente = document.getElementById('clientePhoto').value||null;
-  const basePayload={cliente:clienteSel,contrato:document.getElementById('projetoContrato').value,inicio:document.getElementById('projetoInicio').value||null,fim:document.getElementById('projetoFim').value||null,contrato_link:document.getElementById('projetoContratoPDF').value||null,aditivos:document.getElementById('projetoAditivos').value||null,cor:document.getElementById('projetoCor').value,photo_url:fotoCliente,status,motivo:document.getElementById('projetoMotivo').value||null};
+  const basePayload={cliente:clienteSel,contrato:document.getElementById('projetoContrato').value,unidade:document.getElementById('projetoUnidade').value||'OneBrain',inicio:document.getElementById('projetoInicio').value||null,fim:document.getElementById('projetoFim').value||null,contrato_link:document.getElementById('projetoContratoPDF').value||null,aditivos:document.getElementById('projetoAditivos').value||null,cor:document.getElementById('projetoCor').value,photo_url:fotoCliente,status,motivo:document.getElementById('projetoMotivo').value||null};
   for(const sp of selectedProjetos){
     if(sp.id===''&&sp.nome){
       await supa.from('projetos').insert({...basePayload,nome:sp.nome});
@@ -6667,6 +6683,8 @@ async function salvarProjeto(){
   if(fotoCliente){
     await supa.from('projetos').update({photo_url: fotoCliente}).eq('cliente', clienteSel);
   }
+  // unidade é do cliente inteiro: aplica em todos os projetos dele
+  await supa.from('projetos').update({unidade: basePayload.unidade}).eq('cliente', clienteSel);
   await loadAll();closeModal('modalProjeto');renderClientes(document.getElementById('mainContent'));showToast(selectedProjetos.length>1?'Projetos salvos!':'Projeto salvo!');
 }
 function abrirEncerrarCliente(cli){
