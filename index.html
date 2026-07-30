@@ -1796,8 +1796,21 @@ function getI(n){return(n||'').split(' ').slice(0,2).map(x=>x[0]).join('').toUpp
 function fBRL(v){return'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
 function fCargo(cargo,sen){return cargo+(sen?' '+sen:'');}
+// meses corridos desde a admissão até hoje
+function _mesesCorridos(admissao){
+  if(!admissao) return 0;
+  const adm=new Date(admissao+'T00:00:00');
+  if(isNaN(adm)) return 0;
+  let m=(TODAY.getFullYear()-adm.getFullYear())*12+(TODAY.getMonth()-adm.getMonth());
+  if(TODAY.getDate()<adm.getDate()) m--;
+  return m;
+}
+// CTH (valor hora dos primeiros 6 meses) só vale enquanto não completou 6 meses
+function emPeriodoCTH(a){
+  return a.contrato==='Talent Pipeline Pro' && !!a.valorHoraCTH && _mesesCorridos(a.admissao) < 6;
+}
 function getVH(a){
-  return (a.contrato==='Talent Pipeline Pro' && a.valorHoraCTH) ? a.valorHoraCTH : a.valorHora;
+  return emPeriodoCTH(a) ? a.valorHoraCTH : a.valorHora;
 }
 function calcMargemVH(alocado){
   // Se Talent Pipeline Pro e ainda no período CTH, usa V/H CTH
@@ -3636,9 +3649,11 @@ function renderDashboardMasterContent(){
 /* ─── ALOCADOS ────────────────────────────────────────── */
 let filStackSel = new Set();
 let filStatusSel = new Set();
+let filCTHOn = false;
 function renderAlocados(mc){
   filStackSel = new Set();
-  filStatusSel = new Set();
+  filStatusSel = new Set(['Ativo','Desligamento Prev.','Em Admissão']);
+  filCTHOn = false;
   const clientes=[...new Set(db.projetos.map(p=>p.cliente))];
   const allStacks_=[...new Set(db.alocados.flatMap(a=>a.stack||[]))].sort();
   mc.innerHTML=`
@@ -3671,6 +3686,9 @@ function renderAlocados(mc){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       </div>
+      <button class="btn btn-ghost btn-sm" id="cthFilterBtn" onclick="toggleCTHFilter()" title="Mostrar só contratos CTH (Talent Pipeline Pro)" style="gap:5px">
+        <span class="badge b-amber" style="font-size:10px">CTH</span>
+      </button>
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Nome</th><th>Cargo</th><th>Stack</th><th>Projeto</th><th>Gestor</th><th>Modalidade</th><th>Meses</th><th>Salário</th><th>V/H</th><th>Est. Mês</th><th>Status</th><th style="width:70px"></th></tr></thead>
@@ -3684,7 +3702,7 @@ function renderAlocados(mc){
   const _labelStyle='display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:5px;font-size:14px';
   const _hdr=t=>`<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.5px;margin-bottom:6px;padding:0 4px">${t}</div>`;
   const _foot=fn=>`<div style="border-top:1px solid rgba(255,255,255,0.08);margin-top:6px;padding-top:6px"><button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;font-size:12px" onclick="${fn}()">Limpar filtro</button></div>`;
-  const _chk=(val,fn)=>`<label style="${_labelStyle}" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''"><input type="checkbox" value="${val}" onchange="${fn}(this)" style="accent-color:#34D399;width:13px;height:13px">${val}</label>`;
+  const _chk=(val,fn,checked)=>`<label style="${_labelStyle}" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''"><input type="checkbox" value="${val}" ${checked?'checked':''} onchange="${fn}(this)" style="accent-color:#34D399;width:13px;height:13px">${val}</label>`;
 
   const sdEl=document.createElement('div');
   sdEl.id='stackDropdown';
@@ -3695,8 +3713,12 @@ function renderAlocados(mc){
   const stEl=document.createElement('div');
   stEl.id='statusDropdown';
   stEl.style.cssText=_ddStyle+';min-width:180px';
-  stEl.innerHTML=_hdr('FILTRAR POR STATUS')+['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>_chk(s,'toggleStatusFilter')).join('')+_foot('clearStatusFilter');
+  stEl.innerHTML=_hdr('FILTRAR POR STATUS')+['Em Admissão','Ativo','Desligamento Prev.','Inativo'].map(s=>_chk(s,'toggleStatusFilter',filStatusSel.has(s))).join('')+_foot('clearStatusFilter');
   document.body.appendChild(stEl);
+
+  // reflete a contagem do filtro de status pré-selecionado
+  const _stCnt=document.getElementById('statusFilterCount');
+  if(_stCnt&&filStatusSel.size>0){_stCnt.style.display='inline';_stCnt.textContent=filStatusSel.size;}
 
   filterAlocados();
 }
@@ -3755,6 +3777,12 @@ function clearStatusFilter(){
   const cnt=document.getElementById('statusFilterCount');if(cnt)cnt.style.display='none';
   filterAlocados();
 }
+function toggleCTHFilter(){
+  filCTHOn=!filCTHOn;
+  const btn=document.getElementById('cthFilterBtn');
+  if(btn){btn.classList.toggle('btn-accent',filCTHOn);btn.classList.toggle('btn-ghost',!filCTHOn);}
+  filterAlocados();
+}
 document.addEventListener('click',()=>{
   const d=document.getElementById('stackDropdown');
   if(d)d.style.display='none';
@@ -3780,6 +3808,7 @@ function filterAlocados(){
     if(fp&&a.projetoId!==fp)return false;
     if(fc){const p=db.projetos.find(x=>x.id===a.projetoId);if(!p||p.cliente!==fc)return false;}
     if(filStatusSel.size>0&&!filStatusSel.has(a.status))return false;
+    if(filCTHOn&&a.contrato!=='Talent Pipeline Pro')return false;
     if(fu&&a.unidadeNegocio!==fu)return false;
     if(filStackSel.size>0&&![...(a.stack||[])].some(s=>filStackSel.has(s)))return false;
     return true;
@@ -3801,7 +3830,7 @@ function filterAlocados(){
       <td><span class="badge b-gray">${a.modalidade||'—'}</span></td>
       <td>${a.meses}m</td>
       <td style="font-weight:600">${fBRL(a.salario)}</td>
-      <td>${fBRL(getVH(a))}/h${a.valorHoraCTH?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</td>
+      <td>${fBRL(getVH(a))}/h${emPeriodoCTH(a)?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</td>
       <td style="color:var(--text);font-weight:700">${fBRL(a.mediaCusto)}</td>
       <td><span class="badge ${a.badge}">${a.status}</span></td>
       <td onclick="event.stopPropagation()"><div class="row-actions">
@@ -4939,7 +4968,7 @@ function _redeCardAlocado(a){
           </div>
         </div>
       </div>
-      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between;border-top:1px solid var(--border)"><span style="color:var(--text-3)">V/H</span><span style="font-weight:600">${fBRL(vh)}/h${a.valorHoraCTH?' <span class="badge b-amber" style="font-size:10px">CTH</span>':''}</span></div>
+      <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between;border-top:1px solid var(--border)"><span style="color:var(--text-3)">V/H</span><span style="font-weight:600">${fBRL(vh)}/h${emPeriodoCTH(a)?' <span class="badge b-amber" style="font-size:10px">CTH</span>':''}</span></div>
       <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Projeto</span><span style="text-align:right">${projeto?projeto.nome:'—'}</span></div>
       <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Gestor</span><span style="text-align:right">${gestor?gestor.nome:'—'}</span></div>
       <div style="font-size:12px;padding:4px 0;display:flex;justify-content:space-between"><span style="color:var(--text-3)">Contrato</span><span class="badge b-gray" style="font-size:10px">${a.contrato}</span></div>
@@ -6030,7 +6059,7 @@ async function openDetailById(id){
     ${isE?`<div class="d-section">
       <div class="d-section-title">Financeiro</div>
       <div class="d-row"><span class="d-label">Custo/Mês</span><span class="d-val" style="color:var(--text);font-weight:700">${fBRL(a.mediaCusto)}</span></div>
-      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(getVH(a))}/h${a.valorHoraCTH?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</span></div>
+      <div class="d-row"><span class="d-label">Valor Hora</span><span class="d-val">${fBRL(getVH(a))}/h${emPeriodoCTH(a)?` <span class="badge b-amber" style="font-size:10px">CTH</span>`:''}</span></div>
       ${fmtTrilhaFin(hVH)}
       <div class="d-row"><span class="d-label">Salário</span><span class="d-val">${fBRL(a.salario)}</span></div>
       ${fmtTrilhaFin(hSal)}
