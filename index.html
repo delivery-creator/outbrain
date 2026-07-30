@@ -2118,6 +2118,7 @@ function renderFatPanel(){
   }
  
   _fatChart(mensal, ehGlobal, {sub,meta,sup});
+  _fatChartMensal(mensal, ehGlobal, {sub,meta,sup});
   _fatTabela();   // monta/atualiza a tabela accordion
   renderLucPanel();   // monta/atualiza o painel de lucratividade
 }
@@ -2238,6 +2239,46 @@ function _fatChart(mensal, ehGlobal, m){
       scales:{
         x:{grid:{display:false},ticks:{font:{size:12}}},
         y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{font:{size:12},callback:v=>v+'M'},suggestedMax: ehGlobal?(m.sup/1e6)*1.05:undefined}
+      }
+    }
+  });
+}
+
+/* Realizado mês a mês (NÃO acumulado) — mesmos dados/filtros do gráfico acima */
+function _fatChartMensal(mensal, ehGlobal, m){
+  const fechados = _fatQtdRealizados();
+  const dados = mensal.map(v=>v/1e6);
+  const cores = mensal.map((_,i)=> i<fechados ? '#34D399' : 'rgba(52,211,153,0.35)');
+  // meta mensal = meta anual / 12 (linha de referência plana), só na visão global
+  const linhaFlat = (valor) => _mesesLbl.map(()=> (valor/12)/1e6);
+
+  const datasets = [
+    {type:'bar', label:'Realizado', data:dados, backgroundColor:cores, borderColor:'#34D399', borderWidth:1, borderRadius:5, order:2}
+  ];
+  if(ehGlobal){
+    datasets.push(
+      {type:'line', label:'Sub-meta/mês', data:linhaFlat(m.sub), borderColor:'#FBBF24', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1},
+      {type:'line', label:'Meta/mês', data:linhaFlat(m.meta), borderColor:'#34D399', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1},
+      {type:'line', label:'Super-meta/mês', data:linhaFlat(m.sup), borderColor:'#A78BFA', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1}
+    );
+  }
+
+  if(chartInstances.fatMensal){ try{ chartInstances.fatMensal.destroy(); }catch(e){} }
+  chartInstances.fatMensal = new Chart(document.getElementById('chartFatMensal'),{
+    data:{labels:_mesesLbl, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index', intersect:false,
+          callbacks:{ label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0}) }
+        }
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:12}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{font:{size:12},callback:v=>v+'M'},beginAtZero:true}
       }
     }
   });
@@ -3058,6 +3099,10 @@ async function renderDashboard(mc){
     <div class="chart-card">
       <div class="chart-title">Acumulado mês a mês<span>realizado + projetado da planilha</span></div>
       <div style="position:relative;height:240px"><canvas id="chartFatPanel"></canvas></div>
+    </div>
+    <div class="chart-card" style="margin-top:12px">
+      <div class="chart-title">Realizado mês a mês<span>faturamento do mês (não acumulado)</span></div>
+      <div style="position:relative;height:240px"><canvas id="chartFatMensal"></canvas></div>
     </div>
     <div class="chart-card" style="margin-top:12px">
       <div onclick="_fatToggleTabela()" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
