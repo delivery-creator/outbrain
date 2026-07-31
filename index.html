@@ -2262,19 +2262,10 @@ function _fatChartMensal(mensal, ehGlobal, m){
   const fechados = _fatQtdRealizados();
   const dados = mensal.map(v=>v/1e6);
   const cores = mensal.map((_,i)=> i<fechados ? '#34D399' : 'rgba(52,211,153,0.35)');
-  // meta mensal = meta anual / 12 (linha de referência plana), só na visão global
-  const linhaFlat = (valor) => _mesesLbl.map(()=> (valor/12)/1e6);
 
   const datasets = [
     {type:'bar', label:'Realizado', data:dados, backgroundColor:cores, borderColor:'#34D399', borderWidth:1, borderRadius:5, order:2}
   ];
-  if(ehGlobal){
-    datasets.push(
-      {type:'line', label:'Sub-meta/mês', data:linhaFlat(m.sub), borderColor:'#FBBF24', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1},
-      {type:'line', label:'Meta/mês', data:linhaFlat(m.meta), borderColor:'#34D399', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1},
-      {type:'line', label:'Super-meta/mês', data:linhaFlat(m.sup), borderColor:'#A78BFA', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false, tension:0, order:1}
-    );
-  }
 
   if(chartInstances.fatMensal){ try{ chartInstances.fatMensal.destroy(); }catch(e){} }
   chartInstances.fatMensal = new Chart(document.getElementById('chartFatMensal'),{
