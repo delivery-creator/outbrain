@@ -3249,6 +3249,21 @@ async function renderDashboard(mc){
           ${db.projetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('')}
         </select>
       </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Contrato</div>
+        <select class="filter-sel" id="dashFilContrato" onchange="dashFilterChange()" style="width:170px">
+          <option value="">Todos</option>
+          <option value="Essencial">Essencial</option>
+          <option value="Squad">Squad</option>
+          <option value="Talent Pipeline Pro">Talent Pipeline Pro</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">CTH</div>
+        <button class="btn btn-ghost btn-sm" id="dashCTHBtn" onclick="dashToggleCTH()" title="Somente quem ainda está no valor CTH (primeiros 6 meses)" style="gap:5px;height:35px">
+          <span class="badge b-amber" style="font-size:10px">Ainda no CTH</span>
+        </button>
+      </div>
     </div>
     <div id="dashContent"></div>
   </div>`;
@@ -3268,13 +3283,24 @@ function dashFilterChange(){
   }
   renderDashboardContent();
 }
+function dashToggleCTH(){
+  const b=document.getElementById('dashCTHBtn');
+  if(!b)return;
+  b.classList.toggle('btn-accent');
+  b.classList.toggle('btn-ghost');
+  renderDashboardContent();
+}
 
 function renderDashboardContent(){
   const cli=document.getElementById('dashFilCliente')?.value||'';
   const proj=document.getElementById('dashFilProjeto')?.value||'';
 
 const unidade=document.getElementById('dashFilUnidade')?.value||'';
+  const contratoSel=document.getElementById('dashFilContrato')?.value||'';
+  const cthOnly=!!document.getElementById('dashCTHBtn')?.classList.contains('btn-accent');
   let visAlocados=db.alocados.filter(a=>{
+    if(contratoSel&&a.contrato!==contratoSel)return false;
+    if(cthOnly&&!emPeriodoCTH(a))return false;
     if(unidade&&a.unidadeNegocio!==unidade)return false;
     if(proj) return a.projetoId===proj;
     if(cli){const p=db.projetos.find(x=>x.id===a.projetoId);return p&&p.cliente===cli;}
@@ -3288,8 +3314,8 @@ const unidade=document.getElementById('dashFilUnidade')?.value||'';
   const mediaMeses=ativos.length?Math.round(ativos.reduce((s,a)=>s+a.meses,0)/ativos.length):0;
   const projAtivos=[...new Set(ativos.map(a=>a.projetoId))].length;
 
-  const meses=[];const now=new Date(TODAY);
-  for(let i=5;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),date:d})}
+  const meses=[];const now=new Date(TODAY);const anoAtual=now.getFullYear();
+  for(let mi=0;mi<=now.getMonth();mi++){const d=new Date(anoAtual,mi,1);meses.push({label:d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}),date:d})}
 
   const atPorMes=meses.map(m=>visAlocados.filter(a=>{
     if(!a.admissao)return false;
@@ -3324,7 +3350,8 @@ const unidade=document.getElementById('dashFilUnidade')?.value||'';
     const d=new Date(t.data);
     return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear()
       && !tvTemSubstituicao(t)
-      && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
+      && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId))
+      && (!contratoSel || db.alocados.find(a=>a.id===t.alocadoId)?.contrato===contratoSel);
   }).length;
 });
 
@@ -3336,7 +3363,8 @@ const desPorMesComSubst = meses.map(m => {
     const d=new Date(t.data);
     return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear()
       && tvTemSubstituicao(t)
-      && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
+      && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId))
+      && (!contratoSel || db.alocados.find(a=>a.id===t.alocadoId)?.contrato===contratoSel);
   }).length;
 });
 
@@ -3368,7 +3396,8 @@ const desPorMesComSubst = meses.map(m => {
       const d=new Date(t.data);
       return d.getMonth()===m.date.getMonth()&&d.getFullYear()===m.date.getFullYear()
         && tvTemSubstituicao(t)
-        && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId));
+        && (!filtroProjetoIds || filtroProjetoIds.includes(db.alocados.find(a=>a.id===t.alocadoId)?.projetoId))
+      && (!contratoSel || db.alocados.find(a=>a.id===t.alocadoId)?.contrato===contratoSel);
     }).reduce((s,t) => {
       const alocado = db.alocados.find(a=>a.id===t.alocadoId);
       return s + (getVH(alocado)*168);
@@ -3435,9 +3464,12 @@ const desPorMesComSubst = meses.map(m => {
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div class="chart-card"><div class="chart-title">Ativos por Mês<span>quantidade</span></div><div style="position:relative;height:200px"><canvas id="chartAtv"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Faturamento Est. Mensal<span>desde jan/${String(anoAtual).slice(-2)} (R$ mil)</span></div><div style="position:relative;height:200px"><canvas id="chartFat"></canvas></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div class="chart-card">
       <div class="chart-title">Turnover Mensal
-        <span>últimos 6 meses</span>
+        <span>desde jan/${String(anoAtual).slice(-2)}</span>
         <span style="margin-left:12px;display:inline-flex;align-items:center;gap:10px;font-size:11px">
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(248,113,113,0.7);display:inline-block"></span>Vaga perdida</span>
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(139,139,139,0.4);display:inline-block"></span>Com substituição</span>
@@ -3447,12 +3479,12 @@ const desPorMesComSubst = meses.map(m => {
       </div>
       <div style="position:relative;height:200px"><canvas id="chartTV"></canvas></div>
     </div>
-  </div>
-  <div class="chart-card" style="margin-bottom:12px">
-    <div class="chart-title">Saving Estimado
-      <span>últimos 6 meses (R$ mil) · desligamentos com substituição</span>
+    <div class="chart-card">
+      <div class="chart-title">Saving Estimado
+        <span>desde jan/${String(anoAtual).slice(-2)} (R$ mil) · desligamentos com substituição</span>
+      </div>
+      <div style="position:relative;height:200px"><canvas id="chartSaving"></canvas></div>
     </div>
-    <div style="position:relative;height:200px"><canvas id="chartSaving"></canvas></div>
   </div>
   `;
 
@@ -3460,7 +3492,7 @@ const desPorMesComSubst = meses.map(m => {
   const cg={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}}}}};
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};
 
-chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'line',data:{labels,datasets:[{data:fatPorMes,borderColor:'#34D399',backgroundColor:'rgba(52,211,153,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#34D399',pointRadius:4}]},options:cg});
+chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'bar',data:{labels,datasets:[{data:fatPorMes,backgroundColor:'rgba(52,211,153,0.15)',borderColor:'#34D399',borderWidth:2,borderRadius:5}]},options:{...cg,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:0})+' mil'}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12},callback:v=>'R$ '+v+'k'},beginAtZero:true}}}});
 chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(96,165,250,0.15)',borderColor:'#60A5FA',borderWidth:2,borderRadius:5}]},options:{...cg,scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}},beginAtZero:true}}}});
   // ✅ NOVO gráfico de turnover: barras empilhadas + linha taxa líquida
   chartInstances.tv=new Chart(document.getElementById('chartTV'),{
