@@ -3316,13 +3316,13 @@ const unidade=document.getElementById('dashFilUnidade')?.value||'';
     return adm<mEnd&&(!desl||desl>=m.date);
   }).length);
 
-  const fatPorMes=meses.map(m=>Math.round(visAlocados.filter(a=>{
+  const fatPorMes=meses.map(m=>visAlocados.filter(a=>{
     if(!a.admissao)return false;
     const adm=new Date(a.admissao);
     const desl=a.desligamento?new Date(a.desligamento):null;
     const mEnd=new Date(m.date);mEnd.setMonth(mEnd.getMonth()+1);
     return adm<mEnd&&(!desl||desl>=m.date)&&a.status!=='Em Admissão';
-  }).reduce((s,a)=>s+(getVH(a)*168),0)/1000));
+  }).reduce((s,a)=>s+(getVH(a)*168),0));
 
   const desligPrevistos=visAlocados.filter(a=>a.status==='Desligamento Prev.'||(a.status==='Inativo'&&a.desligamento&&new Date(a.desligamento)>TODAY));
   const fatDeslig=desligPrevistos.reduce((s,a)=>s+(getVH(a)*168),0);
@@ -3381,7 +3381,7 @@ const desPorMesComSubst = meses.map(m => {
 
   // Saving estimado por mês: V/H × 168 dos desligados com substituição
   const savingPorMes = meses.map(m => {
-    return Math.round(db.turnover.filter(t => {
+    return db.turnover.filter(t => {
       if(t.status==='Cancelado') return false;
       if(!t.data) return false;
       const d=new Date(t.data);
@@ -3392,7 +3392,7 @@ const desPorMesComSubst = meses.map(m => {
     }).reduce((s,t) => {
       const alocado = db.alocados.find(a=>a.id===t.alocadoId);
       return s + (getVH(alocado)*168);
-    }, 0) / 1000);
+    }, 0);
   });
 
   const el=document.getElementById('dashContent');if(!el)return;
@@ -3483,7 +3483,7 @@ const desPorMesComSubst = meses.map(m => {
   const cg={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}}}}};
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};
 
-chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'bar',data:{labels,datasets:[{data:fatPorMes,backgroundColor:'rgba(52,211,153,0.15)',borderColor:'#34D399',borderWidth:2,borderRadius:5}]},options:{...cg,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:0})+' mil'}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12},callback:v=>'R$ '+v+'k'},beginAtZero:true}}}});
+chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'bar',data:{labels,datasets:[{data:fatPorMes,backgroundColor:'rgba(52,211,153,0.15)',borderColor:'#34D399',borderWidth:2,borderRadius:5}]},options:{...cg,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:0})}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12},callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'},beginAtZero:true}}}});
 chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(96,165,250,0.15)',borderColor:'#60A5FA',borderWidth:2,borderRadius:5}]},options:{...cg,scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}},beginAtZero:true}}}});
   // ✅ NOVO gráfico de turnover: barras empilhadas + linha taxa líquida
   chartInstances.tv=new Chart(document.getElementById('chartTV'),{
@@ -3592,7 +3592,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
         legend:{display:false},
         tooltip:{
           callbacks:{
-            label: ctx => 'R$ '+(ctx.parsed.y*1000).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})
+            label: ctx => 'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})
           }
         }
       },
@@ -3600,7 +3600,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
         x:{grid:{display:false},ticks:{font:{size:12}}},
         y:{
           grid:{color:'rgba(15,25,35,0.05)'},
-          ticks:{font:{size:12},callback:v=>'R$ '+v+'k'},
+          ticks:{font:{size:12},callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'},
           beginAtZero:true
         }
       }
