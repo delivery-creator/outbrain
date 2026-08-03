@@ -6501,18 +6501,19 @@ function renderHistPanel(listId,panelId,hist){
 async function salvarAlocado(){
   const btnSalvar=document.querySelector('#modalAlocado .btn-accent');
   if(btnSalvar){btnSalvar.disabled=true;btnSalvar.textContent='Salvando...';}
-  const nome=document.getElementById('alocadoNome').value.trim();if(!nome){if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent='Salvar';}return}
+  const _unlock=()=>{if(btnSalvar){btnSalvar.disabled=false;btnSalvar.textContent='Salvar';}};
+  const nome=document.getElementById('alocadoNome').value.trim();if(!nome){showToast('Informe o nome');_unlock();return}
   let cargo=document.getElementById('alocadoCargo').value;if(cargo==='__new__')cargo=document.getElementById('cargoNovo').value.trim();
-  if(!cargo){showToast('Selecione o cargo');return}
+  if(!cargo){showToast('Selecione o cargo');_unlock();return}
   const ns=parseFloat(String(document.getElementById('alocadoSalario').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
   const nvh=parseFloat(String(document.getElementById('alocadoVH').value).replace(/[^\d.,]/g,'').replace(',','.'))||0;
   const nmod=document.getElementById('alocadoModalidade').value||'';
-  if(!ns){showToast('Informe o salário');return}
-  if(!nvh){showToast('Informe o valor hora');return}
-  if(!nmod){showToast('Selecione a modalidade (PJ ou CLT)');return}
+  if(!ns){showToast('Informe o salário');_unlock();return}
+  if(!nvh){showToast('Informe o valor hora');_unlock();return}
+  if(!nmod){showToast('Selecione a modalidade (PJ ou CLT)');_unlock();return}
   const contrato = document.getElementById('alocadoContrato').value;
   const vhCTH = parseFloat(document.getElementById('alocadoVHCTH').value)||null;
-  if(contrato === 'Talent Pipeline Pro' && !vhCTH){showToast('Informe o Valor Hora CTH');return}
+  if(contrato === 'Talent Pipeline Pro' && !vhCTH){showToast('Informe o Valor Hora CTH');_unlock();return}
   const novaSen=document.getElementById('alocadoSenioridade').value||null;
   const _idAtual=document.getElementById('alocadoId').value;
   const alocadoAtual=db.alocados.find(x=>x.id===_idAtual);
@@ -6550,7 +6551,7 @@ async function salvarAlocado(){
     err=insErr;
     if(inserted) novoId=inserted.id;
   }
-  if(err){showToast('Erro: '+err.message);return}
+  if(err){showToast('Erro: '+err.message);_unlock();return}
 
   // Registra histórico inicial no INSERT
   if(!id && novoId){
