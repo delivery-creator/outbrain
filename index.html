@@ -3703,14 +3703,20 @@ function renderAlocados(mc){
         <option value="OneBrain">OneBrain</option>
         <option value="Outforce">Outforce</option>
       </select>
+      <select class="filter-sel" id="filContrato" onchange="filterAlocados()">
+        <option value="">Todos os contratos</option>
+        <option value="Essencial">Essencial</option>
+        <option value="Squad">Squad</option>
+        <option value="Talent Pipeline Pro">Talent Pipeline Pro</option>
+      </select>
       <div>
         <button class="btn btn-ghost btn-sm" id="statusFilterBtn" onclick="toggleStatusDropdown(event)" style="gap:5px">
           Status<span id="statusFilterCount" style="display:none;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;padding:1px 6px;font-weight:700"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       </div>
-      <button class="btn btn-ghost btn-sm" id="cthFilterBtn" onclick="toggleCTHFilter()" title="Mostrar só contratos CTH (Talent Pipeline Pro)" style="gap:5px">
-        <span class="badge b-amber" style="font-size:10px">CTH</span>
+      <button class="btn btn-ghost btn-sm" id="cthFilterBtn" onclick="toggleCTHFilter()" title="Somente quem ainda está no valor CTH (primeiros 6 meses)" style="gap:5px">
+        <span class="badge b-amber" style="font-size:10px">Ainda no CTH</span>
       </button>
     </div>
     <div class="table-wrap"><table>
@@ -3826,12 +3832,14 @@ function filterAlocados(){
   const fp=document.getElementById('filProjeto')?.value||'';
   const fc=document.getElementById('filCliente')?.value||'';
   const fu=document.getElementById('filUnidade')?.value||'';
+  const fCon=document.getElementById('filContrato')?.value||'';
   const list=db.alocados.filter(a=>{
     if(q&&!a.nome.toLowerCase().includes(q)&&!a.cargo.toLowerCase().includes(q))return false;
     if(fp&&a.projetoId!==fp)return false;
     if(fc){const p=db.projetos.find(x=>x.id===a.projetoId);if(!p||p.cliente!==fc)return false;}
+    if(fCon&&a.contrato!==fCon)return false;
     if(filStatusSel.size>0&&!filStatusSel.has(a.status))return false;
-    if(filCTHOn&&a.contrato!=='Talent Pipeline Pro')return false;
+    if(filCTHOn&&!emPeriodoCTH(a))return false;
     if(fu&&a.unidadeNegocio!==fu)return false;
     if(filStackSel.size>0&&![...(a.stack||[])].some(s=>filStackSel.has(s)))return false;
     return true;
@@ -5797,6 +5805,10 @@ function renderTurnover(mc){
         <option value="OneBrain">OneBrain</option>
         <option value="Outforce">Outforce</option>
       </select>
+      <select class="filter-sel" id="tvFilCliente" onchange="filterTurnover()" style="width:170px">
+        <option value="">Todos os clientes</option>
+        ${[...new Set(db.projetos.map(p=>p.cliente))].sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Alocado</th><th>Data Desligamento</th><th>Motivo</th><th>Substituto</th><th>Obs.</th><th>Status</th>${isEditor()?'<th style="width:60px"></th>':''}</tr></thead>
@@ -5811,7 +5823,12 @@ function renderTurnover(mc){
   const mes = parseInt(document.getElementById('tvFilMes')?.value||'0');
   const unidade = document.getElementById('tvFilUnidade')?.value||'';
   const motivo = document.getElementById('tvFilMotivo')?.value||'';
+  const cliente = document.getElementById('tvFilCliente')?.value||'';
   const anoAtual = TODAY.getFullYear();
+
+  // helpers do filtro de cliente (via projeto do alocado)
+  const _alocOkCliente = a => { if(!cliente) return true; if(!a) return false; const p=db.projetos.find(x=>x.id===a.projetoId); return !!p && p.cliente===cliente; };
+  const _tvOkCliente = alocadoId => _alocOkCliente(db.alocados.find(x=>x.id===alocadoId));
 
   const q = (document.getElementById('srTurnover')?.value||'').toLowerCase();
 
@@ -5827,6 +5844,7 @@ function renderTurnover(mc){
       const alocado = db.alocados.find(a=>a.id===t.alocadoId);
       if(!alocado || alocado.unidadeNegocio !== unidade) return false;
     }
+    if(!_tvOkCliente(t.alocadoId)) return false;
     return true;
   });
 
@@ -5845,6 +5863,7 @@ for(let i = 0; i < 12; i++){
 const hcInicioPeriodo = db.alocados.filter(a => {
   if(!a.admissao) return false;
   if(unidade && a.unidadeNegocio !== unidade) return false;
+  if(!_alocOkCliente(a)) return false;
   const adm = new Date(a.admissao);
   const desl = a.desligamento ? new Date(a.desligamento) : null;
   const inicioPeriodo = new Date(anoAtual, 0, 1);
@@ -5854,6 +5873,7 @@ const hcInicioPeriodo = db.alocados.filter(a => {
 const hcFimPeriodo = db.alocados.filter(a => {
   if(!a.admissao) return false;
   if(unidade && a.unidadeNegocio !== unidade) return false;
+  if(!_alocOkCliente(a)) return false;
   return a.status === 'Ativo' || a.status === 'Em Admissão';
 }).length;
 
@@ -5872,6 +5892,7 @@ const vagasPerdidasTotal = db.turnover.filter(t => {
     const alocado = db.alocados.find(a=>a.id===t.alocadoId);
     if(!alocado || alocado.unidadeNegocio !== unidade) return false;
   }
+  if(!_tvOkCliente(t.alocadoId)) return false;
   return true;
 }).length;
 
@@ -5909,6 +5930,7 @@ const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
       const alocado = db.alocados.find(a=>a.id===t.alocadoId);
       if(!alocado || alocado.unidadeNegocio !== unidade) return false;
     }
+    if(!_tvOkCliente(t.alocadoId)) return false;
     return true;
   }).length;
 
@@ -5925,6 +5947,7 @@ const internalizacoes = db.turnover.filter(t => {
     const alocado = db.alocados.find(a=>a.id===t.alocadoId);
     if(!alocado || alocado.unidadeNegocio !== unidade) return false;
   }
+  if(!_tvOkCliente(t.alocadoId)) return false;
   return true;
 }).length;
 
@@ -5934,6 +5957,7 @@ const taxasInternalizacaoPorMes = mesesAno.map(m => {
   const hcInicio = db.alocados.filter(a => {
     if(!a.admissao) return false;
     if(unidade && a.unidadeNegocio !== unidade) return false;
+    if(!_alocOkCliente(a)) return false;
     const adm = new Date(a.admissao);
     const desl = a.desligamento ? new Date(a.desligamento) : null;
     return adm < inicioMes && (!desl || desl >= inicioMes);
@@ -5941,6 +5965,7 @@ const taxasInternalizacaoPorMes = mesesAno.map(m => {
   const hcFim = db.alocados.filter(a => {
     if(!a.admissao) return false;
     if(unidade && a.unidadeNegocio !== unidade) return false;
+    if(!_alocOkCliente(a)) return false;
     const adm = new Date(a.admissao);
     const desl = a.desligamento ? new Date(a.desligamento) : null;
     return adm < fimMes && (!desl || desl >= fimMes);
@@ -5956,6 +5981,7 @@ const taxasInternalizacaoPorMes = mesesAno.map(m => {
       const alocado = db.alocados.find(a=>a.id===t.alocadoId);
       if(!alocado || alocado.unidadeNegocio !== unidade) return false;
     }
+    if(!_tvOkCliente(t.alocadoId)) return false;
     return true;
   }).length;
   return hcMedio > 0 ? (intern / hcMedio) * 100 : 0;
