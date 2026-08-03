@@ -5877,11 +5877,17 @@ const vagasPerdidasTotal = db.turnover.filter(t => {
 
 const taxaLiquida = hcMedioPeriodo > 0 ? Math.round((vagasPerdidasTotal / hcMedioPeriodo) * 100 * 100) / 100 : 0;
 const taxaBruta = ativos > 0 ? Math.round((lista.length/ativos)*100) : 0;;
-  const saving = lista.filter(t=>t.substituicaoId && t.substituicaoId !== '' && !(t.motivo && t.motivo.toLowerCase().includes('internaliza'))).reduce((s,t)=>{
-  const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
-  if(!substituto) return s;
-  if(substituto.status === 'Inativo') return s; // ← ignora substitutos que já saíram
-  return s + (getVH(substituto)*168);
+  const saving = lista.filter(t=>tvTemSubstituicao(t) && !(t.motivo && t.motivo.toLowerCase().includes('internaliza'))).reduce((s,t)=>{
+  // substituto concreto: usa o valor do substituto (ignora se já saiu)
+  if(t.substituicaoId && t.substituicaoId !== ''){
+    const substituto = db.alocados.find(x=>x.id===t.substituicaoId);
+    if(!substituto || substituto.status === 'Inativo') return s;
+    return s + (getVH(substituto)*168);
+  }
+  // em processo seletivo: sem substituto ainda → estima pela vaga (valor de quem saiu)
+  const saiu = db.alocados.find(x=>x.id===t.alocadoId);
+  if(!saiu) return s;
+  return s + (getVH(saiu)*168);
 }, 0);
 
   document.getElementById('tvMetricTotal').textContent = lista.length;
