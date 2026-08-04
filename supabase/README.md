@@ -127,12 +127,13 @@ Bloco comentado no fim de [`sql/faturamento_geo.sql`](sql/faturamento_geo.sql) �
 # Forecast (aba Forecast) — deploy
 
 Alimenta a aba **Forecast** do `index.html` (realizado + forecast vs meta).
-Fluxo: planilhas Google Sheets (uma por unidade, layout **largo** — coluna A =
-Cliente, uma coluna por mês "janeiro/26"…"dezembro/26") → Edge Function
+Fluxo: **uma** planilha Google Sheets com **uma aba por unidade**
+(`forecast_Onebrain` e `forecast_Outforce`), layout **largo** — coluna A =
+Cliente, uma coluna por mês "janeiro/26"…"dezembro/26" → Edge Function
 [`sync-forecast`](functions/sync-forecast/index.ts) lê via **API do Google Sheets**
 (mesma **service account** das outras syncs) → carga na tabela `forecast`.
 
-Cada planilha é a **fonte da verdade** da sua unidade/ano: para cada unidade lida
+Cada aba é a **fonte da verdade** da sua unidade/ano: para cada unidade lida
 com sucesso a função **apaga** as linhas daquele `(ano, unidade)` e **reinsere**
 (remove clientes/meses que saíram da planilha e o SEED antigo).
 
@@ -140,18 +141,20 @@ com sucesso a função **apaga** as linhas daquele `(ano, unidade)` e **reinsere
 Rode [`sql/forecast.sql`](sql/forecast.sql) no **SQL Editor** (cria a tabela `forecast`
 + RLS de leitura para autenticados; o SEED é só p/ teste e será sobrescrito).
 
-### 2. Compartilhar as planilhas com a service account
-Abra **cada** planilha (OneBrain e Outforce) → **Compartilhar** → adicione o e-mail de
-`GOOGLE_SA_EMAIL` como **Leitor**. Layout esperado: linha 1 com os meses
-(`janeiro/26`…`dezembro/26`), coluna A com o nome do cliente. Linhas de total
-(`RECEITAS`) e placeholders (`CLIENTE`) são ignoradas.
+### 2. Compartilhar a planilha com a service account
+Abra a planilha → **Compartilhar** → adicione o e-mail de `GOOGLE_SA_EMAIL` como
+**Leitor**. Layout esperado por aba: linha 1 com os meses (`janeiro/26`…`dezembro/26`),
+coluna A com o nome do cliente. Linhas de total (`RECEITAS`) e placeholders (`CLIENTE`)
+são ignoradas. As abas devem se chamar `forecast_Onebrain` e `forecast_Outforce`
+(ou ajuste via `FORECAST_TAB_*`).
 
 ### 3. Secrets (Supabase > Project Settings > Edge Functions)
 ```
-FORECAST_SHEET_ONEBRAIN = <ID da planilha OneBrain, da URL /spreadsheets/d/<ID>/edit>
-FORECAST_SHEET_OUTFORCE = <ID da planilha Outforce>
-FORECAST_RANGE          = A1:R300        (opcional; default já cobre o layout)
-FORECAST_ANO            = 2026           (opcional; senão deriva do cabeçalho)
+FORECAST_SHEET_ID     = <ID da planilha, da URL /spreadsheets/d/<ID>/edit>
+FORECAST_TAB_ONEBRAIN = forecast_Onebrain   (opcional; é o default)
+FORECAST_TAB_OUTFORCE = forecast_Outforce   (opcional; é o default)
+FORECAST_RANGE        = A1:R300             (opcional; default já cobre o layout)
+FORECAST_ANO          = 2026                (opcional; senão deriva do cabeçalho)
 ```
 > `SB_URL`, `SB_SERVICE_ROLE_KEY`, `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` são
 > reusados das outras syncs — **não precisa recriar**.

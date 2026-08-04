@@ -5,24 +5,25 @@
 // carga na tabela `forecast` (ano, unidade, cliente, mes, valor). Alimenta a
 // aba "Forecast" do index.html (realizado + forecast vs meta).
 //
-// Há UMA planilha por unidade (BU): OneBrain e Outforce. Cada planilha é a
-// fonte da verdade da sua unidade/ano — por isso, para cada unidade lida com
-// sucesso, apagamos as linhas daquele (ano, unidade) e reinserimos (remove
-// clientes/meses que saíram da planilha e o antigo SEED).
+// UMA planilha com uma ABA por unidade (BU): "forecast_Onebrain" e
+// "forecast_Outforce". Cada aba é a fonte da verdade da sua unidade/ano — por
+// isso, para cada unidade lida com sucesso, apagamos as linhas daquele
+// (ano, unidade) e reinserimos (remove clientes/meses que saíram e o SEED).
 //
 // Leitura da planilha: MESMO método da sync-mapa/sync-faturamento — Google
 // service account (JWT RS256). Secrets do Google/Supabase são globais do
 // projeto, então REUSA a mesma service account; basta:
-//   1) compartilhar AS DUAS planilhas com o e-mail GOOGLE_SA_EMAIL (Leitor), e
-//   2) criar os secrets FORECAST_SHEET_ONEBRAIN e FORECAST_SHEET_OUTFORCE.
+//   1) compartilhar a planilha com o e-mail GOOGLE_SA_EMAIL (Leitor), e
+//   2) criar o secret FORECAST_SHEET_ID.
 //
 // Secrets (Supabase > Project Settings > Edge Functions):
 //   SB_URL                   -> URL do projeto Supabase            (já existe)
 //   SB_SERVICE_ROLE_KEY      -> service_role key (ignora RLS)       (já existe)
 //   GOOGLE_SA_EMAIL          -> client_email da service account     (já existe)
 //   GOOGLE_SA_PRIVATE_KEY    -> private_key da service account      (já existe)
-//   FORECAST_SHEET_ONEBRAIN  -> ID da planilha de forecast OneBrain (NOVO)
-//   FORECAST_SHEET_OUTFORCE  -> ID da planilha de forecast Outforce (NOVO)
+//   FORECAST_SHEET_ID        -> ID da planilha de forecast (da URL) (NOVO)
+//   FORECAST_TAB_ONEBRAIN    -> opcional, default "forecast_Onebrain"
+//   FORECAST_TAB_OUTFORCE    -> opcional, default "forecast_Outforce"
 //   FORECAST_RANGE           -> opcional, default "A1:R300"         (opcional)
 //   FORECAST_ANO             -> opcional; senão deriva do cabeçalho / 2026
 //
@@ -146,7 +147,14 @@ async function lerPlanilha(token: string, sheetId: string, range: string): Promi
   const cells = bang >= 0 ? range.slice(bang + 1) : range;
   const wanted = bang >= 0 ? range.slice(0, bang).replace(/^'|'$/g, "").replace(/''/g, "'") : "";
   const nrm = (s: string) => s.normalize("NFC").trim().toLowerCase();
-  const aba = (wanted && titles.find((t) => nrm(t) === nrm(wanted))) || titles[0];
+  let aba: string;
+  if (wanted) {
+    const match = titles.find((t) => nrm(t) === nrm(wanted));
+    if (!match) throw new Error(`Aba "${wanted}" não encontrada (abas: ${titles.join(", ")})`);
+    aba = match;
+  } else {
+    aba = titles[0];
+  }
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(a1Range(`${aba}!${cells}`))}`;
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -192,16 +200,16 @@ Deno.serve(async (req) => {
     const SB_KEY = Deno.env.get("SB_SERVICE_ROLE_KEY")!;
     const SA_EMAIL = Deno.env.get("GOOGLE_SA_EMAIL")!;
     const SA_KEY = Deno.env.get("GOOGLE_SA_PRIVATE_KEY")!;
-    const RANGE = Deno.env.get("FORECAST_RANGE") ?? "A1:R300";
+    const SHEET_ID = Deno.env.get("FORECAST_SHEET_ID");
+    const CELLS = Deno.env.get("FORECAST_RANGE") ?? "A1:R300";
     const ANO_ENV = Number(Deno.env.get("FORECAST_ANO") || 0);
+    if (!SHEET_ID) return json({ ok: false, erro: "FORECAST_SHEET_ID não configurado" }, 500);
 
-    const fontes: { unidade: string; sheetId: string | undefined }[] = [
-      { unidade: "OneBrain", sheetId: Deno.env.get("FORECAST_SHEET_ONEBRAIN") },
-      { unidade: "Outforce", sheetId: Deno.env.get("FORECAST_SHEET_OUTFORCE") },
+    // uma planilha, uma aba por unidade
+    const fontes: { unidade: string; tab: string }[] = [
+      { unidade: "OneBrain", tab: Deno.env.get("FORECAST_TAB_ONEBRAIN") ?? "forecast_Onebrain" },
+      { unidade: "Outforce", tab: Deno.env.get("FORECAST_TAB_OUTFORCE") ?? "forecast_Outforce" },
     ];
-    if (!fontes.some((f) => f.sheetId)) {
-      return json({ ok: false, erro: "Nenhuma planilha configurada (FORECAST_SHEET_ONEBRAIN / FORECAST_SHEET_OUTFORCE)" }, 500);
-    }
 
     const supa = createClient(SB_URL, SB_KEY);
     const token = await getGoogleAccessToken(SA_EMAIL, SA_KEY);
@@ -209,10 +217,9 @@ Deno.serve(async (req) => {
     const resultado: Record<string, unknown>[] = [];
     let totalInserido = 0;
 
-    for (const { unidade, sheetId } of fontes) {
-      if (!sheetId) { resultado.push({ unidade, ok: false, erro: "sheet id não configurado" }); continue; }
+    for (const { unidade, tab } of fontes) {
       try {
-        const { values, aba, abas } = await lerPlanilha(token, sheetId, RANGE);
+        const { values, aba, abas } = await lerPlanilha(token, SHEET_ID, `${tab}!${CELLS}`);
         const { registros, ano: anoHeader, header } = parseForecast(values);
         const ano = ANO_ENV || anoHeader || 2026;
 
