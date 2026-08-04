@@ -2233,7 +2233,7 @@ function _fatChart(mensal, ehGlobal, m){
           mode:'index',
           intersect:false,
           callbacks:{
-            label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0}),
+            label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),
             afterBody: items => {
               if(!ehGlobal || !items.length) return '';
               const ds = items[0].chart.data.datasets;
@@ -2243,7 +2243,7 @@ function _fatChart(mensal, ehGlobal, m){
               if(acum==null || !meta) return '';
               const pct = (acum/meta*100).toFixed(1);
               const diff = (acum - meta) * 1e6;
-              const diffStr = (diff>=0?'+':'') + 'R$ ' + Math.abs(diff).toLocaleString('pt-BR',{maximumFractionDigits:0});
+              const diffStr = (diff>=0?'+':'') + 'R$ ' + Math.abs(diff).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
               return ['', '% da meta no mês: '+pct+'%', 'Diferença vs meta: '+diffStr];
             }
           }
@@ -2277,7 +2277,7 @@ function _fatChartMensal(mensal, ehGlobal, m){
         legend:{display:false},
         tooltip:{
           mode:'index', intersect:false,
-          callbacks:{ label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0}) }
+          callbacks:{ label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) }
         }
       },
       scales:{
@@ -2376,7 +2376,7 @@ function _fcChart(comb, fechados, m){
       interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false},
         tooltip:{ mode:'index', intersect:false, callbacks:{
-          label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{maximumFractionDigits:0})
+          label:ctx=>ctx.dataset.label+': R$ '+(ctx.parsed.y*1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
         }}
       },
       scales:{ x:{grid:{display:false},ticks:{font:{size:12}}},
@@ -2958,7 +2958,7 @@ function _classifRenderDash(){
     type:'bar',
     data:{ labels:['Tier A','Tier B','Tier C'],
       datasets:[{ data:receitaPorTier.map(v=>Math.round(v/1000)), backgroundColor:corTier, borderRadius:5 }]},
-    options:{...cg, plugins:{...cg.plugins, tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR')+'k'}}}}
+    options:{...cg, plugins:{...cg.plugins, tooltip:{callbacks:{label:ctx=>'R$ '+(receitaPorTier[ctx.dataIndex]||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}}}}
   });
 
   chartInstances.classif2 = new Chart(document.getElementById('classifChart2'),{
@@ -3281,6 +3281,12 @@ function dashToggleCTH(){
   b.classList.toggle('btn-ghost');
   renderDashboardContent();
 }
+// estado do check "Acumulado" de cada gráfico do dashboard operacional
+let dashAcum = {atv:false, fat:false, tv:false, saving:false};
+function toggleDashAcum(key, el){
+  dashAcum[key] = !!el.checked;
+  renderDashboardContent();
+}
 
 function renderDashboardContent(){
   const cli=document.getElementById('dashFilCliente')?.value||'';
@@ -3454,12 +3460,13 @@ const desPorMesComSubst = meses.map(m => {
     <div class="stat-card"><div class="stat-label" style="margin-bottom:4px">Clientes Ativos</div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700">${[...new Set(ativos.map(a=>{const p=db.projetos.find(x=>x.id===a.projetoId);return p?.cliente}).filter(Boolean))].length}</div><div class="stat-delta delta-green" style="margin-top:4px">em andamento</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <div class="chart-card"><div class="chart-title">Ativos por Mês<span>quantidade</span></div><div style="position:relative;height:200px"><canvas id="chartAtv"></canvas></div></div>
-    <div class="chart-card"><div class="chart-title">Faturamento Est. Mensal<span>desde jan/${String(anoAtual).slice(-2)} (R$ mil)</span></div><div style="position:relative;height:200px"><canvas id="chartFat"></canvas></div></div>
+    <div class="chart-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="chart-title" style="margin-bottom:0">Ativos por Mês<span>quantidade</span></div><label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);cursor:pointer;white-space:nowrap"><input type="checkbox" ${dashAcum.atv?'checked':''} onchange="toggleDashAcum('atv',this)" style="accent-color:#34D399;width:13px;height:13px">Acumulado</label></div><div style="position:relative;height:200px"><canvas id="chartAtv"></canvas></div></div>
+    <div class="chart-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="chart-title" style="margin-bottom:0">Faturamento Est. Mensal<span>desde jan/${String(anoAtual).slice(-2)} (R$ mil)</span></div><label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);cursor:pointer;white-space:nowrap"><input type="checkbox" ${dashAcum.fat?'checked':''} onchange="toggleDashAcum('fat',this)" style="accent-color:#34D399;width:13px;height:13px">Acumulado</label></div><div style="position:relative;height:200px"><canvas id="chartFat"></canvas></div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     <div class="chart-card">
-      <div class="chart-title">Turnover Mensal
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px">
+      <div class="chart-title" style="margin-bottom:0">Turnover Mensal
         <span>desde jan/${String(anoAtual).slice(-2)}</span>
         <span style="margin-left:12px;display:inline-flex;align-items:center;gap:10px;font-size:11px">
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(248,113,113,0.7);display:inline-block"></span>Vaga perdida</span>
@@ -3468,11 +3475,16 @@ const desPorMesComSubst = meses.map(m => {
           <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;border-top:2px dashed #facc15;display:inline-block"></span>Meta 5%</span>
         </span>
       </div>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);cursor:pointer;white-space:nowrap"><input type="checkbox" ${dashAcum.tv?'checked':''} onchange="toggleDashAcum('tv',this)" style="accent-color:#34D399;width:13px;height:13px">Acumulado</label>
+      </div>
       <div style="position:relative;height:200px"><canvas id="chartTV"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">Saving Estimado
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px">
+      <div class="chart-title" style="margin-bottom:0">Saving Estimado
         <span>desde jan/${String(anoAtual).slice(-2)} (R$ mil) · desligamentos com substituição</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);cursor:pointer;white-space:nowrap"><input type="checkbox" ${dashAcum.saving?'checked':''} onchange="toggleDashAcum('saving',this)" style="accent-color:#34D399;width:13px;height:13px">Acumulado</label>
       </div>
       <div style="position:relative;height:200px"><canvas id="chartSaving"></canvas></div>
     </div>
@@ -3480,11 +3492,18 @@ const desPorMesComSubst = meses.map(m => {
   `;
 
   const labels=meses.map(m=>m.label);
+  // acumulado (soma corrida) por gráfico, conforme o check de cada um
+  const _acc = arr => { let s=0; return arr.map(v=>{s+=v; return s;}); };
+  const atData     = dashAcum.atv    ? _acc(atPorMes)          : atPorMes;
+  const fatData    = dashAcum.fat    ? _acc(fatPorMes)         : fatPorMes;
+  const savingData = dashAcum.saving ? _acc(savingPorMes)      : savingPorMes;
+  const desSemData = dashAcum.tv     ? _acc(desPorMesSemSubst) : desPorMesSemSubst;
+  const desComData = dashAcum.tv     ? _acc(desPorMesComSubst) : desPorMesComSubst;
   const cg={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}}}}};
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});chartInstances={};
 
-chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'bar',data:{labels,datasets:[{data:fatPorMes,backgroundColor:'rgba(52,211,153,0.15)',borderColor:'#34D399',borderWidth:2,borderRadius:5}]},options:{...cg,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{maximumFractionDigits:0})}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12},callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'},beginAtZero:true}}}});
-chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atPorMes,backgroundColor:'rgba(96,165,250,0.15)',borderColor:'#60A5FA',borderWidth:2,borderRadius:5}]},options:{...cg,scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}},beginAtZero:true}}}});
+chartInstances.fat=new Chart(document.getElementById('chartFat'),{type:'bar',data:{labels,datasets:[{data:fatData,backgroundColor:'rgba(52,211,153,0.15)',borderColor:'#34D399',borderWidth:2,borderRadius:5}]},options:{...cg,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}}},scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12},callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k'},beginAtZero:true}}}});
+chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',data:{labels,datasets:[{data:atData,backgroundColor:'rgba(96,165,250,0.15)',borderColor:'#60A5FA',borderWidth:2,borderRadius:5}]},options:{...cg,scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{grid:{color:'rgba(15,25,35,0.05)'},ticks:{font:{size:12}},beginAtZero:true}}}});
   // ✅ NOVO gráfico de turnover: barras empilhadas + linha taxa líquida
   chartInstances.tv=new Chart(document.getElementById('chartTV'),{
     type:'bar',
@@ -3493,7 +3512,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
       datasets:[
         {
           label:'Vaga perdida',
-          data:desPorMesSemSubst,
+          data:desSemData,
           backgroundColor:'rgba(248,113,113,0.7)',
           borderColor:'#F87171',
           borderWidth:1,
@@ -3502,7 +3521,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
         },
         {
           label:'Com substituição',
-          data:desPorMesComSubst,
+          data:desComData,
           backgroundColor:'rgba(139,139,139,0.3)',
           borderColor:'rgba(139,139,139,0.5)',
           borderWidth:1,
@@ -3555,8 +3574,8 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
             afterBody:(items)=>{
               const idx=items[0]?.dataIndex;
               if(idx===undefined) return '';
-              const perdidas=desPorMesSemSubst[idx]||0;
-              const subst=desPorMesComSubst[idx]||0;
+              const perdidas=desSemData[idx]||0;
+              const subst=desComData[idx]||0;
               const total=perdidas+subst;
               return `─────────\nTotal: ${total}`;
             }
@@ -3577,7 +3596,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
     data:{
       labels,
       datasets:[{
-        data:savingPorMes,
+        data:savingData,
         backgroundColor:'rgba(39,103,73,0.18)',
         borderColor:'#276749',
         borderWidth:2,
@@ -3592,7 +3611,7 @@ chartInstances.atv=new Chart(document.getElementById('chartAtv'),{type:'bar',dat
         legend:{display:false},
         tooltip:{
           callbacks:{
-            label: ctx => 'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})
+            label: ctx => 'R$ '+ctx.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
           }
         }
       },
