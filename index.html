@@ -1661,6 +1661,15 @@ function showLoading(show){
 }
 
 /* ─── AUTH ────────────────────────────────────────────── */
+// busca o registro de usuário pela conta de auth: 1º por id (uid), depois por e-mail (fallback)
+async function _lookupUsuario(user){
+  if(!user) return null;
+  let {data:u}=await supa.from('usuarios').select('*').eq('id',user.id).maybeSingle();
+  if(!u && user.email){
+    ({data:u}=await supa.from('usuarios').select('*').ilike('email',user.email).limit(1).maybeSingle());
+  }
+  return u||null;
+}
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
@@ -1670,7 +1679,7 @@ async function doLogin(){
   try {
     const {data,error}=await supa.auth.signInWithPassword({email,password:pass});
     if(error) throw error;
-    const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',data.user.id).maybeSingle();
+    const u=await _lookupUsuario(data.user);
     if(!u){
       await supa.auth.signOut();
       throw new Error('Acesso não configurado. Contate o administrador.');
@@ -1749,7 +1758,7 @@ function initApp(){
   }
   const {data:{session}}=await supa.auth.getSession();
   if(session){
-    const {data:u,error:ue}=await supa.from('usuarios').select('*').eq('id',session.user.id).single();
+    const u=await _lookupUsuario(session.user);
     if(u){
       currentUser={email:u.email,role:u.perfil,name:u.nome,cliente:u.cliente||'',subPermissoes:u.sub_permissoes||[]};
       await loadAll();
@@ -1774,8 +1783,8 @@ async function definirSenha(){
     const {error}=await supa.auth.updateUser({password:nova});
     if(error)throw error;
     const {data:{session}}=await supa.auth.getSession();
-    if(session){
-      await supa.from('usuarios').update({status:'ativo'}).eq('id',session.user.id);
+    if(session&&session.user.email){
+      await supa.from('usuarios').update({status:'ativo'}).ilike('email',session.user.email);
     }
     await supa.auth.signOut();
     showToast('Senha definida! Faça login com suas novas credenciais.');
