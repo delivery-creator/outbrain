@@ -124,6 +124,50 @@ Resposta: `{ ok:true, total, geocodificados, do_cache, falhas, nao_geocodados:[.
 Bloco comentado no fim de [`sql/faturamento_geo.sql`](sql/faturamento_geo.sql) — sugestão
 1x/dia às 08h de São Paulo. Requer `pg_cron` + `pg_net`.
 
+# Forecast (aba Forecast) — deploy
+
+Alimenta a aba **Forecast** do `index.html` (realizado + forecast vs meta).
+Fluxo: planilhas Google Sheets (uma por unidade, layout **largo** — coluna A =
+Cliente, uma coluna por mês "janeiro/26"…"dezembro/26") → Edge Function
+[`sync-forecast`](functions/sync-forecast/index.ts) lê via **API do Google Sheets**
+(mesma **service account** das outras syncs) → carga na tabela `forecast`.
+
+Cada planilha é a **fonte da verdade** da sua unidade/ano: para cada unidade lida
+com sucesso a função **apaga** as linhas daquele `(ano, unidade)` e **reinsere**
+(remove clientes/meses que saíram da planilha e o SEED antigo).
+
+### 1. Tabela
+Rode [`sql/forecast.sql`](sql/forecast.sql) no **SQL Editor** (cria a tabela `forecast`
++ RLS de leitura para autenticados; o SEED é só p/ teste e será sobrescrito).
+
+### 2. Compartilhar as planilhas com a service account
+Abra **cada** planilha (OneBrain e Outforce) → **Compartilhar** → adicione o e-mail de
+`GOOGLE_SA_EMAIL` como **Leitor**. Layout esperado: linha 1 com os meses
+(`janeiro/26`…`dezembro/26`), coluna A com o nome do cliente. Linhas de total
+(`RECEITAS`) e placeholders (`CLIENTE`) são ignoradas.
+
+### 3. Secrets (Supabase > Project Settings > Edge Functions)
+```
+FORECAST_SHEET_ONEBRAIN = <ID da planilha OneBrain, da URL /spreadsheets/d/<ID>/edit>
+FORECAST_SHEET_OUTFORCE = <ID da planilha Outforce>
+FORECAST_RANGE          = A1:R300        (opcional; default já cobre o layout)
+FORECAST_ANO            = 2026           (opcional; senão deriva do cabeçalho)
+```
+> `SB_URL`, `SB_SERVICE_ROLE_KEY`, `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` são
+> reusados das outras syncs — **não precisa recriar**.
+
+### 4. Deploy
+```
+supabase functions deploy sync-forecast
+```
+Teste manual:
+```
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-forecast' \
+  -H 'Authorization: Bearer <token>'
+```
+Resposta: `{ ok, total, fontes:[{ unidade, ok, ano, aba, registros, clientes, header }] }`.
+O botão **↻ Sincronizar** na aba Forecast dispara a função.
+
 ## Notas
 - **Geocoding**: só chama o Nominatim quando o `endereco` mudou (ou `lat` ainda é nula).
   Endereços já resolvidos vêm do **cache** da própria tabela → sync rápido e dentro do
