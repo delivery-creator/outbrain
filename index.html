@@ -875,6 +875,10 @@ input[type=file]{display:none}
           <input type="checkbox" id="permClassifEdit" value="classif_edit" style="accent-color:var(--accent);width:14px;height:14px">
           <span>Editar <strong>Classificação Estratégica</strong></span>
         </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:var(--font-min);cursor:pointer;padding:10px 12px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);margin-top:6px">
+          <input type="checkbox" id="permGestorEdit" value="gestor_edit" style="accent-color:var(--accent);width:14px;height:14px">
+          <span>Cadastrar e editar <strong>Gestores</strong></span>
+        </label>
       </div>
     </div>
   </div>
@@ -1966,7 +1970,7 @@ function showPage(p){
   chartInstances={};
   if(p==='alocados'&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAlocado()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Alocado</button>`;
   if((p==='clientes'||p==='projetos')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalProjeto()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Cliente</button>`;
-  if(p==='gestores'&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalGestor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Gestor</button>`;
+  if(p==='gestores'&&temPermissao('gestor_edit')) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalGestor()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Gestor</button>`;
   if((p==='internos'||p==='acesso')&&isEditor()) actions.innerHTML=`<button class="btn btn-accent" onclick="openModalAcessoNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo Interno</button>`;
   if(p==='calculadora') actions.innerHTML=`<button class="btn btn-ghost" onclick="salvarCalcImagem()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Salvar imagem</button>`;
   recalcAll();
@@ -4025,8 +4029,10 @@ function filterGestores(){
       <td><span class="badge ${g.tipo==='Master'?'b-amber':'b-blue'}">${g.tipo}</span></td>
       <td><span class="badge b-gray">${atv} ativos</span></td>
       <td onclick="event.stopPropagation()"><div class="row-actions" style="opacity:1">
-        ${isEditor()?`
+        ${temPermissao('gestor_edit')?`
         <button class="icon-btn" title="Editar" onclick="openModalGestorEdit('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        `:''}
+        ${isEditor()?`
         <button class="icon-btn danger" title="Excluir" onclick="excluirGestor('${g.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         `:''}
       </div></td>
@@ -6085,6 +6091,7 @@ function filterInternos(){
     <td>
       <span class="badge ${roleClass[u.perfil]||'b-gray'}">${roleLabel[u.perfil]||u.perfil}</span>
       ${u.perfil==='viewer' && (u.subPermissoes||[]).includes('classif_edit') ? `<span class="badge b-purple" style="font-size:10px;margin-left:4px">+Classif</span>` : ''}
+      ${u.perfil==='viewer' && (u.subPermissoes||[]).includes('gestor_edit') ? `<span class="badge b-purple" style="font-size:10px;margin-left:4px">+Gestores</span>` : ''}
     </td>
     <td><span class="badge ${u.status==='ativo'?'b-green':u.status==='pendente'?'b-amber':'b-gray'}">${u.status}</span></td>
     <td onclick="event.stopPropagation()"><div class="row-actions" style="opacity:1">
@@ -6293,7 +6300,7 @@ function openGestorDetail(id){
       <div class="d-section-title">Time (${team.length})</div>
       ${team.map(a=>`<div class="d-row" onclick="openDetailById('${a.id}')" style="cursor:pointer"><span class="d-label">${a.nome}</span><span class="d-val" style="display:flex;align-items:center;gap:5px"><span class="badge ${a.badge}" style="font-size:10px">${a.status}</span></span></div>`).join('')||'<div style="font-size:var(--font-min);color:var(--text-3);padding:6px 0">Sem alocados</div>'}
     </div>
-    ${isEditor()?`<button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="openModalGestorEdit('${g.id}')">Editar Gestor</button>`:''}`;
+    ${temPermissao('gestor_edit')?`<button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="openModalGestorEdit('${g.id}')">Editar Gestor</button>`:''}`;
   document.getElementById('detailPanel').classList.add('open');
 }
 function closeDetail(){document.getElementById('detailPanel').classList.remove('open')}
@@ -6961,6 +6968,7 @@ function openModalAcessoNew(){
   sel.innerHTML=`<option value="editor">Interno — Edição (acesso global, edição)</option>
     <option value="viewer">Interno — Visualização (acesso global, somente leitura)</option>`;
   document.getElementById('permClassifEdit').checked = false;
+  document.getElementById('permGestorEdit').checked = false;
   updateAccessFields();
   openModal('modalAcesso');
 }
@@ -6988,6 +6996,7 @@ function openModalAcessoEdit(id){
   setTimeout(()=>{
     if(u.cliente){const cl=document.getElementById('accessCliente');if(cl)cl.value=u.cliente;}
     document.getElementById('permClassifEdit').checked = (u.subPermissoes||[]).includes('classif_edit');
+    document.getElementById('permGestorEdit').checked = (u.subPermissoes||[]).includes('gestor_edit');
   },50);
   openModal('modalAcesso');
 }
@@ -7016,6 +7025,9 @@ async function salvarAcesso(){
   const subPermissoes=[];
   if(perfil==='viewer' && document.getElementById('permClassifEdit')?.checked){
     subPermissoes.push('classif_edit');
+  }
+  if(perfil==='viewer' && document.getElementById('permGestorEdit')?.checked){
+    subPermissoes.push('gestor_edit');
   }
   const payload={nome,email,telefone:document.getElementById('accessTelefone').value||null,cargo:document.getElementById('accessCargo').value||null,perfil,cliente:cliente||null,projetos:projSel,sub_permissoes:subPermissoes,status:'pendente'};
   const id=document.getElementById('accessId').value;
