@@ -44,3 +44,24 @@ insert into forecast (ano, unidade, cliente, mes, valor) values
   -- Outforce — Petz
   (2026,'Outforce','Petz',9,11600),(2026,'Outforce','Petz',10,11600),(2026,'Outforce','Petz',11,11600),(2026,'Outforce','Petz',12,11600)
 on conflict (ano, unidade, cliente, mes) do update set valor = excluded.valor;
+
+-- ═══════════════════════════════════════════════════════════
+-- AGENDAMENTO (rode DEPOIS de implantar a Edge Function sync-forecast).
+-- Requer pg_cron e pg_net habilitados em Database > Extensions.
+-- Sugestão: 1x/dia às 08h de São Paulo (11h UTC), seg–sex.
+-- ═══════════════════════════════════════════════════════════
+-- select cron.schedule(
+--   'sync-forecast-diario',
+--   '0 11 * * 1-5',
+--   $$
+--   select net.http_post(
+--     url     := 'https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-forecast',
+--     headers := jsonb_build_object(
+--                  'Content-Type','application/json',
+--                  'Authorization','Bearer sb_publishable_k_ndyX4e80eFQZA4ZNTyxQ_G3iJ0Ufb'
+--                )
+--   );
+--   $$
+-- );
+-- Conferir:  select jobid, schedule, jobname, active from cron.job where jobname='sync-forecast-diario';
+-- Remover:   select cron.unschedule('sync-forecast-diario');
