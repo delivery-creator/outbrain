@@ -165,30 +165,29 @@ async function lerPlanilha(token: string, sheetId: string, range: string): Promi
   return { values: sheet.values as string[][], aba, abas: titles };
 }
 
-// converte o layout largo em registros { cliente, mes, valor }
-function parseForecast(values: string[][]): { registros: { cliente: string; mes: number; valor: number }[]; ano: number; header: string[] } {
+// converte o layout largo em registros { ano, cliente, mes, valor }.
+// A planilha pode ter meses de mais de um ano (ex.: set/25…dez/26), então o
+// ano vem de CADA coluna ("setembro/25"->2025, "setembro/26"->2026).
+function parseForecast(values: string[][]): { registros: { ano: number; cliente: string; mes: number; valor: number }[]; header: string[]; anos: number[] } {
   const header = values[0] || [];
-  // mapeia colunas -> mês (só as que são mês)
-  const colMes: { col: number; mes: number }[] = [];
-  let ano = 0;
+  const colInfo: { col: number; mes: number; ano: number }[] = [];
   header.forEach((h, col) => {
     const mes = mesDoHeader(h);
-    if (mes) {
-      colMes.push({ col, mes });
-      if (!ano) ano = anoDoHeader(h);
-    }
+    if (mes) colInfo.push({ col, mes, ano: anoDoHeader(h) });
   });
-  const registros: { cliente: string; mes: number; valor: number }[] = [];
+  const registros: { ano: number; cliente: string; mes: number; valor: number }[] = [];
   for (let r = 1; r < values.length; r++) {
     const row = values[r] || [];
     const cliente = (row[0] || "").trim();
     if (SKIP_CLIENTE.has(norm(cliente))) continue;
-    for (const { col, mes } of colMes) {
+    for (const { col, mes, ano } of colInfo) {
+      if (!ano) continue; // coluna de mês sem ano no cabeçalho -> ignora
       const valor = parseValor(row[col]);
-      if (valor > 0) registros.push({ cliente, mes, valor });
+      if (valor > 0) registros.push({ ano, cliente, mes, valor });
     }
   }
-  return { registros, ano, header };
+  const anos = [...new Set(colInfo.map((c) => c.ano).filter(Boolean))];
+  return { registros, header, anos };
 }
 
 // ---------- handler ----------
@@ -220,20 +219,24 @@ Deno.serve(async (req) => {
     for (const { unidade, tab } of fontes) {
       try {
         const { values, aba, abas } = await lerPlanilha(token, SHEET_ID, `${tab}!${CELLS}`);
-        const { registros, ano: anoHeader, header } = parseForecast(values);
-        const ano = ANO_ENV || anoHeader || 2026;
+        let { registros, header } = parseForecast(values);
+        if (ANO_ENV) registros = registros.filter((r) => r.ano === ANO_ENV); // opcional: só um ano
 
-        // fonte da verdade por (ano, unidade): limpa e reinsere
-        const linhas = registros.map((x) => ({ ano, unidade, cliente: x.cliente, mes: x.mes, valor: x.valor }));
-        const del = await supa.from("forecast").delete().eq("ano", ano).eq("unidade", unidade);
-        if (del.error) throw new Error("delete: " + del.error.message);
+        const linhas = registros.map((x) => ({ ano: x.ano, unidade, cliente: x.cliente, mes: x.mes, valor: x.valor }));
+        const anos = [...new Set(linhas.map((l) => l.ano))].sort();
+
+        // fonte da verdade por (ano, unidade): limpa cada ano presente e reinsere
+        for (const a of anos) {
+          const del = await supa.from("forecast").delete().eq("ano", a).eq("unidade", unidade);
+          if (del.error) throw new Error("delete: " + del.error.message);
+        }
         if (linhas.length) {
           const ins = await supa.from("forecast").upsert(linhas, { onConflict: "ano,unidade,cliente,mes" });
           if (ins.error) throw new Error("upsert: " + ins.error.message);
         }
         totalInserido += linhas.length;
         const clientes = [...new Set(linhas.map((l) => l.cliente))];
-        resultado.push({ unidade, ok: true, ano, aba, abas, registros: linhas.length, clientes, header });
+        resultado.push({ unidade, ok: true, anos, aba, abas, registros: linhas.length, clientes, header });
       } catch (e) {
         resultado.push({ unidade, ok: false, erro: String((e as Error)?.message ?? e) });
       }
