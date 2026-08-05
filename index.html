@@ -2325,7 +2325,8 @@ function _fcSeries(){
     const r=_fatData&&_fatData.porCliente[c], f=_fcData&&_fcData.porCliente[c];
     for(let i=0;i<12;i++){ if(r) real[i]+=r[i]||0; if(f) fc[i]+=f[i]||0; }
   });
-  const comb=real.map((_,i)=> i<fechados ? real[i] : fc[i]);   // fechado=realizado, resto=forecast
+  // faturamento (realizado nos fechados + projetado nos abertos) SOMADO ao forecast, em todos os meses
+  const comb=real.map((v,i)=> v + fc[i]);
   return {real, fc, comb, fechados};
 }
 function renderForecastPanel(){
@@ -2334,9 +2335,9 @@ function renderForecastPanel(){
   const sub=Number(m.sub_meta), meta=Number(m.meta), sup=Number(m.super_meta);
   const escalaMax=sup*1.05;
   const {real, fc, comb, fechados}=_fcSeries();
-  const ytd=real.slice(0,fechados).reduce((a,b)=>a+b,0);
-  const fcRest=fc.slice(fechados).reduce((a,b)=>a+b,0);
-  const proj=ytd+fcRest;
+  const ytd=real.slice(0,fechados).reduce((a,b)=>a+b,0);   // faturamento realizado (meses fechados)
+  const fcTotal=fc.reduce((a,b)=>a+b,0);                     // forecast pipeline (todos os meses)
+  const proj=comb.reduce((a,b)=>a+b,0);                      // faturamento(12) + forecast(12)
   const fmtM=v=>'R$ '+(v/1e6).toFixed(2)+'M';
 
   const selU=document.getElementById('fcUnidade');
@@ -2348,7 +2349,7 @@ function renderForecastPanel(){
   const gap=meta-proj, gapSup=sup-proj;
   document.getElementById('fcCards').innerHTML=
     _fatCard('Realizado YTD', fmtM(ytd), fechados+' meses fechados') +
-    _fatCard('Forecast restante', fmtM(fcRest), (12-fechados)+' meses') +
+    _fatCard('Forecast (pipeline)', fmtM(fcTotal), 'somado ao faturamento') +
     _fatCard('Projeção fechamento', fmtM(proj), Math.round(proj/meta*100)+'% da meta') +
     _fatCard(gap>0?'Falta p/ meta':'Meta batida', gap>0?fmtM(gap):fmtM(Math.abs(gapSup))+(gapSup>0?' p/ super':' acima super'), gap>0?'':'super: '+Math.round(proj/sup*100)+'%');
 
@@ -2393,22 +2394,21 @@ function _fcChart(comb, fechados, m){
 }
 function _fcTabela(){
   const wrap=document.getElementById('fcTabelaCorpo'); if(!wrap) return;
-  const fechados=_fatQtdRealizados();
   const fmtM=v=>'R$ '+(v/1e6).toFixed(2)+'M';
   const linhas=_fcClientes().map(c=>{
     const r=(_fatData&&_fatData.porCliente[c])||new Array(12).fill(0);
     const f=(_fcData&&_fcData.porCliente[c])||new Array(12).fill(0);
-    const real=r.slice(0,fechados).reduce((a,b)=>a+b,0);
-    const fcRest=f.slice(fechados).reduce((a,b)=>a+b,0);
-    return {c, real, fcRest, proj:real+fcRest};
+    const fat=r.reduce((a,b)=>a+b,0);   // faturamento (realizado + projetado)
+    const fc=f.reduce((a,b)=>a+b,0);    // forecast
+    return {c, fat, fc, proj:fat+fc};
   }).filter(l=>l.proj>0).sort((a,b)=>b.proj-a.proj);
   const totalProj=linhas.reduce((s,l)=>s+l.proj,0)||1;
   wrap.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>Cliente</th><th style="text-align:right">Realizado</th><th style="text-align:right">Forecast rest.</th><th style="text-align:right">Projeção</th><th style="text-align:right">% do total</th></tr></thead>
+    <thead><tr><th>Cliente</th><th style="text-align:right">Faturamento</th><th style="text-align:right">Forecast</th><th style="text-align:right">Projeção</th><th style="text-align:right">% do total</th></tr></thead>
     <tbody>${linhas.map(l=>`<tr>
       <td>${l.c}</td>
-      <td style="text-align:right">${fmtM(l.real)}</td>
-      <td style="text-align:right;color:var(--text-3)">${fmtM(l.fcRest)}</td>
+      <td style="text-align:right">${fmtM(l.fat)}</td>
+      <td style="text-align:right;color:var(--text-3)">${fmtM(l.fc)}</td>
       <td style="text-align:right;font-weight:600">${fmtM(l.proj)}</td>
       <td style="text-align:right;color:var(--text-3)">${Math.round(l.proj/totalProj*100)}%</td>
     </tr>`).join('')}</tbody>
@@ -3197,7 +3197,7 @@ async function renderDashboard(mc){
       </div>
     </div>
     <div class="chart-card" style="margin-bottom:12px">
-      <div class="chart-title" id="fcTitulo" style="margin-bottom:14px">Projeção ${FAT_ANO} — realizado + forecast</div>
+      <div class="chart-title" id="fcTitulo" style="margin-bottom:14px">Projeção ${FAT_ANO} — faturamento + forecast</div>
       <div class="stats-grid" id="fcCards" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px"></div>
       <div id="fcBlocoMeta">
         <div style="position:relative;height:64px;margin-bottom:6px">
@@ -3213,7 +3213,7 @@ async function renderDashboard(mc){
       </div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">Acumulado mês a mês<span>realizado (meses fechados) + forecast (meses restantes)</span></div>
+      <div class="chart-title">Acumulado mês a mês<span>faturamento (realizado + projetado) + forecast OneBrain/Outforce</span></div>
       <div style="position:relative;height:240px"><canvas id="chartFcPanel"></canvas></div>
     </div>
     <div class="chart-card" style="margin-top:12px">
