@@ -260,6 +260,22 @@ Bloco comentado no fim de [`sql/hunting.sql`](sql/hunting.sql) — sugestão 2x/
 - **Tipo de contrato** (mapa `CONTRATO_POR_CLIENTE`, fácil de estender):
   `Nomad` → **Talent Pipeline Pro** · `Tenda` → **Squad** · demais clientes → **Essentials**.
 
+### Filtro de período (`de` / `até`)
+
+A data que define o recorte **depende do status** — não é sempre a `Aberta Em`:
+
+| Status | Data usada | Regra |
+|---|---|---|
+| `Aberta`, `Enviada` | `Aberta Em` | contam **a partir da abertura**: o `de` não exclui, só o `até`. Uma vez aberta, a vaga segue sendo contabilizada nos períodos seguintes enquanto não for encerrada. |
+| `Fechada`, `Congelada`, `Cancelada` | `Fechada Em` | a data de encerramento precisa cair dentro de `[de, até]`. É onde a planilha registra o fim dos três status. |
+
+- Vaga encerrada **sem `Fechada Em`** fica **fora** de qualquer recorte por período (aparece
+  apenas quando nenhuma das duas datas está preenchida). Isso torna visível o dado faltando
+  na planilha em vez de escondê-lo numa data de abertura que não significa nada ali.
+- Vaga `Aberta`/`Enviada` **sem `Aberta Em`** também fica fora do recorte.
+- Ambas as pontas são **inclusivas**: fechar no dia do `de` ou no dia do `até` conta.
+- Implementação: `HuntingRules.dentroDoPeriodo(reg, de, ate)`.
+
 ## Notas
 - **Cache**: a função não chama o Google se já houve sync OK há menos de `HUNTING_CACHE_MIN`
   minutos — responde `{ ok:true, cache:true }`. O botão **↻ Sincronizar** e o cron mandam

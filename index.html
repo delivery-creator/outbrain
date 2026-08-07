@@ -2579,14 +2579,43 @@ const HuntingRules = (function(){
       qtdPerfis: Number(r.qtd_perfis) || 0,
       aberta, enviada, fechada, congelada,
       abertaISO: r.aberta_em || null,
+      fechadaISO: r.fechada_em || null,
       contrato: contratoDe(r.cliente),
       slaEnvio: diasUteis(aberta, enviada),        // abertura → envio (dias úteis)
       tempoFechamento: diasUteis(aberta, fechada), // abertura → fechamento (dias úteis)
     };
   }
 
+  /* ── Recorte por período ─────────────────────────────────────────────
+     A data que vale para o recorte depende do status (regra combinada
+     com o time de hunting):
+
+       Aberta / Enviada → contam A PARTIR da abertura. O `de` NÃO as
+         exclui: uma vez aberta, a vaga segue ativa nos períodos
+         seguintes e continua sendo contabilizada. Só o `ate` corta —
+         antes de existir, a vaga não conta.
+
+       Fechada / Congelada / Cancelada → contam pela Fechada Em, que é
+         onde a planilha registra a data de encerramento dos três. Ela
+         precisa cair dentro de [de, ate]; sem essa data a vaga fica de
+         fora de qualquer recorte por período (aparece só quando nenhum
+         período está preenchido).                                       */
+  const STATUS_ENCERRADOS = ['Fechada', 'Congelada', 'Cancelada'];
+
+  function dentroDoPeriodo(r, de, ate){
+    if(!de && !ate) return true;                 // sem período = tudo entra
+    if(STATUS_ENCERRADOS.includes(r.status)){
+      if(!r.fechadaISO) return false;
+      if(de  && r.fechadaISO < de)  return false;
+      if(ate && r.fechadaISO > ate) return false;
+      return true;
+    }
+    if(!r.abertaISO) return false;
+    return !(ate && r.abertaISO > ate);
+  }
+
   /* filtros: {cliente, bu, contrato, status, de, ate} — strings vazias
-     significam "sem filtro". `de`/`ate` recortam por Aberta Em (ISO). */
+     significam "sem filtro". `de`/`ate` seguem a regra acima. */
   function filtrar(regs, f){
     const temFiltro = f.cliente || f.bu || f.contrato || f.status || f.de || f.ate;
     if(!temFiltro) return regs;
@@ -2595,9 +2624,7 @@ const HuntingRules = (function(){
       if(f.bu       && r.bu       !== f.bu)       return false;
       if(f.contrato && r.contrato !== f.contrato) return false;
       if(f.status   && r.status   !== f.status)   return false;
-      if(f.de   && (!r.abertaISO || r.abertaISO <  f.de))   return false;
-      if(f.ate  && (!r.abertaISO || r.abertaISO >  f.ate))  return false;
-      return true;
+      return dentroDoPeriodo(r, f.de, f.ate);
     });
   }
 
@@ -2671,7 +2698,8 @@ const HuntingRules = (function(){
     };
   }
 
-  return { CONTRATOS, STATUS, CONTRATO_PADRAO, toDate, diasUteis, contratoDe, normalizar, filtrar, agregar };
+  return { CONTRATOS, STATUS, STATUS_ENCERRADOS, CONTRATO_PADRAO, toDate, diasUteis,
+           contratoDe, normalizar, dentroDoPeriodo, filtrar, agregar };
 })();
 
 /* ── Estado / cache ─────────────────────────────────────────────────── */
@@ -2782,6 +2810,8 @@ function renderHuntingPanel(){
     return;
   }
   _huntPopulaFiltros();
+  const nota = document.getElementById('huntPeriodoNota');
+  if(nota) nota.style.display = (_huntFiltros.de || _huntFiltros.ate) ? 'block' : 'none';
   const ag = _huntAgregado();
 
   const ehGlobal = !_huntFiltros.cliente;
@@ -3742,17 +3772,25 @@ async function renderDashboard(mc){
         </select>
       </div>
       <div>
-        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Aberta de</div>
-        <input class="filter-sel" type="date" id="huntDe" style="width:150px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Período de</div>
+        <input class="filter-sel" type="date" id="huntDe" style="width:150px"
+               title="Aberta/Enviada contam a partir da Aberta Em. Fechada/Congelada/Cancelada contam pela Fechada Em.">
       </div>
       <div>
         <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">até</div>
-        <input class="filter-sel" type="date" id="huntAte" style="width:150px">
+        <input class="filter-sel" type="date" id="huntAte" style="width:150px"
+               title="Aberta/Enviada contam a partir da Aberta Em. Fechada/Congelada/Cancelada contam pela Fechada Em.">
       </div>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="_huntLimparFiltros()">Limpar</button>
         ${isEditor()?`<button class="btn btn-ghost btn-sm" id="btnSyncHunting" onclick="sincronizarHunting()">↻ Sincronizar</button>`:''}
       </div>
+    </div>
+
+    <div id="huntPeriodoNota" style="display:none;font-size:11px;color:var(--text-3);margin:-10px 0 14px 2px">
+      Período: <b>Aberta</b> e <b>Enviada</b> contam a partir da <b>Aberta Em</b> (uma vez aberta, a vaga
+      segue contando nos períodos seguintes). <b>Fechada</b>, <b>Congelada</b> e <b>Cancelada</b> contam
+      pela <b>Fechada Em</b> — sem essa data, ficam fora do recorte.
     </div>
 
     <div class="chart-card" style="margin-bottom:12px">
