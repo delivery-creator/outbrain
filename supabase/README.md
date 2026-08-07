@@ -180,3 +180,97 @@ O botão **↻ Sincronizar** na aba Forecast dispara a função.
   como `Cliente (BU)` (o front mostra num toast). O botão **↻ Sincronizar** na aba dispara a função.
 - Como cada endereço novo custa ~1–3s, o **1º sync** de uma planilha grande demora
   (ex.: ~45 clientes ⇒ ~1–2 min). Os próximos são quase instantâneos (cache).
+
+---
+
+# Hunting (aba Hunting) — deploy
+
+Alimenta a aba **Hunting** do `index.html`: KPIs de recrutamento, gráficos por status /
+perfis / SLA e os blocos por tipo de contrato.
+
+Fluxo: planilha Google Sheets (aba **`DADOS_HUNTING`**, uma linha = uma vaga) → Edge Function
+[`sync-hunting`](functions/sync-hunting/index.ts) lê via **API do Google Sheets** (mesma
+**service account** das outras syncs) → carga na tabela `hunting_vagas` → o front lê a tabela
+e calcula os indicadores.
+
+**Recorte de BU:** entram **apenas** as linhas com `BU` = **Outforce** ou **Onebrain**.
+Fast, CSC, Kolivo etc. são descartadas no sync e nunca chegam aos indicadores.
+
+### 1. Banco
+Rode [`sql/hunting.sql`](sql/hunting.sql) no **SQL Editor**. Cria:
+- `hunting_vagas` — dados crus da planilha (+ RLS de leitura para autenticados)
+- `hunting_sync_log` — log de cada sincronização (auditoria **e** cache da função)
+
+### 2. Compartilhar a planilha com a service account
+Abra a planilha → **Compartilhar** → adicione o e-mail de `GOOGLE_SA_EMAIL` como **Leitor**.
+
+Cabeçalho esperado na linha 1 da aba `DADOS_HUNTING` (acento/caixa não importam — as colunas
+são localizadas **pelo nome**, não pela posição, então dá para reordenar/incluir colunas):
+
+```
+Posição | Valor Hora | SO Maquina | Hunting, CSC ou Outsourcing | BU | Prioridade |
+Temperatura | Cliente | Vaga Nova ou Replace | Valor Salário | Contratado | Recrutador |
+Gestor | Status | SLA (dias corridos) | Prazo | Aberta Em | Fechada Em | Enviada Em |
+Congelada Em | Quantidade de Perfis
+```
+
+Indispensáveis: **BU, Cliente, Status, Aberta Em** — se alguma sumir, o sync falha com
+mensagem explícita em vez de importar dados errados.
+
+### 3. Secrets (todos opcionais — os defaults já apontam para a planilha atual)
+```
+HUNTING_SHEET_ID   = 1dKn6TLrgnp-WmjvyRzjbfHC_OY2pzXLR0tFbuwr7QU8   (default)
+HUNTING_TAB        = DADOS_HUNTING                                  (default)
+HUNTING_RANGE      = A1:Z2000                                       (default)
+HUNTING_CACHE_MIN  = 10        -> janela de cache, em minutos        (default)
+```
+> `SB_URL`, `SB_SERVICE_ROLE_KEY`, `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` são
+> reusados das outras syncs — **não precisa recriar**.
+
+### 4. Deploy
+```
+supabase functions deploy sync-hunting
+```
+Teste manual:
+```
+curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/sync-hunting' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"force":true}'
+```
+Resposta: `{ ok, total, linhas_lidas, ignoradas, bus_ignoradas, clientes, header, duracao_ms }`.
+
+### 5. Agendamento
+Bloco comentado no fim de [`sql/hunting.sql`](sql/hunting.sql) — sugestão 2x/dia
+(08h e 14h de São Paulo), seg–sex. Requer `pg_cron` + `pg_net`.
+
+## Regras de negócio (implementadas em `HuntingRules`, no `index.html`)
+
+| Indicador | Cálculo |
+|---|---|
+| SLA de envio | dias **úteis** entre `Aberta Em` e `Enviada Em` |
+| Tempo de fechamento | dias **úteis** entre `Aberta Em` e `Fechada Em` |
+| Média de abertura → envio | média do SLA de envio das vagas do recorte |
+| Média de envio dos perfis | `Quantidade de Perfis` ÷ `Quantidade de vagas` (perfis por vaga) |
+
+- **Dias úteis**: sábados e domingos não contam; mesma data = 0. Feriados **não** são
+  considerados (a planilha não os informa).
+- Registros com data faltando ou inconsistente (`Fechada Em` < `Aberta Em`) **não entram**
+  nas médias — os cards mostram entre parênteses quantas vagas formaram cada média.
+- **Tipo de contrato** (mapa `CONTRATO_POR_CLIENTE`, fácil de estender):
+  `Nomad` → **Talent Pipeline Pro** · `Tenda` → **Squad** · demais clientes → **Essentials**.
+
+## Notas
+- **Cache**: a função não chama o Google se já houve sync OK há menos de `HUNTING_CACHE_MIN`
+  minutos — responde `{ ok:true, cache:true }`. O botão **↻ Sincronizar** e o cron mandam
+  `force:true` e ignoram o cache.
+- **Fonte da verdade**: cada sync bem-sucedido apaga e reinsere a tabela, então vagas
+  removidas da planilha somem do dashboard.
+- **Datas sujas**: a planilha tem valores como `-46058` e `27/042026` nas colunas de data.
+  Eles viram `null` (não calculam) em vez de gerar SLA absurdo.
+- **Typos de BU**: `Ouforce` é aceito como `Outforce` — do contrário vagas reais seriam
+  descartadas. BUs realmente de fora continuam sendo ignoradas e voltam contadas em
+  `bus_ignoradas` na resposta do sync.
+- **Front**: a aba carrega sob demanda (só ao ser aberta), memoiza os agregados por
+  (versão dos dados + filtros) e se auto-atualiza a cada 15 min enquanto estiver visível.
+  O botão **↻ Sincronizar** aparece apenas para o perfil **editor**.

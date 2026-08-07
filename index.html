@@ -116,6 +116,8 @@ select.filter-sel option{background:#111111;color:#ffffff}
 select.form-control{background:#111111;color:var(--text);color-scheme:dark}
 select.form-control option{background:#111111;color:#ffffff}
 select.filter-sel:focus{border-color:var(--text)}
+input.filter-sel{padding:6px 10px;border:1px solid var(--glass-border);border-radius:7px;font-size:var(--font-min);color:var(--text);background:#111111;outline:none;font-family:'Poppins',sans-serif;color-scheme:dark}
+input.filter-sel:focus{border-color:var(--text)}
 
 table{width:100%;border-collapse:collapse}
 thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.5px;text-transform:uppercase;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--glass-border);white-space:nowrap}
@@ -2047,25 +2049,37 @@ function _fatTotalGlobal(){
   return Object.values(_fatData.porCliente).reduce((s,arr)=>s+arr.reduce((a,b)=>a+b,0),0);
 }
  
-/* abas: troca entre Faturamento, Operacional e Classificação */
+/* abas: troca entre Faturamento, Forecast, Operacional, Classificação e Hunting */
 function dashTab(qual){
   document.getElementById('tabFat')?.classList.toggle('active', qual==='fat');
   document.getElementById('tabForecast')?.classList.toggle('active', qual==='forecast');
   document.getElementById('tabOp')?.classList.toggle('active', qual==='op');
+  document.getElementById('tabHunting')?.classList.toggle('active', qual==='hunting');
   document.getElementById('tabClassif')?.classList.toggle('active', qual==='classif');
   const fat = document.getElementById('abaFat');
   const fc  = document.getElementById('abaForecast');
   const op  = document.getElementById('abaOp');
   const cf  = document.getElementById('abaClassif');
+  const hu  = document.getElementById('abaHunting');
   if(fat) fat.style.display = qual==='fat'     ? 'block':'none';
   if(fc)  fc.style.display  = qual==='forecast'? 'block':'none';
   if(op)  op.style.display  = qual==='op'      ? 'block':'none';
   if(cf)  cf.style.display  = qual==='classif' ? 'block':'none';
+  if(hu)  hu.style.display  = qual==='hunting' ? 'block':'none';
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}}); chartInstances={};
+  _huntAutoRefresh(qual==='hunting');
   if(qual==='fat')           { renderFatPanel(); }
   else if(qual==='forecast') { renderForecastPanel(); }
   else if(qual==='classif')  { renderClassifPanel(); }
+  else if(qual==='hunting')  { _huntAbrir(); }
   else                       { renderDashboardContent(); }
+}
+
+/* A aba Hunting carrega sob demanda (não pesa o 1º render do dashboard). */
+async function _huntAbrir(){
+  renderHuntingPanel();                       // mostra o estado "carregando"
+  if(!_huntData) await loadHunting();
+  renderHuntingPanel();
 }
  
 /* render do painel de faturamento dentro de #abaFat */
@@ -2471,6 +2485,471 @@ async function sincronizarFaturamento(){
   }finally{
     if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; }
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HUNTING — indicadores de recrutamento (aba Hunting do Dashboard)
+
+   Fonte: tabela `hunting_vagas`, alimentada pela Edge Function
+   `sync-hunting` a partir da aba DADOS_HUNTING do Google Sheets.
+   Uma linha da planilha = uma vaga. Só entram as BUs OneBrain e Outforce
+   (esse recorte é feito no sync, não aqui).
+
+   Três camadas, propositalmente separadas:
+     HuntingRules  → regras de negócio PURAS (sem DOM, sem rede, testáveis)
+     loadHunting / sincronizarHunting → acesso a dados (rede + cache)
+     renderHunting* → apresentação (só lê o agregado pronto)
+
+   Performance: cada registro é enriquecido UMA vez na carga
+   (datas convertidas, dias úteis e tipo de contrato calculados) e os
+   agregados são memoizados por (versão dos dados + filtros).
+   ═══════════════════════════════════════════════════════════════════════ */
+const HuntingRules = (function(){
+
+  /* ── Tipo de contrato ────────────────────────────────────────────────
+     Regra de negócio combinada com o comercial:
+       Nomad → Talent Pipeline Pro
+       Tenda → Squad
+       demais clientes → Essentials
+     Para incluir um novo cliente basta adicionar uma entrada no mapa
+     abaixo (chave = nome do cliente normalizado, sem acento/caixa).      */
+  const CONTRATO_POR_CLIENTE = {
+    'nomad': 'Talent Pipeline Pro',
+    'tenda': 'Squad',
+  };
+  const CONTRATO_PADRAO = 'Essentials';
+  const CONTRATOS = ['Essentials', 'Squad', 'Talent Pipeline Pro'];
+  const STATUS = ['Aberta', 'Enviada', 'Fechada', 'Congelada', 'Cancelada'];
+
+  function _norm(s){
+    return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/\s+/g,' ').trim().toLowerCase();
+  }
+
+  /* 'YYYY-MM-DD' → Date local à meia-noite (evita o shift de fuso do
+     `new Date('2026-01-05')`, que é interpretado como UTC). */
+  function toDate(iso){
+    if(!iso) return null;
+    const m = String(iso).slice(0,10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  /* Dias ÚTEIS entre duas datas: conta os dias posteriores a `ini` até
+     `fim` (inclusive), pulando sábados e domingos. Mesmo dia = 0.
+     Feriados não são considerados (a planilha não os informa).
+     Devolve null quando falta uma das pontas ou quando fim < ini —
+     nesses casos o registro simplesmente não entra na média.            */
+  function diasUteis(ini, fim){
+    if(!ini || !fim) return null;
+    if(fim < ini) return null;
+    const cursor = new Date(ini.getTime());
+    let n = 0;
+    while(cursor < fim){
+      cursor.setDate(cursor.getDate()+1);
+      const dow = cursor.getDay();
+      if(dow !== 0 && dow !== 6) n++;
+    }
+    return n;
+  }
+
+  function contratoDe(cliente){
+    return CONTRATO_POR_CLIENTE[_norm(cliente)] || CONTRATO_PADRAO;
+  }
+
+  /* Linha do banco → registro pronto para agregar. Tudo que é caro
+     (parse de data, dias úteis, classificação) acontece aqui, 1x. */
+  function normalizar(r){
+    const aberta    = toDate(r.aberta_em);
+    const enviada   = toDate(r.enviada_em);
+    const fechada   = toDate(r.fechada_em);
+    const congelada = toDate(r.congelada_em);
+    return {
+      id: r.id,
+      linha: r.linha,
+      posicao: r.posicao || '—',
+      cliente: r.cliente || '',
+      bu: r.bu || '',
+      status: r.status || '',
+      tipoVaga: r.tipo_vaga || null,
+      recrutador: r.recrutador || '',
+      gestor: r.gestor || '',
+      prazo: r.prazo || '',
+      qtdPerfis: Number(r.qtd_perfis) || 0,
+      aberta, enviada, fechada, congelada,
+      abertaISO: r.aberta_em || null,
+      contrato: contratoDe(r.cliente),
+      slaEnvio: diasUteis(aberta, enviada),        // abertura → envio (dias úteis)
+      tempoFechamento: diasUteis(aberta, fechada), // abertura → fechamento (dias úteis)
+    };
+  }
+
+  /* filtros: {cliente, bu, contrato, status, de, ate} — strings vazias
+     significam "sem filtro". `de`/`ate` recortam por Aberta Em (ISO). */
+  function filtrar(regs, f){
+    const temFiltro = f.cliente || f.bu || f.contrato || f.status || f.de || f.ate;
+    if(!temFiltro) return regs;
+    return regs.filter(r=>{
+      if(f.cliente  && r.cliente  !== f.cliente)  return false;
+      if(f.bu       && r.bu       !== f.bu)       return false;
+      if(f.contrato && r.contrato !== f.contrato) return false;
+      if(f.status   && r.status   !== f.status)   return false;
+      if(f.de   && (!r.abertaISO || r.abertaISO <  f.de))   return false;
+      if(f.ate  && (!r.abertaISO || r.abertaISO >  f.ate))  return false;
+      return true;
+    });
+  }
+
+  const _media = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+
+  /* Uma única varredura produz todos os indicadores da aba. */
+  function agregar(regs){
+    const porStatus = {};
+    STATUS.forEach(s=>porStatus[s]=0);
+    const perfisPorPosicao = {};
+    const contrato = {};
+    CONTRATOS.forEach(c=>contrato[c]={ vagas:0, perfis:0, slas:[] });
+
+    let vagaNova = 0, replace = 0, perfisTotal = 0;
+    const slasEnvio = [], temposFech = [];
+
+    for(const r of regs){
+      porStatus[r.status] = (porStatus[r.status] || 0) + 1;
+      if(r.tipoVaga === 'Vaga Nova') vagaNova++;
+      else if(r.tipoVaga === 'Replace') replace++;
+
+      perfisTotal += r.qtdPerfis;
+      /* Agrupado pelo nome da vaga (coluna Posição). O mesmo cargo aberto
+         para clientes diferentes cai na mesma barra — os clientes de origem
+         aparecem no tooltip para não perder essa informação. */
+      if(r.qtdPerfis > 0){
+        const vaga = r.posicao || '—';
+        const b = perfisPorPosicao[vaga] || (perfisPorPosicao[vaga] = { perfis:0, clientes:new Set() });
+        b.perfis += r.qtdPerfis;
+        if(r.cliente) b.clientes.add(r.cliente);
+      }
+
+      if(r.slaEnvio != null) slasEnvio.push(r.slaEnvio);
+      if(r.tempoFechamento != null) temposFech.push(r.tempoFechamento);
+
+      const c = contrato[r.contrato];
+      if(c){
+        c.vagas++;
+        c.perfis += r.qtdPerfis;
+        if(r.slaEnvio != null) c.slas.push(r.slaEnvio);
+      }
+    }
+
+    // Blocos por tipo de contrato:
+    //   aberturaEnvio  = média de dias úteis entre Aberta Em e Enviada Em
+    //   perfisPorVaga  = Quantidade de Perfis ÷ Quantidade de vagas
+    const porContrato = CONTRATOS.map(nome=>({
+      nome,
+      vagas: contrato[nome].vagas,
+      perfis: contrato[nome].perfis,
+      aberturaEnvio: _media(contrato[nome].slas),
+      perfisPorVaga: contrato[nome].vagas ? contrato[nome].perfis / contrato[nome].vagas : null,
+    }));
+
+    return {
+      total: regs.length,
+      abertas:    porStatus['Aberta']    || 0,
+      enviadas:   porStatus['Enviada']   || 0,
+      fechadas:   porStatus['Fechada']   || 0,
+      congeladas: porStatus['Congelada'] || 0,
+      canceladas: porStatus['Cancelada'] || 0,
+      vagaNova, replace, perfisTotal,
+      slaEnvioMedio: _media(slasEnvio),
+      slaEnvioBase: slasEnvio.length,          // nº de vagas que entraram na média
+      tempoFechamentoMedio: _media(temposFech),
+      tempoFechamentoBase: temposFech.length,
+      perfisPorPosicao: Object.entries(perfisPorPosicao)
+        .map(([vaga, b])=>({ vaga, perfis:b.perfis, clientes:[...b.clientes].sort() }))
+        .sort((a,b)=> b.perfis-a.perfis || a.vaga.localeCompare(b.vaga,'pt-BR')),
+      porContrato,
+    };
+  }
+
+  return { CONTRATOS, STATUS, CONTRATO_PADRAO, toDate, diasUteis, contratoDe, normalizar, filtrar, agregar };
+})();
+
+/* ── Estado / cache ─────────────────────────────────────────────────── */
+let _huntData    = null;          // registros já normalizados
+let _huntVersao  = 0;             // muda a cada carga → invalida a memoização
+let _huntSync    = null;          // último registro de hunting_sync_log
+let _huntFiltros = { cliente:'', bu:'', contrato:'', status:'', de:'', ate:'' };
+const _huntAggCache = new Map();
+const HUNT_AUTO_MIN = 15;         // auto-refresh da tabela com a aba aberta
+let _huntAutoTimer = null;
+
+async function loadHunting(){
+  const [vagasRes, logRes] = await Promise.all([
+    supa.from('hunting_vagas').select('*').order('aberta_em', {ascending:false}),
+    // o log é acessório: se a tabela ainda não existir, segue sem quebrar
+    supa.from('hunting_sync_log').select('executado_em, ok, origem, importadas, ignoradas, erro')
+        .order('executado_em', {ascending:false}).limit(1),
+  ]);
+  if(vagasRes.error){ console.warn('[Hunting]', vagasRes.error.message); _huntData = []; }
+  else _huntData = (vagasRes.data||[]).map(HuntingRules.normalizar);
+  _huntSync = (!logRes.error && logRes.data && logRes.data[0]) ? logRes.data[0] : null;
+  _huntVersao++;
+  _huntAggCache.clear();
+}
+
+/* Agregado memoizado por (versão dos dados + filtros). */
+function _huntAgregado(){
+  const chave = _huntVersao + '|' + JSON.stringify(_huntFiltros);
+  if(_huntAggCache.has(chave)) return _huntAggCache.get(chave);
+  const ag = HuntingRules.agregar(HuntingRules.filtrar(_huntData||[], _huntFiltros));
+  if(_huntAggCache.size > 40) _huntAggCache.clear();
+  _huntAggCache.set(chave, ag);
+  return ag;
+}
+
+async function sincronizarHunting(){
+  const btn = document.getElementById('btnSyncHunting');
+  if(btn){ btn.disabled = true; btn.textContent = 'Sincronizando...'; }
+  try{
+    const {data:{session}} = await supa.auth.getSession();
+    const resp = await fetch('https://krguuguykcomwzolouwa.supabase.co/functions/v1/sync-hunting',{
+      method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:'Bearer '+session.access_token},
+      body: JSON.stringify({ origem:'manual', force:true })
+    });
+    const r = await resp.json();
+    if(!r.ok) showToast('Hunting: '+(r.erro||'erro desconhecido'));
+    else if(r.cache) showToast('Hunting já estava atualizado.');
+    else showToast(`Hunting sincronizado — ${r.total} vagas (${r.ignoradas||0} fora das BUs).`);
+    await loadHunting();
+    renderHuntingPanel();
+  }catch(e){ showToast('Falha: '+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Sincronizar'; } }
+}
+
+/* Auto-refresh: só roda enquanto a aba Hunting está visível. */
+function _huntAutoRefresh(ligar){
+  if(_huntAutoTimer){ clearInterval(_huntAutoTimer); _huntAutoTimer = null; }
+  if(!ligar) return;
+  _huntAutoTimer = setInterval(async ()=>{
+    const aba = document.getElementById('abaHunting');
+    if(!aba || aba.style.display === 'none'){ _huntAutoRefresh(false); return; }
+    if(document.hidden) return;
+    await loadHunting();
+    renderHuntingPanel();
+  }, HUNT_AUTO_MIN*60000);
+}
+
+/* ── Apresentação ───────────────────────────────────────────────────── */
+const _huntFmtDias = v => v==null ? '—' : (Math.round(v*10)/10).toLocaleString('pt-BR')+'d';
+const _huntFmtNum  = v => v==null ? '—' : (Math.round(v*10)/10).toLocaleString('pt-BR');
+
+/* Popula os selects a partir dos dados (1x por carga) e liga os eventos. */
+function _huntPopulaFiltros(){
+  const regs = _huntData||[];
+  const selCli = document.getElementById('huntCliente');
+  if(selCli){
+    // clientes disponíveis respeitam a unidade escolhida
+    const clientes = [...new Set(regs
+      .filter(r=>!_huntFiltros.bu || r.bu===_huntFiltros.bu)
+      .map(r=>r.cliente).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    if(_huntFiltros.cliente && !clientes.includes(_huntFiltros.cliente)) _huntFiltros.cliente='';
+    selCli.innerHTML = '<option value="">Todos os clientes</option>'+
+      clientes.map(c=>`<option value="${c}">${c}</option>`).join('');
+    selCli.value = _huntFiltros.cliente;
+  }
+  const ids = {huntCliente:'cliente', huntBU:'bu', huntContrato:'contrato', huntStatus:'status', huntDe:'de', huntAte:'ate'};
+  Object.entries(ids).forEach(([id, chave])=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(id!=='huntCliente') el.value = _huntFiltros[chave];
+    if(el.dataset.ready) return;
+    el.dataset.ready = '1';
+    el.onchange = ()=>{ _huntFiltros[chave] = el.value; renderHuntingPanel(); };
+  });
+}
+
+function _huntLimparFiltros(){
+  _huntFiltros = { cliente:'', bu:'', contrato:'', status:'', de:'', ate:'' };
+  renderHuntingPanel();
+}
+
+function renderHuntingPanel(){
+  const cards = document.getElementById('huntCards');
+  if(!cards) return;
+  if(!_huntData){
+    cards.innerHTML = `<div class="stat-card" style="grid-column:1/-1"><div class="stat-label">Carregando dados de hunting…</div></div>`;
+    return;
+  }
+  _huntPopulaFiltros();
+  const ag = _huntAgregado();
+
+  const ehGlobal = !_huntFiltros.cliente;
+  const tit = document.getElementById('huntTitulo');
+  if(tit) tit.textContent = ehGlobal ? 'Visão consolidada — todos os clientes' : `Cliente: ${_huntFiltros.cliente}`;
+
+  cards.innerHTML =
+    _fatCard('Total de vagas', ag.total, ehGlobal ? 'todos os clientes' : _huntFiltros.cliente) +
+    _fatCard('Vagas abertas', ag.abertas, 'status Aberta') +
+    _fatCard('Vagas fechadas', ag.fechadas, 'status Fechada') +
+    _fatCard('Vagas congeladas', ag.congeladas, 'status Congelada') +
+    _fatCard('Vagas canceladas', ag.canceladas, 'status Cancelada') +
+    _fatCard('SLA médio de envio', _huntFmtDias(ag.slaEnvioMedio), `dias úteis · ${ag.slaEnvioBase} vaga(s)`) +
+    _fatCard('Tempo médio de fechamento', _huntFmtDias(ag.tempoFechamentoMedio), `dias úteis · ${ag.tempoFechamentoBase} vaga(s)`) +
+    _fatCard('Perfis enviados', ag.perfisTotal, 'soma da planilha');
+
+  _huntChartStatus(ag);
+  _huntChartPerfis(ag);
+  _huntChartSLA(ag);
+  _huntBlocosContrato(ag);
+  _huntRodapeSync();
+}
+
+/* Plugin local: escreve o valor dentro/no topo da barra, como no modelo. */
+const _huntRotuloBarra = {
+  id: 'huntRotuloBarra',
+  afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    ctx.save();
+    ctx.font = '600 11px Poppins, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    chart.data.datasets.forEach((ds, di)=>{
+      const meta = chart.getDatasetMeta(di);
+      if(meta.hidden) return;
+      meta.data.forEach((el, i)=>{
+        const v = ds.data[i];
+        if(v==null || v===0) return;
+        const horizontal = chart.options.indexAxis === 'y';
+        ctx.textAlign = horizontal ? 'left' : 'center';
+        ctx.textBaseline = 'middle';
+        const txt = typeof v === 'number' ? (Math.round(v*10)/10).toLocaleString('pt-BR') : String(v);
+        if(horizontal) ctx.fillText(txt, el.x + 6, el.y);
+        else ctx.fillText(txt, el.x, el.y - 9);
+      });
+    });
+    ctx.restore();
+  }
+};
+
+const _huntChartBase = () => ({
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{display:false} },
+  scales:{
+    x:{grid:{display:false},ticks:{color:'#9a9a9a',font:{family:'Poppins',size:11}}},
+    y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#9a9a9a',font:{family:'Poppins',size:11},precision:0},beginAtZero:true}
+  }
+});
+
+function _huntChartStatus(ag){
+  const el = document.getElementById('chartHuntStatus'); if(!el) return;
+  if(chartInstances.huntStatus){ try{chartInstances.huntStatus.destroy();}catch(e){} }
+  const cg = _huntChartBase();
+  chartInstances.huntStatus = new Chart(el,{
+    type:'bar',
+    data:{
+      labels:['Total de vagas','Vaga Nova','Replace','Abertas'],
+      datasets:[{ data:[ag.total, ag.vagaNova, ag.replace, ag.abertas],
+        backgroundColor:['#FBBF24','#FBBF24','#FBBF24','#FBBF24'], borderRadius:5, maxBarThickness:64 }]
+    },
+    options:{...cg, layout:{padding:{top:16}}},
+    plugins:[_huntRotuloBarra]
+  });
+}
+
+function _huntChartPerfis(ag){
+  const el = document.getElementById('chartHuntPerfis'); if(!el) return;
+  if(chartInstances.huntPerfis){ try{chartInstances.huntPerfis.destroy();}catch(e){} }
+  const vazio = document.getElementById('huntPerfisVazio');
+  const top = ag.perfisPorPosicao.slice(0,12);
+  if(vazio) vazio.style.display = top.length ? 'none' : 'flex';
+  const cg = _huntChartBase();
+  /* Barras horizontais: nome de cargo não cabe no eixo X na vertical.
+     O rótulo NÃO é truncado — um array de strings vira várias linhas no
+     eixo, então o nome aparece inteiro sem estourar a largura do eixo.  */
+  const quebra = (s, max=30)=>{
+    const linhas = [];
+    let atual = '';
+    for(const p of String(s).trim().split(/\s+/)){
+      if(!atual){ atual = p; continue; }
+      if((atual+' '+p).length <= max) atual += ' '+p;
+      else { linhas.push(atual); atual = p; }
+    }
+    if(atual) linhas.push(atual);
+    return linhas.length ? linhas : [String(s)];
+  };
+  chartInstances.huntPerfis = new Chart(el,{
+    type:'bar',
+    data:{ labels: top.map(x=>quebra(x.vaga)),
+      datasets:[{ data: top.map(x=>x.perfis), backgroundColor:'#FBBF24', borderRadius:5, maxBarThickness:26 }] },
+    options:{...cg, indexAxis:'y',
+      layout:{padding:{right:28}},
+      plugins:{...cg.plugins, tooltip:{ callbacks:{
+        title: it => top[it[0].dataIndex].vaga,
+        label: it => {
+          const v = top[it.dataIndex];
+          const cli = v.clientes.length ? ` · ${v.clientes.join(', ')}` : '';
+          return `${v.perfis} perfil(is)${cli}`;
+        }
+      }}},
+      scales:{
+        x:{...cg.scales.y, grid:{color:'rgba(255,255,255,0.05)'}},
+        y:{...cg.scales.x, grid:{display:false},
+           ticks:{...cg.scales.x.ticks, autoSkip:false, crossAlign:'far'}}
+      }},
+    plugins:[_huntRotuloBarra]
+  });
+}
+
+function _huntChartSLA(ag){
+  const el = document.getElementById('chartHuntSLA'); if(!el) return;
+  if(chartInstances.huntSLA){ try{chartInstances.huntSLA.destroy();}catch(e){} }
+  const cg = _huntChartBase();
+  const sla = ag.slaEnvioMedio==null ? 0 : Math.round(ag.slaEnvioMedio*10)/10;
+  const fech = ag.tempoFechamentoMedio==null ? 0 : Math.round(ag.tempoFechamentoMedio*10)/10;
+  chartInstances.huntSLA = new Chart(el,{
+    type:'bar',
+    data:{ labels:['Média de SLA (Entrega)','Média de fechamento'],
+      datasets:[{ data:[sla, fech], backgroundColor:['#FBBF24','rgba(251,191,36,0.45)'], borderRadius:5, maxBarThickness:34 }] },
+    options:{...cg, indexAxis:'y',
+      layout:{padding:{right:28}},
+      scales:{
+        x:{...cg.scales.y, grid:{color:'rgba(255,255,255,0.05)'}, suggestedMax: Math.max(8, sla*1.35, fech*1.35)},
+        y:{...cg.scales.x, grid:{display:false}}
+      }},
+    plugins:[_huntRotuloBarra]
+  });
+}
+
+/* Cards Essentials / Squad / Talent Pipeline Pro (modelo do PPT). */
+function _huntBlocosContrato(ag){
+  const wrap = document.getElementById('huntContratos'); if(!wrap) return;
+  wrap.innerHTML = ag.porContrato.map(c=>`
+    <div class="chart-card" style="border:1px solid rgba(99,179,237,0.35);display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase">${c.nome}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+          <span style="font-size:12px;color:var(--text-3)">Média de abertura → envio</span>
+          <span style="font-family:'Syne',sans-serif;font-size:19px;font-weight:700">${_huntFmtDias(c.aberturaEnvio)}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+          <span style="font-size:12px;color:var(--text-3)">Média de envio dos perfis</span>
+          <span style="font-family:'Syne',sans-serif;font-size:19px;font-weight:700">${_huntFmtNum(c.perfisPorVaga)}<span style="font-size:11px;color:var(--text-3);font-family:'Poppins',sans-serif;font-weight:500"> /vaga</span></span>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;font-size:11px;color:var(--text-3)">
+        ${c.vagas} vaga${c.vagas===1?'':'s'} · ${c.perfis} perfil${c.perfis===1?'':'is'}
+      </div>
+    </div>`).join('');
+}
+
+function _huntRodapeSync(){
+  const el = document.getElementById('huntSyncInfo'); if(!el) return;
+  if(!_huntSync){ el.innerHTML = 'Sem registro de sincronização ainda.'; return; }
+  const d = new Date(_huntSync.executado_em);
+  const quando = d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  el.innerHTML = _huntSync.ok
+    ? `Última sincronização: <strong>${quando}</strong> (${_huntSync.origem||'—'}) · ${_huntSync.importadas} vaga(s) importada(s) · ${_huntSync.ignoradas} fora das BUs OneBrain/Outforce.`
+    : `<span style="color:var(--red)">Última sincronização falhou em ${quando}: ${_huntSync.erro||'erro desconhecido'}</span>`;
 }
 
 let _lucData = null;   // { porCliente: { cliente: [{mes, ...}] } }
@@ -3065,6 +3544,7 @@ async function renderDashboard(mc){
     ${isInterno()?`<button class="dash-tab" id="tabFat" onclick="dashTab('fat')">Faturamento &amp; Metas</button>`:''}
     ${isInterno()?`<button class="dash-tab" id="tabForecast" onclick="dashTab('forecast')">Forecast</button>`:''}
     <button class="dash-tab active" id="tabOp" onclick="dashTab('op')">Operacional</button>
+    ${isInterno()?`<button class="dash-tab" id="tabHunting" onclick="dashTab('hunting')">Hunting</button>`:''}
     ${isInterno()?`<button class="dash-tab" id="tabClassif" onclick="dashTab('classif')">Classificação Estratégica</button>`:''}
   </div>
  
@@ -3224,6 +3704,83 @@ async function renderDashboard(mc){
       <div class="chart-title" style="margin-bottom:12px">Por cliente</div>
       <div id="fcTabelaCorpo"></div>
     </div>
+  </div>`:''}
+
+  <!-- ABA HUNTING -->
+  ${isInterno()?`<div id="abaHunting" style="display:none">
+    <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Cliente</div>
+        <select class="filter-sel" id="huntCliente" style="width:190px"><option value="">Todos os clientes</option></select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Unidade</div>
+        <select class="filter-sel" id="huntBU" style="width:140px">
+          <option value="">Todas</option>
+          <option value="OneBrain">OneBrain</option>
+          <option value="Outforce">Outforce</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Contrato</div>
+        <select class="filter-sel" id="huntContrato" style="width:180px">
+          <option value="">Todos</option>
+          <option value="Essentials">Essentials</option>
+          <option value="Squad">Squad</option>
+          <option value="Talent Pipeline Pro">Talent Pipeline Pro</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Status</div>
+        <select class="filter-sel" id="huntStatus" style="width:140px">
+          <option value="">Todos</option>
+          <option value="Aberta">Aberta</option>
+          <option value="Enviada">Enviada</option>
+          <option value="Fechada">Fechada</option>
+          <option value="Congelada">Congelada</option>
+          <option value="Cancelada">Cancelada</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">Aberta de</div>
+        <input class="filter-sel" type="date" id="huntDe" style="width:150px">
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:4px">até</div>
+        <input class="filter-sel" type="date" id="huntAte" style="width:150px">
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="_huntLimparFiltros()">Limpar</button>
+        ${isEditor()?`<button class="btn btn-ghost btn-sm" id="btnSyncHunting" onclick="sincronizarHunting()">↻ Sincronizar</button>`:''}
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:12px">
+      <div class="chart-title" id="huntTitulo" style="margin-bottom:14px">Visão consolidada — todos os clientes</div>
+      <div class="stats-grid" id="huntCards" style="grid-template-columns:repeat(4,1fr);margin-bottom:0"></div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:12px">
+      <div class="chart-title">Posições trabalhadas por status<span>vaga nova × replace</span></div>
+      <div style="position:relative;height:300px"><canvas id="chartHuntStatus"></canvas></div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:12px">
+      <div class="chart-title">Quantidade de perfis enviados<span>por vaga · top 12</span></div>
+      <div style="position:relative;height:420px">
+        <canvas id="chartHuntPerfis"></canvas>
+        <div id="huntPerfisVazio" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;font-size:12px;color:var(--text-3);padding:0 20px">Nenhum perfil informado na coluna &quot;Quantidade de Perfis&quot; para este recorte.</div>
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:12px">
+      <div class="chart-title">SLA médio<span>dias úteis, sem sábados e domingos</span></div>
+      <div style="position:relative;height:170px"><canvas id="chartHuntSLA"></canvas></div>
+    </div>
+
+    <div id="huntContratos" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+
+    <div id="huntSyncInfo" style="margin-top:12px;font-size:11px;color:var(--text-3)"></div>
   </div>`:''}
 
   <!-- ABA OPERACIONAL (filtros + conteúdo originais) -->
